@@ -1,3 +1,28 @@
+# Azure Kinect ROS Driver
+
+This project is a ROS node which publishes sensor data from the Azure Kinect Developer Kit. This ROS node outputs a variety of sensor data, including:
+
+- A point cloud, optionally colored using the color camera
+- Raw color and depth images, including CameraInfo messages containing calibration information
+- Rectified depth images in the color camera resolution, which can be used as input to a variety of SLAM algorithms
+- The IMU sensor stream
+
+The camera is fully configurable using a variety of options which can be specified in ROS launch files or on the command line.
+
+# Pre-requisites
+
+1. A working installation of ROS Melodic (Ubuntu or Windows 10)
+2. A copy of the Azure Kinect Sensor SDK
+
+# Building
+
+Before you are able to build the Azure Kinect ROS Driver, you will need to setup the Azure Kinect Sensor SDK so that it can be found by catkin. The Azure Kinect ROS Driver includes a cmake file which will attempt to locate the sensor SDK in several locations:
+
+- Windows 10: ```C:\Program Files\Azure Kinect SDK```. This is the default install location for the SDK.
+- Ubuntu: Installed to the system path. This is the default install location for the SDK.
+- All platforms: inside the ```.\ext\sdk``` folder. 
+
+Once the Azure Kinect Sensor SDK has been installed, the ROS node can be built using ```catkin_make```. Please note that you may need to run ```catkin_make --force-cmake``` to update the SDK binaries which are copied into the ROS output folders.
 
 # Contributing
 
