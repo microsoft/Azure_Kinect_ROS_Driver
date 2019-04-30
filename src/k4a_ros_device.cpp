@@ -538,32 +538,19 @@ k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture &capture, sensor_msg
             //  y+ = "up"
             //  z+ = "forward"
             //
-            // ROS Standard co-ordinates:
-            //  x+ = "forward"
-            //  y+ = "left"
-            //  z+ = "up"
+            // ROS Standard Camera co-ordinates:
+            //  x+ = "right"
+            //  y+ = "down"
+            //  z+ = "forward"
             //
             // Remap K4A to ROS co-ordinate system:
             // ROS_X+ = K4A_Z+
             // ROS_Y+ = K4A_X-
             // ROS_Z+ = K4A_Y+
-            //
-            // In the case of cameras, there is often a second frame defined with a "_optical" suffix. This uses a slightly different convention:
-            // 
-            // z forward
-            // x right
-            // y down
-            // 
-            // Azure Kinect should obey the ROS camera co-ordinate system
-            // Remap:
-            //
-            // ROS_X+ = K4A_X+
-            // ROS_Y+ = K4A_Y-
-            // ROS_Z+ = K4A_Z+
 
-            *iter_x = 1.0 * depth_point_3d.xyz.x;
+            *iter_x =  1.0 * depth_point_3d.xyz.x;
             *iter_y = -1.0 * depth_point_3d.xyz.y;
-            *iter_z = 1.0 * depth_point_3d.xyz.z;
+            *iter_z =  1.0 * depth_point_3d.xyz.z;
         }
     }
 
@@ -578,14 +565,9 @@ k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_ms
     imu_msg->header.frame_id = calibration_data_.imu_frame_;
     imu_msg->header.stamp = ros::Time::now();
 
-    // K4A Depth co-ordinates:
-    //  x+ = "right"
-    //  y+ = "up"
-    //  z+ = "forward"
-    //
     // K4A IMU Co-ordinates
     //  x+ = "backwards"
-    //  y+ = "right"
+    //  y+ = "left"
     //  z+ = "down"
     //
     // ROS Standard co-ordinates:
@@ -594,17 +576,17 @@ k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_ms
     //  z+ = "up"
     //
     // Remap K4A IMU to ROS co-ordinate system:
-    // ROS_X+ = K4A_Z+
-    // ROS_Y+ = K4A_X-
-    // ROS_Z+ = K4A_Y+
+    // ROS_X+ = K4A_X-
+    // ROS_Y+ = K4A_Y+
+    // ROS_Z+ = K4A_Z-
 
     // The K4A and ROS IMU frames don't agree. Fix that here
     imu_msg->angular_velocity.x = -1.0 * sample.gyro_sample.xyz.x;
-    imu_msg->angular_velocity.y = 1.0 * sample.gyro_sample.xyz.y;
+    imu_msg->angular_velocity.y =  1.0 * sample.gyro_sample.xyz.y;
     imu_msg->angular_velocity.z = -1.0 * sample.gyro_sample.xyz.z;
 
     imu_msg->linear_acceleration.x = -1.0 * sample.acc_sample.xyz.x;
-    imu_msg->linear_acceleration.y = 1.0 * sample.acc_sample.xyz.y;
+    imu_msg->linear_acceleration.y =  1.0 * sample.acc_sample.xyz.y;
     imu_msg->linear_acceleration.z = -1.0 * sample.acc_sample.xyz.z;
 
     // Disable the orientation component of the IMU message since it's invalid
@@ -622,6 +604,7 @@ void K4AROSDevice::framePublisherThread()
 
     CameraInfo rgb_camera_info;
     CameraInfo depth_camera_info;
+    Time capture_time;
 
     k4a::capture capture;
 
@@ -631,7 +614,6 @@ void K4AROSDevice::framePublisherThread()
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
         // TODO: consider appropriate capture timeout based on camera framerate
-        // TODO: consider K4A_WAIT_INFINITE
         // TODO: K4A SDK has an internal capture queue. We may always want the most recent capture
         //       Consider a mechanism to drain the internal ueue before we start processing this capture.
         // TODO: capture ros::Time::now() and use it on all data published from this capture
@@ -644,6 +626,8 @@ void K4AROSDevice::framePublisherThread()
             ros::requestShutdown();
             return;
         }
+
+        capture_time = ros::Time::now();
 
         ImagePtr rgb_frame(new Image);
         ImagePtr depth_raw_frame(new Image);
@@ -661,8 +645,9 @@ void K4AROSDevice::framePublisherThread()
                 return;
             }
 
-            // Re-synchronize the header timestamps since we cache the camera calibration message
-            depth_camera_info.header.stamp = depth_raw_frame->header.stamp;
+            // Re-sychronize the timestamps with the capture timestamp
+            depth_camera_info.header.stamp = capture_time;
+            depth_raw_frame->header.stamp = capture_time;
 
             depth_raw_publisher_.publish(depth_raw_frame);
             depth_camerainfo_publisher_.publish(depth_camera_info);
@@ -678,6 +663,8 @@ void K4AROSDevice::framePublisherThread()
                     ros::shutdown();
                     return;
                 }
+
+                depth_rect_frame->header.stamp = capture_time;
 
                 // Depth camera has been undistorted, AND transformed into the RGB camera frame!
                 depth_rect_frame->header.frame_id = calibration_data_.rgb_camera_frame_;
@@ -697,7 +684,8 @@ void K4AROSDevice::framePublisherThread()
             }
 
             // Re-synchronize the header timestamps since we cache the camera calibration message
-            rgb_camera_info.header.stamp = rgb_frame->header.stamp;
+            rgb_camera_info.header.stamp = capture_time;
+            rgb_frame->header.stamp =  capture_time;
 
             rgb_raw_publisher_.publish(rgb_frame);
             rgb_camerainfo_publisher_.publish(rgb_camera_info);
@@ -728,12 +716,15 @@ void K4AROSDevice::framePublisherThread()
 
         if (params_.point_cloud || params_.rgb_point_cloud)
         {
+            point_cloud->header.stamp = capture_time;
             pointcloud_publisher_.publish(point_cloud);
         }
-        
 
         ros::spinOnce();
-        loop_rate.sleep();
+        if(!loop_rate.sleep())
+        {
+            ROS_ERROR_STREAM("Not hitting framerate!");
+        }
     }
 }
 
@@ -749,7 +740,6 @@ void K4AROSDevice::imuPublisherThread()
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
         // TODO: consider appropriate capture timeout based on camera framerate
-        // TODO: consider K4A_WAIT_INFINITE
         // TODO: K4A SDK has an internal capture queue. We may always want the most recent capture
         //       Consider a mechanism to drain the internal ueue before we start processing this capture.
         // TODO: capture ros::Time::now() and use it on all data published from this capture
