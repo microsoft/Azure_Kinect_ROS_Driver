@@ -256,8 +256,6 @@ k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture &capture, sensor_msg
     // Enlarge the data buffer in the ROS message to hold the frame
     depth_image->data.resize(depth_image->height * depth_image->step);
 
-    ROS_ASSERT_MSG(depth_source_size == depth_image->height * depth_image->step, "Pixel buffer and ROS message buffer sizes are different");
-
     float* depth_image_data = reinterpret_cast<float*>(&depth_image->data[0]);
 
     // Poor man's memcpy the depth pixels into the ROS message
@@ -721,10 +719,7 @@ void K4AROSDevice::framePublisherThread()
         }
 
         ros::spinOnce();
-        if(!loop_rate.sleep())
-        {
-            ROS_ERROR_STREAM("Not hitting framerate!");
-        }
+        loop_rate.sleep();
     }
 }
 
