@@ -5,12 +5,13 @@
     <!-- TODO: move into a nodelet and combine with image_proc nodelet -->
     <include file="$(find azure-kinect-ros-driver)/launch/driver.launch" >
       <arg name="depth_enabled"     value="true" />
-      <arg name="depth_mode"        value="WFOV_2X2BINNED" />
+      <arg name="depth_mode"        value="NFOV_UNBINNED" />
       <arg name="color_enabled"     value="true" />
-      <arg name="color_resolution"  value="720P" />
-      <arg name="fps"               value="15" />
+      <arg name="color_resolution"  value="1536P" />
+      <arg name="fps"               value="30" />
       <arg name="point_cloud"       value="false" />
       <arg name="rgb_point_cloud"   value="false" />
+      <arg name="required"          value="true" />
     </include>
     
     <!-- Spawn a nodelet manager -->
@@ -22,18 +23,27 @@
     <node pkg="nodelet" type="nodelet" name="rectify_rgb"
           args="load image_proc/rectify manager --no-bond"
           respawn="true">
-      <remap from="image_mono"  to="rgb/image_raw" />
-      <remap from="image_rect"  to="rgb/image_rect" />
+      <remap from="image_mono"  to="rgb_to_depth/image_raw" />
+      <remap from="image_rect"  to="rgb_to_depth/image_rect" />
+    </node>
+
+    <!-- Spawn an image_proc/rectify nodelet to rectify the depth image -->
+    <node pkg="nodelet" type="nodelet" name="rectify_depth"
+          args="load image_proc/rectify manager --no-bond"
+          respawn="true">
+      <remap from="image_mono"  to="depth/image_raw" />
+      <remap from="image_rect"  to="depth/image_rect" />
     </node>
   </group>
 
   <!-- Start rtabmap_ros node -->
   <include file="$(find rtabmap_ros)/launch/rtabmap.launch" ns="rtabmap" >
-    <arg name="rgb_topic"          value="/k4a/rgb/image_rect" />
+    <arg name="rgb_topic"          value="/k4a/rgb_to_depth/image_rect" />
     <arg name="depth_topic"        value="/k4a/depth/image_rect" />
-    <arg name="camera_info_topic"  value="/k4a/rgb/camera_info" />
+    <arg name="camera_info_topic"  value="/k4a/depth/camera_info" />
     <arg name="approx_sync"        value="false" />
     <arg name="frame_id"           value="camera_base" />
-    <arg name="args"               value="--delete_db_on_start" />
+    <arg name="args"               value="--delete_db_on_start --Odom/ResetCountdown 2" />
   </include>
+
 </launch>

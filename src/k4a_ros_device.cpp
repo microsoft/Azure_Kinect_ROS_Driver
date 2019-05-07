@@ -124,12 +124,16 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
     
     // Register our topics
     rgb_raw_publisher_ = image_transport_.advertise("rgb/image_raw", 1);
-    rgb_camerainfo_publisher_ = node_.advertise<CameraInfo>("rgb/camera_info", 1);
+    rgb_raw_camerainfo_publisher_ = node_.advertise<CameraInfo>("rgb/camera_info", 1);
 
     depth_raw_publisher_ = image_transport_.advertise("depth/image_raw", 1);
-    depth_camerainfo_publisher_ = node_.advertise<CameraInfo>("depth/camera_info", 1);
+    depth_raw_camerainfo_publisher_ = node_.advertise<CameraInfo>("depth/camera_info", 1);
 
-    depth_rect_publisher_ = image_transport_.advertise("depth/image_rect", 1);
+    depth_rect_publisher_ = image_transport_.advertise("depth_to_rgb/image_raw", 1);
+    depth_rect_camerainfo_publisher_ = node_.advertise<CameraInfo>("depth_to_rgb/camera_info", 1);
+
+    rgb_rect_publisher_ = image_transport_.advertise("rgb_to_depth/image_raw", 1);
+    rgb_rect_camerainfo_publisher_ = node_.advertise<CameraInfo>("rgb_to_depth/camera_info", 1);
 
     imu_orientation_publisher_ = node_.advertise<Imu>("imu/imu", 200);
     imu_temperature_publisher_ = node_.advertise<Temperature>("imu/temperature", 200);
@@ -218,20 +222,6 @@ k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture &capture, sensor_msg
         ROS_ERROR("Cannot render depth frame: no frame");
         return K4A_RESULT_FAILED;
     }
-
-    // Compute the expected size of the frame and compare to the actual frame size in bytes
-    // TODO: make this debug only to speed up image rendering
-    size_t depth_source_size = static_cast<size_t>(k4a_depth_frame.get_width_pixels() * k4a_depth_frame.get_height_pixels()) * sizeof(DepthPixel);
-
-    if (k4a_depth_frame.get_size() != depth_source_size)
-    {
-        ROS_WARN("Invalid frame returned from K4A");
-        return K4A_RESULT_FAILED;
-    }
-
-    // Access the depth image as an array of uint16 pixels
-    DepthPixel* depth_frame_buffer = reinterpret_cast<DepthPixel *>(k4a_depth_frame.get_buffer());
-    size_t depth_pixel_count = depth_source_size / sizeof(DepthPixel);
      
     if(rectified)
     {
@@ -239,19 +229,28 @@ k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture &capture, sensor_msg
             k4a_depth_frame,
             &calibration_data_.transformed_depth_image_);
 
-        depth_source_size = static_cast<size_t>(calibration_data_.getColorWidth() * calibration_data_.getColorHeight()) * sizeof(DepthPixel);
-        depth_frame_buffer = reinterpret_cast<DepthPixel*>(calibration_data_.transformed_depth_image_.get_buffer());
-        depth_pixel_count = depth_source_size / sizeof(DepthPixel);
+        return renderDepthToROS(depth_image, calibration_data_.transformed_depth_image_);
     }
 
+    return renderDepthToROS(depth_image, k4a_depth_frame);
+}
+
+k4a_result_t K4AROSDevice::renderDepthToROS(sensor_msgs::ImagePtr depth_image, k4a::image& k4a_depth_frame)
+{
+    // Compute the expected size of the frame and compare to the actual frame size in bytes
+    // TODO: make this debug only to speed up image rendering
+    size_t depth_source_size = static_cast<size_t>(k4a_depth_frame.get_width_pixels() * k4a_depth_frame.get_height_pixels()) * sizeof(DepthPixel);
+
+    // Access the depth image as an array of uint16 pixels
+    DepthPixel* depth_frame_buffer = reinterpret_cast<DepthPixel *>(k4a_depth_frame.get_buffer());
+    size_t depth_pixel_count = depth_source_size / sizeof(DepthPixel);
+
     // Build the ROS message
-    depth_image->header.frame_id = calibration_data_.depth_camera_frame_;
-    depth_image->header.stamp = ros::Time::now();
-    depth_image->height = rectified ? calibration_data_.getColorHeight() : k4a_depth_frame.get_height_pixels();
-    depth_image->width = rectified ? calibration_data_.getColorWidth() : k4a_depth_frame.get_width_pixels();
+    depth_image->height = k4a_depth_frame.get_height_pixels();
+    depth_image->width = k4a_depth_frame.get_width_pixels();
     depth_image->encoding = sensor_msgs::image_encodings::TYPE_32FC1;
     depth_image->is_bigendian = false;
-    depth_image->step = (rectified ? calibration_data_.getColorWidth() : k4a_depth_frame.get_width_pixels()) * sizeof(float);
+    depth_image->step = k4a_depth_frame.get_width_pixels() * sizeof(float);
 
     // Enlarge the data buffer in the ROS message to hold the frame
     depth_image->data.resize(depth_image->height * depth_image->step);
@@ -277,7 +276,7 @@ k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture &capture, sensor_msg
     return K4A_RESULT_SUCCEEDED;
 }
 
-k4a_result_t K4AROSDevice::getRbgFrame(const k4a::capture &capture, sensor_msgs::ImagePtr rgb_image)
+k4a_result_t K4AROSDevice::getRbgFrame(const k4a::capture &capture, sensor_msgs::ImagePtr rgb_image, bool rectified = false)
 {
     k4a::image k4a_bgra_frame = capture.get_color_image();
 
@@ -295,18 +294,28 @@ k4a_result_t K4AROSDevice::getRbgFrame(const k4a::capture &capture, sensor_msgs:
         return K4A_RESULT_FAILED;
     }
 
-    return renderBGRA32BufferToROSFrame(rgb_image, k4a_bgra_frame);
+    if (rectified)
+    {
+        k4a::image k4a_depth_frame = capture.get_depth_image();
+
+        calibration_data_.k4a_transformation_.color_image_to_depth_camera(
+            k4a_depth_frame,
+            k4a_bgra_frame,
+            &calibration_data_.transformed_rgb_image_);
+
+        return renderBGRA32ToROS(rgb_image, calibration_data_.transformed_rgb_image_);
+    }   
+
+    return renderBGRA32ToROS(rgb_image, k4a_bgra_frame);
 }
 
 // Helper function that renders any BGRA K4A frame to a ROS ImagePtr. Useful for rendering intermediary frames
 // during debugging of image processing functions
-k4a_result_t K4AROSDevice::renderBGRA32BufferToROSFrame(sensor_msgs::ImagePtr rgb_image, k4a::image& k4a_bgra_frame)
+k4a_result_t K4AROSDevice::renderBGRA32ToROS(sensor_msgs::ImagePtr rgb_image, k4a::image& k4a_bgra_frame)
 {
     size_t color_image_size = static_cast<size_t>(k4a_bgra_frame.get_width_pixels() * k4a_bgra_frame.get_height_pixels()) * sizeof(BgraPixel);
 
     // Build the ROS message
-    rgb_image->header.frame_id = calibration_data_.rgb_camera_frame_;
-    rgb_image->header.stamp = ros::Time::now();
     rgb_image->height = k4a_bgra_frame.get_height_pixels();
     rgb_image->width = k4a_bgra_frame.get_width_pixels();
     rgb_image->encoding = sensor_msgs::image_encodings::BGRA8;
@@ -434,28 +443,15 @@ k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_
             //  y+ = "up"
             //  z+ = "forward"
             //
-            // ROS Standard co-ordinates:
-            //  x+ = "forward"
-            //  y+ = "left"
-            //  z+ = "up"
+            // ROS Standard Camera co-ordinates:
+            //  x+ = "right"
+            //  y+ = "down"
+            //  z+ = "forward"
             //
             // Remap K4A to ROS co-ordinate system:
             // ROS_X+ = K4A_Z+
             // ROS_Y+ = K4A_X-
             // ROS_Z+ = K4A_Y+
-            //
-            // In the case of cameras, there is often a second frame defined with a "_optical" suffix. This uses a slightly different convention:
-            // 
-            // z forward
-            // x right
-            // y down
-            // 
-            // Azure Kinect should obey the ROS camera co-ordinate system
-            // Remap:
-            //
-            // ROS_X+ = K4A_X+
-            // ROS_Y+ = K4A_Y-
-            // ROS_Z+ = K4A_Z+
 
             *iter_x = 1.0 * depth_point_3d.xyz.x;
             *iter_y = -1.0 * depth_point_3d.xyz.y;
@@ -600,14 +596,23 @@ void K4AROSDevice::framePublisherThread()
     k4a_wait_result_t wait_result;
     k4a_result_t result;
 
-    CameraInfo rgb_camera_info;
-    CameraInfo depth_camera_info;
+    CameraInfo rgb_raw_camera_info;
+    CameraInfo depth_raw_camera_info;
+    CameraInfo rgb_rect_camera_info;
+    CameraInfo depth_rect_camera_info;
+
     Time capture_time;
 
     k4a::capture capture;
 
-    calibration_data_.getDepthCameraInfo(depth_camera_info);
-    calibration_data_.getRgbCameraInfo(rgb_camera_info);
+    calibration_data_.getDepthCameraInfo(depth_raw_camera_info);
+    calibration_data_.getRgbCameraInfo(rgb_raw_camera_info);
+
+    calibration_data_.getDepthCameraInfo(rgb_rect_camera_info);
+    rgb_rect_camera_info.header.frame_id = calibration_data_.rgb_camera_frame_;
+
+    calibration_data_.getRgbCameraInfo(depth_rect_camera_info);
+    depth_rect_camera_info.header.frame_id = calibration_data_.depth_camera_frame_;
 
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
@@ -627,7 +632,8 @@ void K4AROSDevice::framePublisherThread()
 
         capture_time = ros::Time::now();
 
-        ImagePtr rgb_frame(new Image);
+        ImagePtr rgb_raw_frame(new Image);
+        ImagePtr rgb_rect_frame(new Image);
         ImagePtr depth_raw_frame(new Image);
         ImagePtr depth_rect_frame(new Image);
         PointCloud2Ptr point_cloud(new PointCloud2);
@@ -644,11 +650,12 @@ void K4AROSDevice::framePublisherThread()
             }
 
             // Re-sychronize the timestamps with the capture timestamp
-            depth_camera_info.header.stamp = capture_time;
+            depth_raw_camera_info.header.stamp = capture_time;
             depth_raw_frame->header.stamp = capture_time;
+            depth_raw_frame->header.frame_id = calibration_data_.depth_camera_frame_;
 
             depth_raw_publisher_.publish(depth_raw_frame);
-            depth_camerainfo_publisher_.publish(depth_camera_info);
+            depth_raw_camerainfo_publisher_.publish(depth_raw_camera_info);
 
             // We can only rectify the depth into the color co-ordinates if the color camera is enabled!
             if (params_.color_enabled)
@@ -663,16 +670,18 @@ void K4AROSDevice::framePublisherThread()
                 }
 
                 depth_rect_frame->header.stamp = capture_time;
-
-                // Depth camera has been undistorted, AND transformed into the RGB camera frame!
                 depth_rect_frame->header.frame_id = calibration_data_.rgb_camera_frame_;
                 depth_rect_publisher_.publish(depth_rect_frame);
+
+                // Re-synchronize the header timestamps since we cache the camera calibration message
+                depth_rect_camera_info.header.stamp = capture_time;
+                depth_rect_camerainfo_publisher_.publish(depth_rect_camera_info);
             }
         }
 
         if (params_.color_enabled)
         {
-            result = getRbgFrame(capture, rgb_frame);
+            result = getRbgFrame(capture, rgb_raw_frame);
 
             if (result != K4A_RESULT_SUCCEEDED)
             {
@@ -681,12 +690,34 @@ void K4AROSDevice::framePublisherThread()
                 return;
             }
 
-            // Re-synchronize the header timestamps since we cache the camera calibration message
-            rgb_camera_info.header.stamp = capture_time;
-            rgb_frame->header.stamp =  capture_time;
+            rgb_raw_frame->header.stamp =  capture_time;
+            rgb_raw_frame->header.frame_id = calibration_data_.rgb_camera_frame_;
+            rgb_raw_publisher_.publish(rgb_raw_frame);
 
-            rgb_raw_publisher_.publish(rgb_frame);
-            rgb_camerainfo_publisher_.publish(rgb_camera_info);
+            // Re-synchronize the header timestamps since we cache the camera calibration message
+            rgb_raw_camera_info.header.stamp = capture_time;
+            rgb_raw_camerainfo_publisher_.publish(rgb_raw_camera_info);
+
+            // We can only rectify the color into the depth co-ordinates if the color camera is enabled!
+            if (params_.depth_enabled)
+            {
+                result = getRbgFrame(capture, rgb_rect_frame, true /* rectified */);
+            
+                if (result != K4A_RESULT_SUCCEEDED)
+                {
+                    ROS_ERROR_STREAM("Failed to get rectifed depth frame");
+                    ros::shutdown();
+                    return;
+                }
+
+                rgb_rect_frame->header.stamp = capture_time;
+                rgb_rect_frame->header.frame_id = calibration_data_.depth_camera_frame_;
+                rgb_rect_publisher_.publish(rgb_rect_frame);
+
+                // Re-synchronize the header timestamps since we cache the camera calibration message
+                rgb_rect_camera_info.header.stamp = capture_time;
+                rgb_rect_camerainfo_publisher_.publish(rgb_rect_camera_info);
+            }
         }
 
         if (params_.rgb_point_cloud)

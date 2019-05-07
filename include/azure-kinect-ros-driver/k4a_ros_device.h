@@ -51,10 +51,11 @@ class K4AROSDevice
 
     k4a_result_t getImuFrame(const k4a_imu_sample_t &capture, sensor_msgs::ImuPtr imu_frame);
 
-    k4a_result_t getRbgFrame(const k4a::capture &capture, sensor_msgs::ImagePtr rgb_frame);
+    k4a_result_t getRbgFrame(const k4a::capture &capture, sensor_msgs::ImagePtr rgb_frame, bool rectified);
 
   private:
-    k4a_result_t renderBGRA32BufferToROSFrame(sensor_msgs::ImagePtr rgb_frame, k4a::image& k4a_bgra_frame);
+    k4a_result_t renderBGRA32ToROS(sensor_msgs::ImagePtr rgb_frame, k4a::image& k4a_bgra_frame);
+    k4a_result_t renderDepthToROS(sensor_msgs::ImagePtr depth_image, k4a::image& k4a_depth_frame);
 
     void framePublisherThread();
     void imuPublisherThread();
@@ -65,16 +66,20 @@ class K4AROSDevice
 
     image_transport::ImageTransport image_transport_;
 
-    image_transport::Publisher rgb_raw_publisher_;
-    ros::Publisher rgb_camerainfo_publisher_;
+    image_transport::Publisher  rgb_raw_publisher_;
+    ros::Publisher              rgb_raw_camerainfo_publisher_;
 
-    image_transport::Publisher depth_raw_publisher_;
-    ros::Publisher depth_camerainfo_publisher_;
+    image_transport::Publisher  depth_raw_publisher_;
+    ros::Publisher              depth_raw_camerainfo_publisher_;
 
-    image_transport::Publisher depth_rect_publisher_;
+    image_transport::Publisher  depth_rect_publisher_;
+    ros::Publisher              depth_rect_camerainfo_publisher_;
 
-    ros::Publisher imu_orientation_publisher_;
-    ros::Publisher imu_temperature_publisher_;
+    image_transport::Publisher  rgb_rect_publisher_;
+    ros::Publisher              rgb_rect_camerainfo_publisher_;
+
+    ros::Publisher              imu_orientation_publisher_;
+    ros::Publisher              imu_temperature_publisher_;
 
     ros::Publisher pointcloud_publisher_;
 

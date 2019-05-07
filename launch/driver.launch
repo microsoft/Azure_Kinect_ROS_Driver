@@ -6,8 +6,9 @@
   <arg name="fps"               default="30" />             <!-- FPS to run both cameras at. Valid options are 5, 15, and 30 -->
   <arg name="point_cloud"       default="true" />           <!-- Generate a point cloud from depth data. Requires depth_enabled -->
   <arg name="rgb_point_cloud"   default="true" />           <!-- Colorize the point cloud using the RBG camera. Requires color_enabled and depth_enabled -->
+  <arg name="required"         default="false" />          <!-- Argument which specified if the entire launch file should terminate if the node dies -->
 
-  <node pkg="azure-kinect-ros-driver" type="node" name="node">
+  <node pkg="azure-kinect-ros-driver" type="node" name="node" output="screen" required="$(arg required)">
     <param name="depth_enabled"     type="bool"   value="$(arg depth_enabled)" /> 
     <param name="depth_mode"        type="string" value="$(arg depth_mode)" /> 
     <param name="color_enabled"     type="bool"   value="$(arg color_enabled)" /> 
