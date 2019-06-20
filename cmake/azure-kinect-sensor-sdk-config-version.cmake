@@ -3,7 +3,7 @@
 
 set(versionfile "NOTFOUND")
 find_file(versionfile "version.txt"
-      PATHS "C:/Program Files/Azure Kinect SDK"
+      PATHS "C:/Program Files/Azure Kinect SDK v${PACKAGE_FIND_VERSION}"
       NO_DEFAULT_PATH)
 
 if(NOT versionfile)
