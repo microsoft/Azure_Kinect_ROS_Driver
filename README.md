@@ -21,7 +21,7 @@ However, this node does ***not*** expose all the sensor data from the Azure Kine
 
 ## Status
 
-This code is provided as a starting point for using the Azure Kinect Developer Kit with ROS. It is being actively maintained, and new features are welcome.
+This code is provided as a starting point for using the Azure Kinect Developer Kit with ROS. Community developed features are welcome.
 
 For information on how to contribute, please see our [contributing guide](CONTRIBUTING.md).
 
