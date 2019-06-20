@@ -16,22 +16,21 @@
 //
 #include "azure-kinect-ros-driver/k4a_ros_device.h"
 
-class K4AROSBridgeNodelet : public nodelet::Nodelet
+namespace Azure_Kinect_ROS_Driver
 {
-public:
+    class K4AROSBridgeNodelet : public nodelet::Nodelet
+    {
+    public:
 
-    K4AROSBridgeNodelet();
-    ~K4AROSBridgeNodelet();
+        K4AROSBridgeNodelet();
+        ~K4AROSBridgeNodelet();
 
-    virtual void onInit();
+        virtual void onInit();
 
-private:
+    private:
 
-    std::unique_ptr<K4AROSDevice> k4a_device;
-};
-
-#include <pluginlib/class_list_macros.h>
-
-PLUGINLIB_EXPORT_CLASS(K4AROSBridgeNodelet, nodelet::Nodelet)
+        std::unique_ptr<K4AROSDevice> k4a_device;
+    };
+}
 
 #endif // K4A_ROS_BRIDGE_NODELET_H
