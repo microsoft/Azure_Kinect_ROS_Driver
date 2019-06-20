@@ -19,6 +19,8 @@ However, this node does ***not*** expose all the sensor data from the Azure Kine
 - Skeleton tracking data
 - Microphone array data
 
+For more information about how to use the node, please see the [usage guide](docs/usage.md).
+
 ## Status
 
 This code is provided as a starting point for using the Azure Kinect Developer Kit with ROS. Community developed features are welcome.
