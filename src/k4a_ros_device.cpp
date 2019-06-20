@@ -135,8 +135,7 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
     rgb_rect_publisher_ = image_transport_.advertise("rgb_to_depth/image_raw", 1);
     rgb_rect_camerainfo_publisher_ = node_.advertise<CameraInfo>("rgb_to_depth/camera_info", 1);
 
-    imu_orientation_publisher_ = node_.advertise<Imu>("imu/imu", 200);
-    imu_temperature_publisher_ = node_.advertise<Temperature>("imu/temperature", 200);
+    imu_orientation_publisher_ = node_.advertise<Imu>("imu", 200);
 
     pointcloud_publisher_ = node_.advertise<PointCloud2>("points2", 1);
 }

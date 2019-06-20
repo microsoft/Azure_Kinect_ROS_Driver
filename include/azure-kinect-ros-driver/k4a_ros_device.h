@@ -79,7 +79,6 @@ class K4AROSDevice
     ros::Publisher              rgb_rect_camerainfo_publisher_;
 
     ros::Publisher              imu_orientation_publisher_;
-    ros::Publisher              imu_temperature_publisher_;
 
     ros::Publisher pointcloud_publisher_;
 
