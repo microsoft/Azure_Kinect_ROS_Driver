@@ -16,10 +16,10 @@
 #include <sensor_msgs/point_cloud2_iterator.h>
 #include <angles/angles.h>
 #include <k4a/k4a.h>
+#include <k4a/k4a.hpp>
 
 // Project headers
 //
-#include "azure-kinect-ros-driver/k4a.hpp"
 #include "azure-kinect-ros-driver/k4a_ros_types.h"
 
 using namespace ros;

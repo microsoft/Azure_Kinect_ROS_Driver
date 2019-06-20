@@ -11,6 +11,7 @@
 // Library headers
 //
 #include <k4a/k4a.h>
+#include <k4a/k4a.hpp>
 #include <ros/ros.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2/LinearMath/Quaternion.h>
@@ -20,7 +21,6 @@
 
 // Project headers
 //
-#include "azure-kinect-ros-driver/k4a.hpp"
 
 class K4ACalibrationTransformData
 {
