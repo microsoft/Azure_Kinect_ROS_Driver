@@ -4,9 +4,12 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(azure-kinect-ros-driver LANGUAGES C CXX)
 
-## Compile as C++11, supported in ROS Kinetic and newer
-## TODO: this is throwing compile warnings on Windows. What's the MSVC version of this command?
-add_compile_options(-std=c++11)
+
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+  add_compile_options(/std:c++latest)
+else()
+  add_compile_options(-std=c++11)
+endif()
 
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
@@ -23,27 +26,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
   tf2_geometry_msgs
   geometry_msgs
+  nodelet
 )
-
-################################################
-## Declare ROS dynamic reconfigure parameters ##
-################################################
-
-## To declare and build dynamic reconfigure parameters within this
-## package, follow these steps:
-## * In the file package.xml:
-##   * add a build_depend and a exec_depend tag for "dynamic_reconfigure"
-## * In this file (CMakeLists.txt):
-##   * add "dynamic_reconfigure" to
-##     find_package(catkin REQUIRED COMPONENTS ...)
-##   * uncomment the "generate_dynamic_reconfigure_options" section below
-##     and list every .cfg file to be processed
-
-## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
-# )
 
 ###################################
 ## catkin specific configuration ##
@@ -73,15 +57,13 @@ add_executable(${PROJECT_NAME}_node
   src/k4a_ros_bridge_node.cpp
   src/k4a_ros_device.cpp
   src/k4a_ros_device_params.cpp
-  src/k4a_ros_bridge_nodelet.cpp
   src/k4a_calibration_transform_data.cpp
   )
 
-add_library(${PROJECT_NAME}
+add_library(${PROJECT_NAME}_nodelet
   src/k4a_ros_bridge_nodelet.cpp
   src/k4a_ros_device.cpp
   src/k4a_ros_device_params.cpp
-  src/k4a_ros_bridge_nodelet.cpp
   src/k4a_calibration_transform_data.cpp
   )
 
@@ -109,11 +91,12 @@ message("Finding K4A SDK binaries")
 
 # First try to find an SDK in the ext/sdk folder
 # Looking in this folder should be platform agnostic
-find_package(k4a 1.0.0
-  PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdk/lib/cmake")
+find_package(k4a 1.1.0 QUIET
+  PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdk")
 
 if (${k4a_FOUND})
-  message("K4A SDK found in ext/sdk!")
+  message(STATUS "K4A SDK found in ext/sdk!")
+  message(STATUS "!! Not searching for SDK in system path !!")
 
   # mark that the K4A SDK will need to be copied to the output binary folder
   # this is needed even on Linux if the SDK is not installed to the system path
@@ -159,18 +142,18 @@ else()
     # Windows will always need K4A install
     set(K4A_INSTALL_NEEDED true)
 
-    find_package(azure-kinect-sensor-sdk 1.0.0 REQUIRED 
+    find_package(azure-kinect-sensor-sdk 1.1.0 EXACT REQUIRED 
       PATHS "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
     message("K4A SDK found in Program Files!")
 
-    list(APPEND K4A_LIBS ${azure-kinect-sdk_LIBRARIES})
-    list(APPEND K4A_BINS ${azure-kinect-sdk_BINARIES})
-    set(K4A_INCLUDE_DIRS ${azure-kinect-sdk_INCLUDE_DIRS})
+    list(APPEND K4A_LIBS ${azure-kinect-sensor-sdk_LIBRARIES})
+    list(APPEND K4A_BINS ${azure-kinect-sensor-sdk_BINARIES})
+    set(K4A_INCLUDE_DIRS ${azure-kinect-sensor-sdk_INCLUDE_DIRS})
 
     # Create a list of all K4A DLLs
-    list(APPEND K4A_DLLS ${azure-kinect-sdk_LIBRARIES})
-    list(APPEND K4A_DLLS ${azure-kinect-sdk_BINARIES})
+    list(APPEND K4A_DLLS ${azure-kinect-sensor-sdk_LIBRARIES})
+    list(APPEND K4A_DLLS ${azure-kinect-sensor-sdk_BINARIES})
 
     foreach(DLL ${K4A_DLLS})
       set(prop "PROPERTY-NOTFOUND")
@@ -234,7 +217,7 @@ target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
 )
 
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(${PROJECT_NAME}_nodelet
   ${K4A_LIBS}
   ${catkin_LIBRARIES}
 )
@@ -247,7 +230,7 @@ target_link_libraries(${PROJECT_NAME}
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
 
 ## Mark executables and/or libraries for installation
-install(TARGETS ${PROJECT_NAME}_node
+install(TARGETS ${PROJECT_NAME}_node ${PROJECT_NAME}_nodelet
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -257,8 +240,6 @@ install(TARGETS ${PROJECT_NAME}_node
 install(
   DIRECTORY 
   launch
-  config
-  urdf
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
