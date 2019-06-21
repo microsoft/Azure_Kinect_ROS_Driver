@@ -29,10 +29,10 @@ Enhancements. Also check for Closed Issues before opening a new one.
 
 ## Finding issues you can help with
 
-Looking for something to work on? Issues marked [``Good First Issue``](https://github.com/microsoft/Azure-Kinect-ROS-Driver/labels/good%20first%20issue) 
+Looking for something to work on? Issues marked [``Good First Issue``](https://github.com/microsoft/Azure_Kinect_ROS-Driver/labels/good%20first%20issue) 
 are a good place to start.
 
-You can also check the [``Help Wanted``](https://github.com/microsoft/Azure-Kinect-ROS-Driver/labels/help%20wanted) tag to 
+You can also check the [``Help Wanted``](https://github.com/microsoft/Azure_Kinect_ROS-Driver/labels/help%20wanted) tag to 
 find other issues to help with. If you're interested in working on a fix, leave a comment to let everyone know and to help 
 avoid duplicated effort from others.
 

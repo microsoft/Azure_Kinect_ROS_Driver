@@ -22,8 +22,8 @@
 
 // Project headers
 //
-#include "azure-kinect-ros-driver/k4a_ros_device_params.h"
-#include "azure-kinect-ros-driver/k4a_calibration_transform_data.h"
+#include "azure_kinect_ros_driver/k4a_ros_device_params.h"
+#include "azure_kinect_ros_driver/k4a_calibration_transform_data.h"
 
 class K4AROSDevice
 {

@@ -3,7 +3,7 @@
   <group ns="k4a" >
 
     <!-- TODO: move into a nodelet and combine with image_proc nodelet -->
-    <include file="$(find azure-kinect-ros-driver)/launch/driver.launch" >
+    <include file="$(find azure_kinect_ros_driver)/launch/driver.launch" >
       <arg name="depth_enabled"     value="true" />
       <arg name="depth_mode"        value="NFOV_UNBINNED" />
       <arg name="color_enabled"     value="true" />

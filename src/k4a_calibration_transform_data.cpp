@@ -3,7 +3,7 @@
 
 // Associated header
 //
-#include "azure-kinect-ros-driver/k4a_calibration_transform_data.h"
+#include "azure_kinect_ros_driver/k4a_calibration_transform_data.h"
 
 // System headers
 //
@@ -16,7 +16,7 @@
 
 // Project headers
 //
-#include "azure-kinect-ros-driver/k4a_ros_types.h"
+#include "azure_kinect_ros_driver/k4a_ros_types.h"
 
 void K4ACalibrationTransformData::initialize(const k4a::device &device,
                                                      const k4a_depth_mode_t depth_mode,

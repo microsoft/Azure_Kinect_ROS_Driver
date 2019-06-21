@@ -3,7 +3,7 @@
 
 // Associated header
 //
-#include "azure-kinect-ros-driver/k4a_ros_bridge_nodelet.h"
+#include "azure_kinect_ros_driver/k4a_ros_bridge_nodelet.h"
 
 // System headers
 //
@@ -34,7 +34,7 @@ namespace Azure_Kinect_ROS_Driver
     {
         NODELET_INFO("K4A ROS Nodelet Start");
 
-        /*k4a_device = std::unique_ptr<K4AROSDevice>(new K4AROSDevice(getNodeHandle(), getPrivateNodeHandle()));
+        k4a_device = std::unique_ptr<K4AROSDevice>(new K4AROSDevice(getNodeHandle(), getPrivateNodeHandle()));
 
         if (k4a_device->startCameras() !=  K4A_RESULT_SUCCEEDED)
         {
@@ -50,6 +50,6 @@ namespace Azure_Kinect_ROS_Driver
             throw nodelet::Exception("Could not start K4A_ROS_Device!");
         }
 
-        NODELET_INFO("IMU started");*/
+        NODELET_INFO("IMU started");
     }
 }

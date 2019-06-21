@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 cmake_minimum_required(VERSION 2.8.3)
-project(azure-kinect-ros-driver LANGUAGES C CXX)
+project(azure_kinect_ros_driver LANGUAGES C CXX)
 
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")

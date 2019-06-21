@@ -14,7 +14,7 @@
 
 // Project headers
 //
-#include "azure-kinect-ros-driver/k4a_ros_device.h"
+#include "azure_kinect_ros_driver/k4a_ros_device.h"
 
 namespace Azure_Kinect_ROS_Driver
 {
