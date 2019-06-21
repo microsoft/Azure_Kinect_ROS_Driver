@@ -77,24 +77,7 @@ set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX ""
 #### AZURE KINECT SDK ######
 ############################
 
-# Define the names of some files that we are going to try and find
-if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-  set(DEPTHENGINE_DLL "depthengine_1_0.dll")
-  set(LIBUSB_DLL "libusb-1.0.dll")
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-  set(DEPTHENGINE_DLL "libdepthengine.so.1.0")
-else()
-  message(FATAL_ERROR "Platform ${CMAKE_SYSTEM_NAME} is not supported")
-endif()
-
-message("Finding K4A SDK binaries")
-
-# First try to find an SDK in the ext/sdk folder
-# Looking in this folder should be platform agnostic
-find_package(k4a 1.1.0 QUIET
-  PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdk")
-
-if (${k4a_FOUND})
+macro(process_ext_sdk)
   message(STATUS "K4A SDK found in ext/sdk!")
   message(STATUS "!! Not searching for SDK in system path !!")
 
@@ -128,23 +111,62 @@ if (${k4a_FOUND})
       "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdk/*/${DEPTHENGINE_DLL}" )
     list(APPEND K4A_DLL_FILES ${DEPTHENGINE_DLL_FILE})
   endif()
+endmacro()
 
-  if(DEFINED LIBUSB_DLL)
-    ## Find LibUSB
-    file(GLOB_RECURSE LIBUSB_DLL_FILE
-      "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdk/*/${LIBUSB_DLL}" )
-    list(APPEND K4A_DLL_FILES ${LIBUSB_DLL_FILE})
+# Define the names of some files that we are going to try and find
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+  set(DEPTHENGINE_DLL "depthengine_1_0.dll")
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+  set(DEPTHENGINE_DLL "libdepthengine.so.1.0")
+else()
+  message(FATAL_ERROR "Platform ${CMAKE_SYSTEM_NAME} is not supported")
+endif()
+
+message("Finding K4A SDK binaries")
+
+# Disable cached locations for K4A SDK binaries.
+# Do this to force the search logic to happen correctly. 
+# If we don't disable these cached directories, we
+# won't be able to tell the difference between the ext/sdk location
+# and the system installed version on linux. Since we have to treat these
+# differently (one needs install, one doesn't) we must disable the cache
+# so that find_package(k4a) will fail in all cases if not installed via the .deb.
+unset(k4a_DIR CACHE)
+unset(azure-kinect-sensor-sdk_DIR CACHE)
+
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+  message("Linux mode: Searching for K4A in system path and ./ext/sdk")
+
+  # Test if we can find the k4a library in the system path
+  find_package(k4a 1.1.0 QUIET)
+
+  if (${k4a_FOUND})
+    message("K4A SDK found in system libraries!")
+    # For system libraries on linux, we can just append the target name (k4a::k4a)
+    # to what will be passed into target_link_libraries()
+    list(APPEND K4A_LIBS k4a::k4a)
+  else()
+    message("K4A SDK not found in system libraries. Searching ./ext/sdk...")
+    find_package(k4a 1.1.0 PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdk")
+
+    if(${k4a_FOUND})
+      set(K4A_INSTALL_NEEDED true)
+      message("K4A SDK found in ./ext/sdk!")
+      process_ext_sdk()
+    else()
+      message(FATAL_ERROR "K4A SDK not found in system libraries or ./ext/sdk. Please install the Azure Kinect SDK.")
+    endif()
+
   endif()
 
-else()
-  
-  if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-    # Windows will always need K4A install
-    set(K4A_INSTALL_NEEDED true)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+  # Windows will always need K4A install for all targets
+  set(K4A_INSTALL_NEEDED true)
 
-    find_package(azure-kinect-sensor-sdk 1.1.0 EXACT REQUIRED 
-      PATHS "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+  # Try to find K4A installed to Program Files
+  find_package(azure-kinect-sensor-sdk 1.1.0 EXACT QUIET PATHS "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+  if (${k4a_FOUND})
     message("K4A SDK found in Program Files!")
 
     list(APPEND K4A_LIBS ${azure-kinect-sensor-sdk_LIBRARIES})
@@ -166,11 +188,17 @@ else()
 
       list(APPEND K4A_DLL_FILES ${prop})
     endforeach(DLL)
+  else()
+    # Try to find K4A installed to ./ext/sdk
+    find_package(k4a 1.1.0 QUIET PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdk")
 
-  elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-    # TODO: linux support for preinstalled packages
-    message(FATAL_ERROR "Platform ${CMAKE_SYSTEM_NAME} is not supported for system installs yet. Please extract an SDK and Depth Engine to ext/sdk")
-  endif()
+    if (${k4a_FOUND})
+      message("K4A SDK found in ./ext/sdk!")
+      process_ext_sdk()
+    else()
+      message(FATAL_ERROR "K4A SDK not found in Program Files or ./ext/sdk. Please install the Azure Kinect SDK.")
+    endif()
+  endif()  
 endif()
 
 message("K4A Include Dirs: ${K4A_INCLUDE_DIRS}")
@@ -179,11 +207,11 @@ message("K4A DLLs: ${K4A_DLL_FILES}")
 message("K4A Install Needed: ${K4A_INSTALL_NEEDED}")
 
 if (${K4A_INSTALL_NEEDED})
-  ## Tell cmake that we need to reconfigure if any of the DLL files change
+  # Tell cmake that we need to reconfigure if any of the DLL files change
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${K4A_DLL_FILES})
 
-  ## We need to copy the DLLs into the CATKIN_PACKAGE_LIB_DESTINATION so
-  ## the node executable can find them on launch
+  # We need to copy the DLLs into the CATKIN_PACKAGE_LIB_DESTINATION so
+  # the node executable can find them on launch
   if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(DLL_COPY_DIRECTORY "${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}")
   elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
@@ -192,14 +220,19 @@ if (${K4A_INSTALL_NEEDED})
 
   file(MAKE_DIRECTORY "${DLL_COPY_DIRECTORY}")
 
-  # TODO: this code only runs on initial compilation. If the underlying SDK is updated,
-  # the new binaries aren't copied into the ROS devel directory. Somehow, cmake needs to be made
-  # aware that these files are dependencies to be tracked.
-
   foreach(DLL ${K4A_DLL_FILES})
     file(COPY "${DLL}" DESTINATION "${DLL_COPY_DIRECTORY}")
-    message(STATUS "Copied dll from ${DLL} to ${DLL_COPY_DIRECTORY}")
+    
+    get_filename_component(DLL_NAME ${DLL} NAME)
+
+    message(STATUS "Copied dll from ${DLL_NAME} to ${DLL_COPY_DIRECTORY}")
+
+    # Tell cmake that we need to clean up these DLLs on a "make clean"
+    set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES "${DLL_COPY_DIRECTORY}/${DLL_NAME}")
   endforeach(DLL)
+
+
+
 endif()
 
 ##################################
