@@ -1,18 +1,6 @@
 <launch>
   <!-- Start the K4A sensor driver -->
   <group ns="k4a" >
-
-    <!-- TODO: move into a nodelet and combine with image_proc nodelet -->
-    <include file="$(find azure_kinect_ros_driver)/launch/driver.launch" >
-      <arg name="depth_enabled"     value="true" />
-      <arg name="depth_mode"        value="NFOV_UNBINNED" />
-      <arg name="color_enabled"     value="true" />
-      <arg name="color_resolution"  value="1536P" />
-      <arg name="fps"               value="30" />
-      <arg name="point_cloud"       value="false" />
-      <arg name="rgb_point_cloud"   value="false" />
-      <arg name="required"          value="true" />
-    </include>
     
     <!-- Spawn a nodelet manager -->
     <node pkg="nodelet" type="nodelet" name="manager" args="manager" output="screen">
@@ -33,6 +21,19 @@
           respawn="true">
       <remap from="image_mono"  to="depth/image_raw" />
       <remap from="image_rect"  to="depth/image_rect" />
+    </node>
+
+    <node pkg="nodelet" type="nodelet" name="k4a_ros_bridge"
+          args="load Azure_Kinect_ROS_Driver/K4AROSBridgeNodelet manager --no-bond"
+          respawn="true">
+      <param name="depth_enabled"     value="true" />
+      <param name="depth_mode"        value="NFOV_UNBINNED" />
+      <param name="color_enabled"     value="true" />
+      <param name="color_resolution"  value="720P" />
+      <param name="fps"               value="15" />
+      <param name="point_cloud"       value="false" />
+      <param name="rgb_point_cloud"   value="false" />
+      <param name="required"          value="true" />
     </node>
   </group>
 
