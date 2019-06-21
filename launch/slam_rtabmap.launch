@@ -1,3 +1,8 @@
+<!-- 
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+-->
+
 <launch>
   <!-- Start the K4A sensor driver -->
   <group ns="k4a" >

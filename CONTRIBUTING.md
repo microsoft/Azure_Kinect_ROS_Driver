@@ -52,7 +52,6 @@ why you have chosen a particular solution. Describe any manual testing you perfo
 * **DO NOT** submit a PR unless it is linked to an Issue marked Triage Approved. This enables us to have a discussion on 
 the idea before anyone invests time in an implementation.
 * **DO NOT** merge multiple changes into one PR unless they have the same root cause.
-* **DO NOT** submit pure formatting/typo changes to code that has not been modified otherwise.
 
 **NOTE:** *Submitting a pull request for an approved Issue is not a guarantee it will be approved.*
 
@@ -77,7 +76,7 @@ start a conversation with the Azure Kinect Team to get the Issue Triage Approved
 1) Test the change using Azure Kinect hardware on a live ROS system.
 1) Create a pull request.
    * The PR description must reference the issue.
-1) An Azure Kinect ROS Driver team member will review the change. See the [review process](#review-process) for more information.
+1) An Azure Kinect team member will review the change. See the [review process](#review-process) for more information.
    * 1 team member must sign off on the change.
    * Other reviewers are welcome.
 1) After the change has been reviewed by a team member, the PR will be submitted to the Azure Kinect CI system for official build and testing.
@@ -96,7 +95,7 @@ participate in the review, but at least one member of the team will ultimately a
 the request.
 
 Often, multiple iterations will be needed to respond to feedback from reviewers. Try looking at
-[past pull requests](https://github.com/Microsoft/Azure-Kinect-Sensor-SDK/pulls?q=is%3Apr+is%3Aclosed) to see what the 
+[past pull requests](https://github.com/Microsoft/Azure_Kinect_ROS_Driver/pulls?q=is%3Apr+is%3Aclosed) to see what the 
 experience might be like.
 
 After at least one member of the Azure Kinect team has approved your request, it will be merged by a member of the Azure

@@ -2,6 +2,8 @@
 
 This project is a ROS node which publishes sensor data from the Azure Kinect Developer Kit. Developers working with ROS can use this node to connect an Azure Kinect Developer Kit to an existing ROS installation.
 
+This repository uses the [Azure Kinect Sensor SDK](https://github.com/microsoft/Azure-Kinect-Sensor-SDK) to communicate with the Azure Kinect hardware.
+
 ## Features
 
 This ROS node outputs a variety of sensor data, including:
@@ -11,13 +13,14 @@ This ROS node outputs a variety of sensor data, including:
 - Rectified depth Images in the color camera resolution
 - Rectified color Images in the depth camera resolution
 - The IMU sensor stream
+- A TF2 model representing the extrinsic calibration of the camera
 
 The camera is fully configurable using a variety of options which can be specified in ROS launch files or on the command line.
 
-However, this node does ***not*** expose all the sensor data from the Azure Kinect. It does not provide access to:
+However, this node does ***not*** expose all the sensor data from the Azure Kinect Sensor SDK. It does not provide access to:
 
 - Skeleton tracking data
-- Microphone array data
+- Microphone array
 
 For more information about how to use the node, please see the [usage guide](docs/usage.md).
 
@@ -29,8 +32,8 @@ For information on how to contribute, please see our [contributing guide](CONTRI
 
 ## Building
 
-The Azure Kinect ROS Driver uses catkin to build. For instructions on how to build the project please see
-[building](docs/building.md).
+The Azure Kinect ROS Driver uses catkin to build. For instructions on how to build the project please see the 
+[building guide](docs/building.md).
 
 ## Join Our Developer Program
 

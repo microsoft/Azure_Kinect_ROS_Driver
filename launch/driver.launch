@@ -1,3 +1,9 @@
+<!-- 
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+-->
+
+
 <launch>
   <arg name="depth_enabled"     default="true" />           <!-- Enable or disable the depth camera -->
   <arg name="depth_mode"        default="WFOV_UNBINNED" />  <!-- Set the depth camera mode, which affects FOV, depth range, and camera resolution. See Azure Kinect documentation for full details. Valid options: NFOV_UNBINNED, NFOV_2X2BINNED, WFOV_UNBINNED, WFOV_2X2BINNED -->
