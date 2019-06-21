@@ -102,6 +102,9 @@ After at least one member of the Azure Kinect team has approved your request, it
 Kinect team. For Pull Requests where feedback is desired but the change is not complete, please mark the Pull Request
 as a draft.
 
+# Releasing
+For information on how to release a new version of the Azure Kinect ROS Driver, please see the [releasing guide](releasing.md).
+
 # Contributor License Agreement
 Most contributions require you to agree to a Contributor License Agreement (CLA) declaring that you have
 the right to, and actually do, grant us the rights to use your contribution. For details, visit https://cla.microsoft.com.
