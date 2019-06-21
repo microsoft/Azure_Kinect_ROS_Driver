@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!-- 
+ Copyright (c) Microsoft Corporation. All rights reserved.
+ Licensed under the MIT License.
+ -->
+<package format="2">
+  <name>azure_kinect_ros_driver</name>
+  <version>0.9.0</version>
+  <description>The Azure Kinect Sensor Driver for ROS.</description>
+  <maintainer email="stalldri@microsoft.com">Stuart Alldritt</maintainer>
+  <author email="stalldri@microsoft.com">Stuart Alldritt</author>
+  <license>MIT</license>
+  <!-- <url type="website">http://wiki.ros.org/azure_kinect_ros_driver</url> -->
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>image_transport</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nodelet</depend>
+
+  <export>
+    <nodelet plugin="${prefix}/nodelet_plugins.xml" />
+  </export>
+
+</package>

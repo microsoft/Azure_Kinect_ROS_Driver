@@ -1,0 +1,7 @@
+<library path="lib/libazure_kinect_ros_driver_nodelet">
+  <class name="Azure_Kinect_ROS_Driver/K4AROSBridgeNodelet" type="Azure_Kinect_ROS_Driver::K4AROSBridgeNodelet" base_class_type="nodelet::Nodelet">
+  <description>
+    A nodelet version of the Azure Kinect ROS Driver.
+  </description>
+  </class>
+</library>

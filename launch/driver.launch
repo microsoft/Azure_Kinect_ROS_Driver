@@ -1,0 +1,26 @@
+<!-- 
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+-->
+
+
+<launch>
+  <arg name="depth_enabled"     default="true" />           <!-- Enable or disable the depth camera -->
+  <arg name="depth_mode"        default="WFOV_UNBINNED" />  <!-- Set the depth camera mode, which affects FOV, depth range, and camera resolution. See Azure Kinect documentation for full details. Valid options: NFOV_UNBINNED, NFOV_2X2BINNED, WFOV_UNBINNED, WFOV_2X2BINNED -->
+  <arg name="color_enabled"     default="true" />           <!-- Enable or disable the color camera -->
+  <arg name="color_resolution"  default="1536P" />          <!-- Resolution at which to run the color camera. Valid options: 720P, 1080P, 1440P, 1536P, 2160P, 3072P -->
+  <arg name="fps"               default="5" />             <!-- FPS to run both cameras at. Valid options are 5, 15, and 30 -->
+  <arg name="point_cloud"       default="true" />           <!-- Generate a point cloud from depth data. Requires depth_enabled -->
+  <arg name="rgb_point_cloud"   default="true" />           <!-- Colorize the point cloud using the RBG camera. Requires color_enabled and depth_enabled -->
+  <arg name="required"         default="false" />          <!-- Argument which specified if the entire launch file should terminate if the node dies -->
+
+  <node pkg="azure_kinect_ros_driver" type="node" name="node" output="screen" required="$(arg required)">
+    <param name="depth_enabled"     type="bool"   value="$(arg depth_enabled)" /> 
+    <param name="depth_mode"        type="string" value="$(arg depth_mode)" /> 
+    <param name="color_enabled"     type="bool"   value="$(arg color_enabled)" /> 
+    <param name="color_resolution"  type="string" value="$(arg color_resolution)" /> 
+    <param name="fps"               type="int"    value="$(arg fps)" /> 
+    <param name="point_cloud"       type="bool"   value="$(arg point_cloud)" /> 
+    <param name="rgb_point_cloud"   type="bool"   value="$(arg rgb_point_cloud)" /> 
+  </node>
+</launch>
