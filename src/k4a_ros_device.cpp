@@ -3,7 +3,7 @@
 
 // Associated header
 //
-#include "azure-kinect-ros-driver/k4a_ros_device.h"
+#include "azure_kinect_ros_driver/k4a_ros_device.h"
 
 // System headers
 //
@@ -20,7 +20,7 @@
 
 // Project headers
 //
-#include "azure-kinect-ros-driver/k4a_ros_types.h"
+#include "azure_kinect_ros_driver/k4a_ros_types.h"
 
 using namespace ros;
 using namespace sensor_msgs;

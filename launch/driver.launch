@@ -8,7 +8,7 @@
   <arg name="rgb_point_cloud"   default="true" />           <!-- Colorize the point cloud using the RBG camera. Requires color_enabled and depth_enabled -->
   <arg name="required"         default="false" />          <!-- Argument which specified if the entire launch file should terminate if the node dies -->
 
-  <node pkg="azure-kinect-ros-driver" type="node" name="node" output="screen" required="$(arg required)">
+  <node pkg="azure_kinect_ros_driver" type="node" name="node" output="screen" required="$(arg required)">
     <param name="depth_enabled"     type="bool"   value="$(arg depth_enabled)" /> 
     <param name="depth_mode"        type="string" value="$(arg depth_mode)" /> 
     <param name="color_enabled"     type="bool"   value="$(arg color_enabled)" /> 
