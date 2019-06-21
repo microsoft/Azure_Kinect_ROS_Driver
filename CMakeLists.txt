@@ -166,7 +166,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
   # Try to find K4A installed to Program Files
   find_package(azure-kinect-sensor-sdk 1.1.0 EXACT QUIET PATHS "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-  if (${k4a_FOUND})
+  if (${azure-kinect-sensor-sdk_FOUND})
     message("K4A SDK found in Program Files!")
 
     list(APPEND K4A_LIBS ${azure-kinect-sensor-sdk_LIBRARIES})
@@ -211,24 +211,22 @@ if (${K4A_INSTALL_NEEDED})
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${K4A_DLL_FILES})
 
   # We need to copy the DLLs into the CATKIN_PACKAGE_LIB_DESTINATION so
-  # the node executable can find them on launch
-  if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-    set(DLL_COPY_DIRECTORY "${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}")
-  elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-    set(DLL_COPY_DIRECTORY "${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}")
-  endif()
+  # the node executable can find them on launch, and CATKIN_PACKAGE_BIN_DESTINATION
+  # so the nodelet can find them on launch
+  set(DLL_COPY_DIRECTORY "${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION};${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}")
 
-  file(MAKE_DIRECTORY "${DLL_COPY_DIRECTORY}")
+  foreach(DIRECTORY ${DLL_COPY_DIRECTORY})
+    file(MAKE_DIRECTORY "${DIRECTORY}")
+  endforeach(DIRECTORY)
 
   foreach(DLL ${K4A_DLL_FILES})
-    file(COPY "${DLL}" DESTINATION "${DLL_COPY_DIRECTORY}")
-    
-    get_filename_component(DLL_NAME ${DLL} NAME)
-
-    message(STATUS "Copied dll from ${DLL_NAME} to ${DLL_COPY_DIRECTORY}")
-
-    # Tell cmake that we need to clean up these DLLs on a "make clean"
-    set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES "${DLL_COPY_DIRECTORY}/${DLL_NAME}")
+    foreach(DIRECTORY ${DLL_COPY_DIRECTORY})
+      file(COPY "${DLL}" DESTINATION "${DIRECTORY}")
+      get_filename_component(DLL_NAME ${DLL} NAME)
+      message(STATUS "Copied dll from ${DLL_NAME} to ${DIRECTORY}")
+      # Tell cmake that we need to clean up these DLLs on a "make clean"
+      set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES "${DIRECTORY}/${DLL_NAME}")
+    endforeach(DIRECTORY)
   endforeach(DLL)
   
 endif()

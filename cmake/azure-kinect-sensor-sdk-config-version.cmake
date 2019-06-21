@@ -7,7 +7,8 @@ find_file(versionfile "version.txt"
       NO_DEFAULT_PATH)
 
 if(NOT versionfile)
-  message(FATAL_ERROR "Azure Kinect SDK is not installed properly. It must be installed to the standard install location.")
+  message(STATUS "Azure Kinect SDK is not installed to Program Files.")
+  return()
 endif()
 
 set(versionfilecontents "0.0.0")
