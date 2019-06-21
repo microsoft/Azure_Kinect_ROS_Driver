@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-name: Azure_Kinect_ROS-Driver-$(SourceBranchName)-$(Date:yyyyMMdd)-$(Rev:rrr)
+name: Azure_Kinect_ROS_Driver-$(SourceBranchName)-$(Date:yyyyMMdd)-$(Rev:rrr)
 
 trigger:
   batch: false
