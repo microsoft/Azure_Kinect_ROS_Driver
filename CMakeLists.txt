@@ -166,7 +166,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
   # Try to find K4A installed to Program Files
   find_package(azure-kinect-sensor-sdk 1.1.0 EXACT QUIET PATHS "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-  if (${k4a_FOUND})
+  if (${azure-kinect-sensor-sdk_FOUND})
     message("K4A SDK found in Program Files!")
 
     list(APPEND K4A_LIBS ${azure-kinect-sensor-sdk_LIBRARIES})
