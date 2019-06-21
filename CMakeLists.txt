@@ -230,9 +230,7 @@ if (${K4A_INSTALL_NEEDED})
     # Tell cmake that we need to clean up these DLLs on a "make clean"
     set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES "${DLL_COPY_DIRECTORY}/${DLL_NAME}")
   endforeach(DLL)
-
-
-
+  
 endif()
 
 ##################################
