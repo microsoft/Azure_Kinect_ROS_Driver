@@ -7,49 +7,32 @@ Before trying to build the Azure Kinect ROS Driver, you will need to install two
 - ROS Melodic (Ubuntu or Windows 10)
 - Azure Kinect Sensor SDK
 
-## Dependency Set Up
+### ROS
 
-1. Install ROS Melodic
-    - Follow the [installation instructions](https://wiki.ros.org/Installation) for your operating system of choice: [Ubuntu](https://wiki.ros.org/Installation/Ubuntu), or [Windows](https://wiki.ros.org/Installation/Windows)
-    
-2. Install the Azure Kinect Sensor SDK
-    - Ubuntu
-        1.	Download the package and repository signing key
+Follow the [installation instructions](https://wiki.ros.org/Installation) for your operating system of choice: [Ubuntu](https://wiki.ros.org/Installation/Ubuntu), or [Windows](https://wiki.ros.org/Installation/Windows) to install ROS. Verify that ROS is working and that you can build sample projects in your catkin workspace before trying to build the Azure Kinect ROS Driver.
 
-            ```
-            curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
-            ```
+### Azure Kinect Sensor SDK
 
-        1.	Install the key
-        
-            ```
-            sudo install -o root -g root -m 644 microsoft.gpg /etc/apt/trusted.gpg.d/
-            ```
+Follow the [installation instructions](https://github.com/microsoft/Azure-Kinect-Sensor-SDK/blob/develop/docs/usage.md#Installation) in the Azure Kinect Sensor SDK repo to install the sensor SDK for your platform.
 
-        1.	Add the packages.microsoft.com ubuntu 18.04 repo to your packages list
-        
-            ```
-            sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/    microsoft-ubuntu-bionic-prod/ bionic main" > /etc/apt/sources.list.d/   microsoft-ubuntu-bionic-prod.list'
-            ```
-        
-        1.	Update your package list
+The Azure Kinect ROS Driver includes CMake files which will try to locate the installed location of the Azure Kinect Sensor SDK. Installing the SDK in a non-default location will result in compile failures when CMake is unable to locate the SDK.
 
-            ```
-            sudo apt-get update
-            ```
-        
-        1.	Install the k4a development package
+The Azure Kinect ROS Driver requires version of v1.1.0 of the Azure Kinect Sensor SDK to compile.
 
-            ```
-            sudo apt-get install libk4a1.1-dev k4a-tools
-            ```
+#### Alternate SDK Installation
 
-    - Windows
-        1. Download and install the Azure Kinect Sensor SDK installer from the [Azure Kinect Sensor SDK project](https://github.com/microsoft/Azure-Kinect-Sensor-SDK)
+Instead of installing the Azure Kinect Sensor SDK to the system path (using the `.msi` installer on Windows or the `.deb` installer on Ubuntu) you can extract the SDK the `.\ext\sdk` folder. You should have the following folder structure after extracting the SDK into `.\ext\sdk`:
 
-## Alternate SDK Installation
+```
+.\ext\sdk\
+          bin\
+          include\
+          lib\
+```
 
-Instead of installing the Azure Kinect Sensor SDK to the system path (using the `.msi` installer on Windows or the `.deb` installer on Ubuntu) you can extract the SDK the `.\ext\sdk` folder. 
+Please note that the Azure Kinect Sensor SDK zip files do not generally contain the depth engine shared library. You will need to acquire a version of the depth engine shared library binary and place it in the .\ext\sdk\bin folder so that it can be consumed by the build system. Failing to download the depth engine when using an extracted SDK will result in the node crashing on launch.
+
+For more information, please consult the [Azure Kinect Sensor SDK usage guide](https://github.com/microsoft/Azure-Kinect-Sensor-SDK/blob/develop/docs/usage.md).
 
 ## Compiling
 

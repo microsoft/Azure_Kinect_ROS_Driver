@@ -2,13 +2,9 @@
 
 The Azure Kinect ROS Driver node exposes Azure Kinect sensor streams to ROS. 
 
-## SDK Setup
+## Setup and Building
 
-Follow the [installation instructions](https://github.com/microsoft/Azure-Kinect-Sensor-SDK/blob/develop/docs/usage.md#Installation) in the Azure Kinect Sensor SDK repo to install the sensor SDK for your platform.
-
-This project includes CMake files which will try to locate the installed location of the Azure Kinect Sensor SDK. Installing the SDK in a non-default location will result in compile failures when CMake is unable to locate the SDK.
-
-The Azure Kinect ROS Driver requires version of v1.1.0 of the Azure Kinect Sensor SDK to compile.
+Please see the [building guide](building.md).
 
 ### Parameters
 
