@@ -11,6 +11,10 @@ Releases of the Azure Kinect ROS Driver are a snapshot of a known-good version o
    - You must test that the node is producing all required topics, and that the data on all topics appears correct. For a complete list of topics, see the [usage guide](usage.md)
    - You must verify the node produces a colorized and non-colorized point cloud when using the `rgb_point_cloud` option
    - You must run the node and nodelet
+   - You must verify that [image_proc](http://wiki.ros.org/image_proc) can process the image_raw topics from the depth and color cameras
+   - You must verify that [depth_image_proc/point_cloud_xyz](http://wiki.ros.org/depth_image_proc?distro=melodic#depth_image_proc.2BAC8-point_cloud_xyz) can produce a point cloud from the rectified depth image
+   - You must verify that [depth_image_proc/point_cloud_xyzrgb](http://wiki.ros.org/depth_image_proc?distro=melodic#depth_image_proc.2BAC8-point_cloud_xyzrgb) can produce a colorized point cloud from the rectified depth and color images
+
 1. Once satisfied that the node is working correctly, create a new GitHub release for the commit you tested. 
    - The Release should be named `<ROS Distro Short Name> <Current Date>`. For example, the first version of the ROS Melodic Morenia release was "Melodic 6/21/2019"
    - The tag of the release should be `<ROS Distro Short Name>_<Current Date>`. For example, the tag of the first version of the ROS Melodic Morenia release was "melodic_6-21-2019"
