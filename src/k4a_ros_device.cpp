@@ -135,6 +135,9 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
     rgb_rect_publisher_ = image_transport_.advertise("rgb_to_depth/image_raw", 1);
     rgb_rect_camerainfo_publisher_ = node_.advertise<CameraInfo>("rgb_to_depth/camera_info", 1);
 
+    ir_raw_publisher_ = image_transport_.advertise("ir/image_raw", 1);
+    ir_raw_camerainfo_publisher_ = node_.advertise<CameraInfo>("ir/camera_info", 1);
+
     imu_orientation_publisher_ = node_.advertise<Imu>("imu", 200);
 
     pointcloud_publisher_ = node_.advertise<PointCloud2>("points2", 1);
@@ -149,7 +152,7 @@ K4AROSDevice::~K4AROSDevice()
     imu_publisher_thread_.join();
 }
 
-// TODO: automatically start and stop cameras based on node subscription status (this saves lots of CPU / GPU when nodes are not in use)
+
 k4a_result_t K4AROSDevice::startCameras()
 {
     k4a_device_configuration_t k4a_configuration = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
@@ -178,7 +181,7 @@ k4a_result_t K4AROSDevice::startCameras()
     return K4A_RESULT_SUCCEEDED;
 }
 
-// TODO: support enable / disable of IMU stream from parameters
+
 k4a_result_t K4AROSDevice::startImu()
 {
     ROS_INFO_STREAM("STARTING IMU");
@@ -189,6 +192,7 @@ k4a_result_t K4AROSDevice::startImu()
 
     return K4A_RESULT_SUCCEEDED;
 }
+
 
 void K4AROSDevice::stopCameras()
 {
@@ -206,11 +210,20 @@ void K4AROSDevice::stopCameras()
     ROS_INFO("Camera publisher thread joined");
 }
 
-// TODO: join IMU thread
+
 void K4AROSDevice::stopImu()
 {
+    // Start tearing down the publisher thread
+    running_ = false;
+
     k4a_device_.stop_imu();
+
+    // Join the publisher thread
+    ROS_INFO("Joining IMU publisher thread");
+    imu_publisher_thread_.join();
+    ROS_INFO("IMU publisher thread joined");
 }
+
 
 k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture &capture, sensor_msgs::ImagePtr depth_image, bool rectified = false)
 {
@@ -234,10 +247,10 @@ k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture &capture, sensor_msg
     return renderDepthToROS(depth_image, k4a_depth_frame);
 }
 
+
 k4a_result_t K4AROSDevice::renderDepthToROS(sensor_msgs::ImagePtr depth_image, k4a::image& k4a_depth_frame)
 {
     // Compute the expected size of the frame and compare to the actual frame size in bytes
-    // TODO: make this debug only to speed up image rendering
     size_t depth_source_size = static_cast<size_t>(k4a_depth_frame.get_width_pixels() * k4a_depth_frame.get_height_pixels()) * sizeof(DepthPixel);
 
     // Access the depth image as an array of uint16 pixels
@@ -256,7 +269,7 @@ k4a_result_t K4AROSDevice::renderDepthToROS(sensor_msgs::ImagePtr depth_image, k
 
     float* depth_image_data = reinterpret_cast<float*>(&depth_image->data[0]);
 
-    // Poor man's memcpy the depth pixels into the ROS message
+    // Copy the depth pixels into the ROS message, transforming them to floats at the same time
     // TODO: can this be done faster?
     for (size_t i = 0; i < depth_pixel_count; i++)
     {
@@ -274,6 +287,48 @@ k4a_result_t K4AROSDevice::renderDepthToROS(sensor_msgs::ImagePtr depth_image, k
 
     return K4A_RESULT_SUCCEEDED;
 }
+
+
+k4a_result_t K4AROSDevice::getIrFrame(const k4a::capture &capture, sensor_msgs::ImagePtr ir_image)
+{
+    k4a::image k4a_ir_frame = capture.get_ir_image();
+
+    if (!k4a_ir_frame)
+    {
+        ROS_ERROR("Cannot render IR frame: no frame");
+        return K4A_RESULT_FAILED;
+    }
+
+    return renderIrToROS(ir_image, k4a_ir_frame);
+}
+
+
+k4a_result_t K4AROSDevice::renderIrToROS(sensor_msgs::ImagePtr ir_image, k4a::image& k4a_ir_frame)
+{
+    // Compute the expected size of the frame and compare to the actual frame size in bytes
+    size_t ir_source_size = static_cast<size_t>(k4a_ir_frame.get_width_pixels() * k4a_ir_frame.get_height_pixels()) * sizeof(IrPixel);
+
+    // Access the ir image as an array of uint16 pixels
+    IrPixel* ir_frame_buffer = reinterpret_cast<IrPixel *>(k4a_ir_frame.get_buffer());
+    size_t ir_pixel_count = ir_source_size / sizeof(IrPixel);
+
+    // Build the ROS message
+    ir_image->height = k4a_ir_frame.get_height_pixels();
+    ir_image->width = k4a_ir_frame.get_width_pixels();
+    ir_image->encoding = sensor_msgs::image_encodings::MONO16;
+    ir_image->is_bigendian = false;
+    ir_image->step = k4a_ir_frame.get_width_pixels() * sizeof(IrPixel);
+
+    // Enlarge the data buffer in the ROS message to hold the frame
+    ir_image->data.resize(ir_image->height * ir_image->step);
+    
+    IrPixel* ir_image_data = reinterpret_cast<IrPixel*>(&ir_image->data[0]);
+
+    memcpy(ir_image_data, k4a_ir_frame.get_buffer(), ir_image->height * ir_image->step);
+
+    return K4A_RESULT_SUCCEEDED;
+}
+
 
 k4a_result_t K4AROSDevice::getRbgFrame(const k4a::capture &capture, sensor_msgs::ImagePtr rgb_image, bool rectified = false)
 {
@@ -308,6 +363,7 @@ k4a_result_t K4AROSDevice::getRbgFrame(const k4a::capture &capture, sensor_msgs:
     return renderBGRA32ToROS(rgb_image, k4a_bgra_frame);
 }
 
+
 // Helper function that renders any BGRA K4A frame to a ROS ImagePtr. Useful for rendering intermediary frames
 // during debugging of image processing functions
 k4a_result_t K4AROSDevice::renderBGRA32ToROS(sensor_msgs::ImagePtr rgb_image, k4a::image& k4a_bgra_frame)
@@ -328,20 +384,14 @@ k4a_result_t K4AROSDevice::renderBGRA32ToROS(sensor_msgs::ImagePtr rgb_image, k4
 
     uint8_t *rgb_image_data = reinterpret_cast<uint8_t *>(&rgb_image->data[0]);
     uint8_t *bgra_frame_buffer = k4a_bgra_frame.get_buffer();
-
-    // TODO: can this be done faster with memcpy? No more special processing is needed here
-    for (size_t i = 0; i < color_image_size; i += 4)
-    {
-        rgb_image_data[i + 0] = bgra_frame_buffer[i + 0];
-        rgb_image_data[i + 1] = bgra_frame_buffer[i + 1];
-        rgb_image_data[i + 2] = bgra_frame_buffer[i + 2];
-        rgb_image_data[i + 3] = bgra_frame_buffer[i + 3];
-    }
+    
+    // Copy memory from the Azure Kinect buffer into the ROS buffer
+    memcpy(rgb_image_data, bgra_frame_buffer, rgb_image->height * rgb_image->step);
 
     return K4A_RESULT_SUCCEEDED;
 }
 
-// TODO: do this on the GPU, or using SSE/AVX?
+
 k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr point_cloud)
 {
     k4a::image k4a_depth_frame = capture.get_depth_image();
@@ -465,7 +515,7 @@ k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_
     return K4A_RESULT_SUCCEEDED;
 }
 
-// TODO: do this on the GPU
+
 k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr point_cloud)
 {
     k4a::image k4a_depth_frame = capture.get_depth_image();
@@ -550,11 +600,9 @@ k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture &capture, sensor_msg
     return K4A_RESULT_SUCCEEDED;
 }
 
+
 k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_msgs::ImuPtr imu_msg)
 {
-    // TODO: K4A provides different timestamps for accel and gyro, implying different read rates
-    // Consider only emitting a new IMU message when we get a new gyro and accel sample
-    // For now, assume accel is updated more frequently, so emit that timestamp
     imu_msg->header.frame_id = calibration_data_.imu_frame_;
     imu_msg->header.stamp = ros::Time::now();
 
@@ -588,6 +636,7 @@ k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_ms
     return K4A_RESULT_SUCCEEDED;
 }
 
+
 void K4AROSDevice::framePublisherThread()
 {
     ros::Rate loop_rate(params_.fps);
@@ -599,6 +648,7 @@ void K4AROSDevice::framePublisherThread()
     CameraInfo depth_raw_camera_info;
     CameraInfo rgb_rect_camera_info;
     CameraInfo depth_rect_camera_info;
+    CameraInfo ir_raw_camera_info;
 
     Time capture_time;
 
@@ -606,20 +656,13 @@ void K4AROSDevice::framePublisherThread()
 
     calibration_data_.getDepthCameraInfo(depth_raw_camera_info);
     calibration_data_.getRgbCameraInfo(rgb_raw_camera_info);
-
     calibration_data_.getDepthCameraInfo(rgb_rect_camera_info);
-    rgb_rect_camera_info.header.frame_id = calibration_data_.rgb_camera_frame_;
-
     calibration_data_.getRgbCameraInfo(depth_rect_camera_info);
-    depth_rect_camera_info.header.frame_id = calibration_data_.depth_camera_frame_;
+    calibration_data_.getDepthCameraInfo(ir_raw_camera_info);
 
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
         // TODO: consider appropriate capture timeout based on camera framerate
-        // TODO: K4A SDK has an internal capture queue. We may always want the most recent capture
-        //       Consider a mechanism to drain the internal ueue before we start processing this capture.
-        // TODO: capture ros::Time::now() and use it on all data published from this capture
-        // TODO: use capture timestamp as part of the ROS timestamp
         bool success = k4a_device_.get_capture(&capture, std::chrono::milliseconds(K4A_WAIT_INFINITE));
 
         if (!success)
@@ -635,47 +678,70 @@ void K4AROSDevice::framePublisherThread()
         ImagePtr rgb_rect_frame(new Image);
         ImagePtr depth_raw_frame(new Image);
         ImagePtr depth_rect_frame(new Image);
+        ImagePtr ir_raw_frame(new Image);
         PointCloud2Ptr point_cloud(new PointCloud2);
 
         if (params_.depth_enabled)
         {
-            getDepthFrame(capture, depth_raw_frame);
+            // IR images are available in all depth modes
+            result = getIrFrame(capture, ir_raw_frame);
             
             if (result != K4A_RESULT_SUCCEEDED)
             {
-                ROS_ERROR_STREAM("Failed to get raw depth frame");
+                ROS_ERROR_STREAM("Failed to get raw IR frame");
                 ros::shutdown();
                 return;
             }
 
             // Re-sychronize the timestamps with the capture timestamp
-            depth_raw_camera_info.header.stamp = capture_time;
-            depth_raw_frame->header.stamp = capture_time;
-            depth_raw_frame->header.frame_id = calibration_data_.depth_camera_frame_;
+            ir_raw_camera_info.header.stamp = capture_time;
+            ir_raw_frame->header.stamp = capture_time;
+            ir_raw_frame->header.frame_id = calibration_data_.depth_camera_frame_;
 
-            depth_raw_publisher_.publish(depth_raw_frame);
-            depth_raw_camerainfo_publisher_.publish(depth_raw_camera_info);
+            ir_raw_publisher_.publish(ir_raw_frame);
+            ir_raw_camerainfo_publisher_.publish(ir_raw_camera_info);
 
-            // We can only rectify the depth into the color co-ordinates if the color camera is enabled!
-            if (params_.color_enabled)
+            // Depth images are not available in PASSIVE_IR mode
+            if (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR)
             {
-                result = getDepthFrame(capture, depth_rect_frame, true /* rectified */);
+                result = getDepthFrame(capture, depth_raw_frame);
             
                 if (result != K4A_RESULT_SUCCEEDED)
                 {
-                    ROS_ERROR_STREAM("Failed to get rectifed depth frame");
+                    ROS_ERROR_STREAM("Failed to get raw depth frame");
                     ros::shutdown();
                     return;
                 }
 
-                depth_rect_frame->header.stamp = capture_time;
-                depth_rect_frame->header.frame_id = calibration_data_.rgb_camera_frame_;
-                depth_rect_publisher_.publish(depth_rect_frame);
+                // Re-sychronize the timestamps with the capture timestamp
+                depth_raw_camera_info.header.stamp = capture_time;
+                depth_raw_frame->header.stamp = capture_time;
+                depth_raw_frame->header.frame_id = calibration_data_.depth_camera_frame_;
 
-                // Re-synchronize the header timestamps since we cache the camera calibration message
-                depth_rect_camera_info.header.stamp = capture_time;
-                depth_rect_camerainfo_publisher_.publish(depth_rect_camera_info);
-            }
+                depth_raw_publisher_.publish(depth_raw_frame);
+                depth_raw_camerainfo_publisher_.publish(depth_raw_camera_info);
+
+                // We can only rectify the depth into the color co-ordinates if the color camera is enabled!
+                if (params_.color_enabled)
+                {
+                    result = getDepthFrame(capture, depth_rect_frame, true /* rectified */);
+                
+                    if (result != K4A_RESULT_SUCCEEDED)
+                    {
+                        ROS_ERROR_STREAM("Failed to get rectifed depth frame");
+                        ros::shutdown();
+                        return;
+                    }
+
+                    depth_rect_frame->header.stamp = capture_time;
+                    depth_rect_frame->header.frame_id = calibration_data_.rgb_camera_frame_;
+                    depth_rect_publisher_.publish(depth_rect_frame);
+
+                    // Re-synchronize the header timestamps since we cache the camera calibration message
+                    depth_rect_camera_info.header.stamp = capture_time;
+                    depth_rect_camerainfo_publisher_.publish(depth_rect_camera_info);
+                }
+            }            
         }
 
         if (params_.color_enabled)
@@ -698,7 +764,7 @@ void K4AROSDevice::framePublisherThread()
             rgb_raw_camerainfo_publisher_.publish(rgb_raw_camera_info);
 
             // We can only rectify the color into the depth co-ordinates if the color camera is enabled!
-            if (params_.depth_enabled)
+            if (params_.depth_enabled && (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR))
             {
                 result = getRbgFrame(capture, rgb_rect_frame, true /* rectified */);
             
@@ -753,6 +819,7 @@ void K4AROSDevice::framePublisherThread()
     }
 }
 
+
 void K4AROSDevice::imuPublisherThread()
 {
     ros::Rate loop_rate(300);
@@ -765,10 +832,6 @@ void K4AROSDevice::imuPublisherThread()
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
         // TODO: consider appropriate capture timeout based on camera framerate
-        // TODO: K4A SDK has an internal capture queue. We may always want the most recent capture
-        //       Consider a mechanism to drain the internal ueue before we start processing this capture.
-        // TODO: capture ros::Time::now() and use it on all data published from this capture
-        // TODO: use capture timestamp as part of the ROS timestamp
         bool success = k4a_device_.get_imu_sample(&sample, std::chrono::milliseconds(K4A_WAIT_INFINITE));
 
         if (!success)
