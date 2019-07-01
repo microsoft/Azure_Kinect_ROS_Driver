@@ -17,9 +17,9 @@ This ROS node outputs a variety of sensor data, including:
 
 The camera is fully configurable using a variety of options which can be specified in ROS launch files or on the command line.
 
-However, this node does ***not*** expose all the sensor data from the Azure Kinect Sensor SDK. It does not provide access to:
+However, this node does ***not*** expose all the sensor data from the Azure Kinect Developer Kit hardware. It does not provide access to:
 
-- Skeleton tracking data
+- Body tracking data
 - Microphone array
 
 For more information about how to use the node, please see the [usage guide](docs/usage.md).
