@@ -35,6 +35,8 @@ Licensed under the MIT License.
           respawn="true">
       <remap from="image_mono"  to="depth/image_raw" />
       <remap from="image_rect"  to="depth/image_rect" />
+
+      <param name="interpolation" value="0" />
     </node>
 
     <!-- Spawn an image_proc/rectify nodelet to rectify the IR image -->
@@ -81,8 +83,8 @@ Licensed under the MIT License.
       <param name="color_enabled"     value="true" />
       <param name="color_resolution"  value="1536P" />
       <param name="fps"               value="5" />
-      <param name="point_cloud"       value="false" />
-      <param name="rgb_point_cloud"   value="false" />
+      <param name="point_cloud"       value="true" />
+      <param name="rgb_point_cloud"   value="true" />
       <param name="required"          value="true" />
     </node>
   </group>
