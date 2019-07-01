@@ -53,9 +53,12 @@ class K4AROSDevice
 
     k4a_result_t getRbgFrame(const k4a::capture &capture, sensor_msgs::ImagePtr rgb_frame, bool rectified);
 
+    k4a_result_t getIrFrame(const k4a::capture &capture, sensor_msgs::ImagePtr ir_image);
+
   private:
     k4a_result_t renderBGRA32ToROS(sensor_msgs::ImagePtr rgb_frame, k4a::image& k4a_bgra_frame);
     k4a_result_t renderDepthToROS(sensor_msgs::ImagePtr depth_image, k4a::image& k4a_depth_frame);
+    k4a_result_t renderIrToROS(sensor_msgs::ImagePtr ir_image, k4a::image& k4a_ir_frame);
 
     void framePublisherThread();
     void imuPublisherThread();
@@ -77,6 +80,9 @@ class K4AROSDevice
 
     image_transport::Publisher  rgb_rect_publisher_;
     ros::Publisher              rgb_rect_camerainfo_publisher_;
+
+    image_transport::Publisher  ir_raw_publisher_;
+    ros::Publisher              ir_raw_camerainfo_publisher_;
 
     ros::Publisher              imu_orientation_publisher_;
 

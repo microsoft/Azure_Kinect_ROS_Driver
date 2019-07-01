@@ -179,7 +179,6 @@ void K4ACalibrationTransformData::publishRgbToBaseTf()
     static_transform.transform.translation.y = extrinsic_translation.y();
     static_transform.transform.translation.z = extrinsic_translation.z();
 
-    // TODO: restructure TF tree so that all sensors are relative to camera_base
     k4a_calibration_extrinsics_t* color_extrinsics = &k4a_calibration_.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR];
 
     tf2::Matrix3x3 color_matrix(color_extrinsics->rotation[0], color_extrinsics->rotation[1], color_extrinsics->rotation[2], 
@@ -211,8 +210,6 @@ void K4ACalibrationTransformData::publishImuToBaseTf()
     k4a_float3_t origin = {0.0f, 0.0f, 0.0f};
     k4a_float3_t target = {0.0f, 0.0f, 0.0f};
 
-    // TODO: try and do this using K4A extrinsics data instead of using convert_3d_to_3d
-    // Compute the offset of the IMU / Gyro assembly from the depth camera origin
     target = k4a_calibration_.convert_3d_to_3d(
         origin, 
         K4A_CALIBRATION_TYPE_DEPTH, 
@@ -233,7 +230,6 @@ void K4ACalibrationTransformData::publishImuToBaseTf()
     static_transform.transform.translation.y = extrinsic_translation.y();
     static_transform.transform.translation.z = extrinsic_translation.z();
 
-    // TODO: restructure TF tree so that all sensors are relative to camera_base
     k4a_calibration_extrinsics_t* imu_extrinsics = &k4a_calibration_.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_ACCEL];
 
     tf2::Matrix3x3 imu_matrix(imu_extrinsics->rotation[0], imu_extrinsics->rotation[1], imu_extrinsics->rotation[2],
@@ -311,6 +307,10 @@ tf2::Quaternion K4ACalibrationTransformData::getDepthToBaseRotationCorrection()
     }
     // Passive IR mode doesn't have a rotation?
     // TODO: verify that passive IR really doesn't have a rotation
+    else if (k4a_calibration_.depth_mode == K4A_DEPTH_MODE_PASSIVE_IR)
+    {
+        depth_rotation.setEuler(0, 0, 0);
+    }
     else
     {
         ROS_ERROR_STREAM("Could not determine depth camera mode for rotation correction");

@@ -5,6 +5,7 @@
 #define K4A_ROS_TYPES_H
 
 using DepthPixel = uint16_t;
+using IrPixel = uint16_t;
 
 struct BgraPixel
 {
