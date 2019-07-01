@@ -1,15 +1,15 @@
 # Azure Kinect ROS Driver
 
-This project is a ROS node which publishes sensor data from the Azure Kinect Developer Kit. Developers working with ROS can use this node to connect an Azure Kinect Developer Kit to an existing ROS installation.
+This project is a node which publishes sensor data from the [Azure Kinect Developer Kit](https://azure.microsoft.com/en-us/services/kinect-dk/) to the [Robot Operating System (ROS)](http://www.ros.org/). Developers working with ROS can use this node to connect an Azure Kinect Developer Kit to an existing ROS installation.
 
-This repository uses the [Azure Kinect Sensor SDK](https://github.com/microsoft/Azure-Kinect-Sensor-SDK) to communicate with the Azure Kinect hardware.
+This repository uses the [Azure Kinect Sensor SDK](https://github.com/microsoft/Azure-Kinect-Sensor-SDK) to communicate with the Azure Kinect hardware. It supports both Linux and Windows installations of ROS.
 
 ## Features
 
 This ROS node outputs a variety of sensor data, including:
 
 - A PointCloud2, optionally colored using the color camera
-- Raw color and depth Images, including CameraInfo messages containing calibration information
+- Raw color, depth and infrared Images, including CameraInfo messages containing calibration information
 - Rectified depth Images in the color camera resolution
 - Rectified color Images in the depth camera resolution
 - The IMU sensor stream
