@@ -324,7 +324,7 @@ k4a_result_t K4AROSDevice::renderIrToROS(sensor_msgs::ImagePtr ir_image, k4a::im
     
     IrPixel* ir_image_data = reinterpret_cast<IrPixel*>(&ir_image->data[0]);
 
-    memcpy_s(ir_image_data, ir_image->height * ir_image->step, k4a_ir_frame.get_buffer(), ir_source_size);
+    memcpy(ir_image_data, k4a_ir_frame.get_buffer(), ir_image->height * ir_image->step);
 
     return K4A_RESULT_SUCCEEDED;
 }
@@ -386,7 +386,7 @@ k4a_result_t K4AROSDevice::renderBGRA32ToROS(sensor_msgs::ImagePtr rgb_image, k4
     uint8_t *bgra_frame_buffer = k4a_bgra_frame.get_buffer();
     
     // Copy memory from the Azure Kinect buffer into the ROS buffer
-    memcpy_s(rgb_image_data, rgb_image->height * rgb_image->step, bgra_frame_buffer, color_image_size);
+    memcpy(rgb_image_data, bgra_frame_buffer, rgb_image->height * rgb_image->step);
 
     return K4A_RESULT_SUCCEEDED;
 }
