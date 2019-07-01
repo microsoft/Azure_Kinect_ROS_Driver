@@ -12,7 +12,7 @@ The Azure Kinect ROS Driver node accepts a number of [ROS Parameters](http://wik
 
 The node accepts the following parameters:
 
-- `sensor_sn` (string) : No default value. The serial number of the Azure Kinect DK sensor. If this parameter is not specified, the node will auto-select the first Azure Kinect DK sensor.
+- `sensor_sn` (string) : No default value. The serial number of the Azure Kinect DK that the node should open. If this parameter is not specified, the node will auto-select the first Azure Kinect DK that it finds.
 - `depth_enabled` (bool) : Default to '`true`'. Controls if the depth camera will be turned on.
 - `depth_mode` (string) : Defaults to '`NFOV_UNBINNED`'. This string selects the depth camera operating mode. More details on the various depth camera modes can be found in the [Azure Kinect Sensor SDK documentation](https://docs.microsoft.com/en-us/azure/Kinect-dk/hardware-specification#depth-camera-supported-operating-modes). Valid options are '`NFOV_2X2BINNED`', '`NFOV_UNBINNED`', '`WFOV_2X2BINNED`', '`WFOV_UNBINNED`', '`PASSIVE_IR`'.
 - `color_enabled` (bool) : Defaults to '`false`'. Controls if the color camera will be turned on.
