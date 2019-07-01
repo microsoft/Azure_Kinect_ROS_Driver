@@ -1,0 +1,74 @@
+<!-- 
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+-->
+
+<launch>
+  <!-- Start the K4A sensor driver -->
+  <group ns="k4a" >
+    
+    <!-- Spawn a nodelet manager -->
+    <node pkg="nodelet" type="nodelet" name="manager" args="manager" output="screen">
+      <param name="num_worker_threads" value="16" />
+    </node>
+
+    <!-- Spawn an image_proc/rectify nodelet to rectify the RGB image -->
+    <node pkg="nodelet" type="nodelet" name="rectify_rgb"
+          args="load image_proc/rectify manager --no-bond"
+          respawn="true">
+      <remap from="image_mono"  to="rgb/image_raw" />
+      <remap from="image_rect"  to="rgb/image_rect_color" />
+    </node>
+
+    <!-- Spawn an image_proc/rectify nodelet to rectify the depth image -->
+    <node pkg="nodelet" type="nodelet" name="rectify_depth"
+          args="load image_proc/rectify manager --no-bond"
+          respawn="true">
+      <remap from="image_mono"  to="depth/image_raw" />
+      <remap from="image_rect"  to="depth/image_rect" />
+    </node>
+
+    <!-- Spawn an image_proc/rectify nodelet to rectify the IR image -->
+    <node pkg="nodelet" type="nodelet" name="rectify_ir"
+          args="load image_proc/rectify manager --no-bond"
+          respawn="true">
+      <remap from="image_mono"  to="ir/image_raw" />
+      <remap from="image_rect"  to="ir/image_rect" />
+    </node>
+
+    <!-- Spawn a depth_image_proc/point_cloud_xyz nodelet to convert the 
+         depth image into a point cloud -->
+    <node pkg="nodelet" type="nodelet" name="point_cloud_xyz"
+          args="load depth_image_proc/point_cloud_xyz manager --no-bond"
+          respawn="true">
+      <remap from="image_rect"  to="depth/image_rect" />
+    </node>
+
+    <!-- Spawn a depth_image_proc/register nodelet to transform the 
+         depth image into the color camera co-ordinate space -->
+    <node pkg="nodelet" type="nodelet" name="depth_register"
+          args="load depth_image_proc/register manager --no-bond"
+          respawn="true">
+    </node>
+
+    <!-- Spawn a depth_image_proc/point_cloud_xyzrgb nodelet to convert the 
+         depth_registered and color images image into a colorized point cloud -->
+    <node pkg="nodelet" type="nodelet" name="point_cloud_xyzrgb"
+          args="load depth_image_proc/point_cloud_xyzrgb manager --no-bond"
+          respawn="true">
+    </node>
+
+    <node pkg="nodelet" type="nodelet" name="k4a_ros_bridge"
+          args="load Azure_Kinect_ROS_Driver/K4AROSBridgeNodelet manager --no-bond"
+          respawn="true">
+      <param name="depth_enabled"     value="true" />
+      <param name="depth_mode"        value="NFOV_UNBINNED" />
+      <param name="color_enabled"     value="true" />
+      <param name="color_resolution"  value="720P" />
+      <param name="fps"               value="15" />
+      <param name="point_cloud"       value="false" />
+      <param name="rgb_point_cloud"   value="false" />
+      <param name="required"          value="true" />
+    </node>
+  </group>
+</launch>
