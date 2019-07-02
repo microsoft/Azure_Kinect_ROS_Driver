@@ -20,19 +20,29 @@ jobs:
 
   steps:
 
+  # Install Chcolatey
+  - powershell: Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+  # Ensure Git is installed through chocolatey
+  #- powershell: choco install git -y
+
+  # Install ROS
+  - powershell: |
+      choco source add -n=ros-win -s="https://roswin.azurewebsites.net/api/v2" --priority=1
+      choco upgrade ros-melodic-ros_base -y --execution-timeout=0
+
+  # Create a catkin workspace
+  - script: |
+      C:\opt\ros\melodic\x64\setup.bat
+      mkdir %BUILD_SOURCESDIRECTORY%\catkin_ws
+      mkdir %BUILD_SOURCESDIRECTORY%\catkin_ws\src
+      cd %BUILD_SOURCESDIRECTORY%\catkin_ws
+      catkin_make
+
   - checkout: self
     clean: "all"
     fetchDepth: 20
     lfs: false
     persistCredentials: true
     submodules: true
-
-  # Install Chcolatey
-  - powershell: Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-
-  # Ensure Git is installed through chocolatey
-  - powershell: choco install git -y
-
-  # Install ROS
-  - powershell: choco source add -n=ros-win -s="https://roswin.azurewebsites.net/api/v2" --priority=1
-  - powershell: choco upgrade ros-melodic-desktop -y --execution-timeout=0
+    path: catkin_ws\src
