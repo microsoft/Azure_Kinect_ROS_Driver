@@ -6,8 +6,11 @@
   <material name="dark_grey">
     <color rgba="0.1 0.1 0.1 1" />
   </material>
-  <material name="gray">
-    <color rgba="0.3 0.3 0.3 1" />
+  <material name="grey">
+    <color rgba="0.6 0.6 0.6 1" />
+  </material>
+  <material name="white">
+    <color rgba="0.9 0.9 0.9 1" />
   </material>
 
   <link name="camera_body">
@@ -16,7 +19,7 @@
       <geometry>
         <box size="0.0994 0.0996 0.023" />
       </geometry>
-      <material name="gray" />
+      <material name="white" />
     </visual>
   </link>
 
@@ -26,7 +29,17 @@
       <geometry>
         <box size="0.026 0.103 0.039" />
       </geometry>
-      <material name="dark_grey" />
+      <material name="grey" />
+    </visual>
+  </link>
+
+  <link name="camera_visor">
+    <visual>
+      <origin xyz="-0.0128 0. 0." />
+      <geometry>
+        <box size="0.026 0.101 0.037" />
+      </geometry>
+      <material name="black" />
     </visual>
   </link>
 
@@ -34,6 +47,12 @@
     <parent link="camera_base" />
     <child link="camera_body" />
     <origin xyz="-0.0757 0. 0.008" rpy="0. 0. 0." />
-  </joint>rcal
+  </joint>
+
+  <joint name="camera_base_to_visor" type="fixed">
+    <parent link="camera_base" />
+    <child link="camera_visor" />
+    <origin xyz="0. 0. 0." rpy="0. 0. 0." />
+  </joint>
 
 </robot>
