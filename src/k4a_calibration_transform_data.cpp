@@ -19,8 +19,9 @@
 #include "azure_kinect_ros_driver/k4a_ros_types.h"
 
 void K4ACalibrationTransformData::initialize(const k4a::device &device,
-                                                     const k4a_depth_mode_t depth_mode,
-                                                     const k4a_color_resolution_t resolution)
+                                             const k4a_depth_mode_t depth_mode,
+                                             const k4a_color_resolution_t resolution,
+                                             const K4AROSDeviceParams params)
 {
     k4a_calibration_ = device.get_calibration(depth_mode, resolution);
     k4a_transformation_ = k4a::transformation(k4a_calibration_);
@@ -31,13 +32,21 @@ void K4ACalibrationTransformData::initialize(const k4a::device &device,
     bool colorEnabled = (getColorWidth() * getColorHeight() > 0);
 
     // Create a buffer to store the point cloud
-    if (depthEnabled)
+    if (params.point_cloud && !params.rgb_point_cloud)
     {
         point_cloud_image_ = k4a::image::create(
             K4A_IMAGE_FORMAT_DEPTH16,
             getDepthWidth(),
             getDepthHeight(),
             getDepthWidth() * 3 * (int)sizeof(DepthPixel));
+    }
+    else if (params.point_cloud && params.rgb_point_cloud)
+    {
+        point_cloud_image_ = k4a::image::create(
+            K4A_IMAGE_FORMAT_DEPTH16,
+            getColorWidth(),
+            getColorHeight(),
+            getColorWidth() * 3 * (int)sizeof(DepthPixel));
     }
 
     if (depthEnabled && colorEnabled)

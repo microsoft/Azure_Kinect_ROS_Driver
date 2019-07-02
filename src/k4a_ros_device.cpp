@@ -166,7 +166,7 @@ k4a_result_t K4AROSDevice::startCameras()
 
     // Now that we have a proposed camera configuration, we can 
     // initialize the class which will take care of device calibration information
-    calibration_data_.initialize(k4a_device_, k4a_configuration.depth_mode, k4a_configuration.color_resolution);
+    calibration_data_.initialize(k4a_device_, k4a_configuration.depth_mode, k4a_configuration.color_resolution, params_);
 
     ROS_INFO_STREAM("STARTING CAMERAS");
     k4a_device_.start_cameras(&k4a_configuration);
@@ -410,10 +410,10 @@ k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_
         return K4A_RESULT_FAILED;
     }
 
-    point_cloud->header.frame_id = calibration_data_.depth_camera_frame_;
+    point_cloud->header.frame_id = calibration_data_.rgb_camera_frame_;
     point_cloud->header.stamp = ros::Time::now();
-    point_cloud->height = k4a_depth_frame.get_height_pixels();
-    point_cloud->width = k4a_depth_frame.get_width_pixels();
+    point_cloud->height = k4a_bgra_frame.get_height_pixels();
+    point_cloud->width = k4a_bgra_frame.get_width_pixels();
     point_cloud->is_dense = false;
     point_cloud->is_bigendian = false;
 
@@ -428,8 +428,7 @@ k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_
     sensor_msgs::PointCloud2Iterator<uint8_t> iter_g(*point_cloud, "g");
     sensor_msgs::PointCloud2Iterator<uint8_t> iter_b(*point_cloud, "b");
 
-    const size_t point_count = k4a_depth_frame.get_size() / sizeof(DepthPixel);
-
+    const size_t point_count = k4a_bgra_frame.get_size() / sizeof(BgraPixel);
     if (point_count != (point_cloud->height * point_cloud->width))
     {
         ROS_WARN("point_count does not match point cloud resolution!");
@@ -443,20 +442,19 @@ k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_
         return K4A_RESULT_FAILED;
     }
 
-    // transform color image into depth camera geometry
-    calibration_data_.k4a_transformation_.color_image_to_depth_camera(
+    // transform depth image into color camera geometry
+    calibration_data_.k4a_transformation_.depth_image_to_color_camera(
         k4a_depth_frame,
-        k4a_bgra_frame,
-        &calibration_data_.transformed_rgb_image_);
+        &calibration_data_.transformed_depth_image_);
 
-    // Tranform depth image to point cloud
+    // Tranform depth image to point cloud (note that this is now from the perspective of the color camera)
     calibration_data_.k4a_transformation_.depth_image_to_point_cloud(
-        k4a_depth_frame,
-        K4A_CALIBRATION_TYPE_DEPTH,
+        calibration_data_.transformed_depth_image_,
+        K4A_CALIBRATION_TYPE_COLOR,
         &calibration_data_.point_cloud_image_);
 
     int16_t *point_cloud_buffer = reinterpret_cast<int16_t *>(calibration_data_.point_cloud_image_.get_buffer());
-    uint8_t *transformed_rgb_image_buffer = calibration_data_.transformed_rgb_image_.get_buffer();
+    uint8_t *rgb_image_buffer = k4a_bgra_frame.get_buffer();
 
     for (size_t i = 0; i < point_count; i++, ++iter_x, ++iter_y, ++iter_z, ++iter_r, ++iter_g, ++iter_b)
     {
@@ -464,10 +462,10 @@ k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_
         depth_point_3d.xyz.z = static_cast<float>(point_cloud_buffer[3 * i + 2]);
 
         // Get RGB values from the transformed image buffer
-        BgraPixel color_pixel = {transformed_rgb_image_buffer[4 * i + 0],
-                                 transformed_rgb_image_buffer[4 * i + 1],
-                                 transformed_rgb_image_buffer[4 * i + 2],
-                                 transformed_rgb_image_buffer[4 * i + 3]};
+        BgraPixel color_pixel = {rgb_image_buffer[4 * i + 0],
+                                 rgb_image_buffer[4 * i + 1],
+                                 rgb_image_buffer[4 * i + 2],
+                                 rgb_image_buffer[4 * i + 3]};
 
         if ((depth_point_3d.xyz.z <= 0.f) ||
             ((color_pixel.Red == 0) && (color_pixel.Green == 0) && (color_pixel.Blue == 0)))
