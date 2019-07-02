@@ -44,7 +44,7 @@ jobs:
     clean: "all"
     fetchDepth: 20
     lfs: false
-    persistCredentials: true
+    persistCredentials: false
     submodules: true
     path: catkin_ws\src\Azure_Kinect_ROS_Driver
 
