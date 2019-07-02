@@ -38,6 +38,7 @@ jobs:
       mkdir %BUILD_SOURCESDIRECTORY%\catkin_ws\src
       cd %BUILD_SOURCESDIRECTORY%\catkin_ws
       catkin_make
+    displayName: Create Catkin Workspace
 
   - checkout: self
     clean: "all"
@@ -45,4 +46,17 @@ jobs:
     lfs: false
     persistCredentials: true
     submodules: true
-    path: catkin_ws\src
+    path: catkin_ws\src\Azure_Kinect_ROS_Driver
+
+  # Download and install the Azure Kinect Sensor SDK 
+  - powershell: |
+      wget http://download.microsoft.com/download/E/B/D/EBDBB3C1-ED3F-4236-96D6-2BCB352F3710/Azure%20Kinect%20SDK%201.1.0.msi -OutFile $(Build.SourcesDirectory)\sdk.msi
+      $(Build.SourcesDirectory)\sdk.msi /passive
+
+  # Build the catkin workspace
+  - script: |
+      C:\opt\ros\melodic\x64\setup.bat
+      cd %BUILD_SOURCESDIRECTORY%\catkin_ws
+      catkin_make --force-cmake
+    displayName: Build ROS Driver Node
+
