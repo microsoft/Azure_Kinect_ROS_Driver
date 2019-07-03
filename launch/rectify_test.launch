@@ -5,6 +5,9 @@ Licensed under the MIT License.
 
 <launch>
 
+  <param name="robot_description"
+    textfile="$(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf" />
+
   <arg name="rgb_rect" default="1" />
   <arg name="depth_rect" default="1" />
   <arg name="ir_rect" default="1" />
@@ -87,5 +90,8 @@ Licensed under the MIT License.
       <param name="rgb_point_cloud"   value="true" />
       <param name="required"          value="true" />
     </node>
+
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
   </group>
 </launch>
