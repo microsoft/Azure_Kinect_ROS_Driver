@@ -38,9 +38,6 @@ jobs:
   # Install Chcolatey
   - powershell: Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 
-  # Ensure Git is installed through chocolatey
-  #- powershell: choco install git -y
-
   # Install ROS
   - powershell: |
       choco source add -n=ros-win -s="https://roswin.azurewebsites.net/api/v2" --priority=1
