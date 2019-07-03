@@ -15,7 +15,7 @@ Follow the [installation instructions](https://wiki.ros.org/Installation) for yo
 
 Follow the [installation instructions](https://github.com/microsoft/Azure-Kinect-Sensor-SDK/blob/develop/docs/usage.md#Installation) in the Azure Kinect Sensor SDK repo to install the sensor SDK for your platform.
 
-The Azure Kinect ROS Driver includes CMake files which will try to locate the installed location of the Azure Kinect Sensor SDK. Installing the SDK in a non-default location will result in compile failures when CMake is unable to locate the SDK.
+The Azure Kinect ROS Driver includes CMake files which will try to locate the Azure Kinect Sensor SDK. Installing the SDK in a non-default location will result in compile failures when CMake is unable to locate the SDK.
 
 The Azure Kinect ROS Driver requires version of v1.1.0 of the Azure Kinect Sensor SDK to compile.
 
@@ -30,7 +30,7 @@ Instead of installing the Azure Kinect Sensor SDK to the system path (using the 
           lib\
 ```
 
-Please note that the Azure Kinect Sensor SDK zip files do not generally contain the depth engine shared library. You will need to acquire a version of the depth engine shared library binary and place it in the .\ext\sdk\bin folder so that it can be consumed by the build system. Failing to download the depth engine when using an extracted SDK will result in the node crashing on launch.
+Please note that the Azure Kinect Sensor SDK zip files do not contain the depth engine shared library. You will need to acquire a version of the depth engine shared library and place it in the .\ext\sdk\bin folder so that it can be consumed by the build system. Failing to download the depth engine when using an extracted SDK will result in the node crashing on launch.
 
 For more information, please consult the [Azure Kinect Sensor SDK usage guide](https://github.com/microsoft/Azure-Kinect-Sensor-SDK/blob/develop/docs/usage.md).
 

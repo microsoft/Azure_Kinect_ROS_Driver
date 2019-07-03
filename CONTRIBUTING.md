@@ -79,9 +79,7 @@ start a conversation with the Azure Kinect Team to get the Issue Triage Approved
 1) An Azure Kinect team member will review the change. See the [review process](#review-process) for more information.
    * 1 team member must sign off on the change.
    * Other reviewers are welcome.
-1) After the change has been reviewed by a team member, the PR will be submitted to the Azure Kinect CI system for official build and testing.
-   * In the event of a test failure, the PR owner must address and provide a new PR commit and the review process starts over.
-1) Once the change is signed off by a team member and the test pass shows no regressions, an Azure Kinect team member will complete the PR.
+1) Once the change is signed off by a team member, an Azure Kinect team member will complete the PR.
 
 **NOTE:** *Any update to the pull request after approval requires additional review.*
 
