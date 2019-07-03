@@ -21,12 +21,13 @@
 
 // Project headers
 //
+#include "azure_kinect_ros_driver/k4a_ros_device_params.h"
 
 class K4ACalibrationTransformData
 {
 public:
 
-    void initialize(const k4a::device &device, k4a_depth_mode_t depthMode, k4a_color_resolution_t resolution);
+    void initialize(const k4a::device &device, k4a_depth_mode_t depthMode, k4a_color_resolution_t resolution, K4AROSDeviceParams params);
     int getDepthWidth();
     int getDepthHeight();
     int getColorWidth();
