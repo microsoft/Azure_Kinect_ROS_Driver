@@ -4,6 +4,8 @@ This project is a node which publishes sensor data from the [Azure Kinect Develo
 
 This repository uses the [Azure Kinect Sensor SDK](https://github.com/microsoft/Azure-Kinect-Sensor-SDK) to communicate with the Azure Kinect hardware. It supports both Linux and Windows installations of ROS.
 
+[![Build Status](https://microsoft.visualstudio.com/Analog/_apis/build/status/mixedreality/ai/depthcamera/rosbridge/Azure%20Kinect%20ROS%20Driver?branchName=melodic)](https://microsoft.visualstudio.com/Analog/_build/latest?definitionId=41542&branchName=melodic)
+
 ## Features
 
 This ROS node outputs a variety of sensor data, including:

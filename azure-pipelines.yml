@@ -4,9 +4,17 @@
 name: Azure_Kinect_ROS_Driver-$(SourceBranchName)-$(Date:yyyyMMdd)-$(Rev:rrr)
 
 trigger:
-  batch: false
+  batch: true
   branches:
     include:
+    - master
+    - develop
+    - melodic
+
+pr:
+  autoCancel: true
+  branches:
+    include: 
     - master
     - develop
     - melodic
@@ -19,20 +27,40 @@ jobs:
     vmImage: 'vs2017-win2016'
 
   steps:
-
   - checkout: self
     clean: "all"
     fetchDepth: 20
     lfs: false
     persistCredentials: true
     submodules: true
+    path: catkin_ws\src\Azure_Kinect_ROS_Driver
 
   # Install Chcolatey
   - powershell: Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 
-  # Ensure Git is installed through chocolatey
-  - powershell: choco install git -y
-
   # Install ROS
-  - powershell: choco source add -n=ros-win -s="https://roswin.azurewebsites.net/api/v2" --priority=1
-  - powershell: choco upgrade ros-melodic-desktop -y --execution-timeout=0
+  - powershell: |
+      choco source add -n=ros-win -s="https://roswin.azurewebsites.net/api/v2" --priority=1
+      choco upgrade ros-melodic-ros_base -y --execution-timeout=0
+
+  # Create a catkin workspace
+  - script: |
+      C:\opt\ros\melodic\x64\setup.bat
+      mkdir %BUILD_SOURCESDIRECTORY%\catkin_ws
+      mkdir %BUILD_SOURCESDIRECTORY%\catkin_ws\src
+      cd %BUILD_SOURCESDIRECTORY%\catkin_ws
+      catkin_make
+    displayName: Create Catkin Workspace
+
+  # Download and install the Azure Kinect Sensor SDK 
+  - powershell: |
+      wget http://download.microsoft.com/download/E/B/D/EBDBB3C1-ED3F-4236-96D6-2BCB352F3710/Azure%20Kinect%20SDK%201.1.0.msi -OutFile $(Build.SourcesDirectory)\sdk.msi
+      $(Build.SourcesDirectory)\sdk.msi /passive
+
+  # Build the catkin workspace
+  - script: |
+      C:\opt\ros\melodic\x64\setup.bat
+      cd %BUILD_SOURCESDIRECTORY%\catkin_ws
+      catkin_make --force-cmake
+    displayName: Build ROS Driver Node
+
