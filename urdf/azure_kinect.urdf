@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<!-- 
+ Copyright (c) Microsoft Corporation. All rights reserved.
+ Licensed under the MIT License.
+ -->
+<robot name="azure-kinect">
+  <material name="black">
+    <color rgba="0. 0. 0. 1" />
+  </material>
+  <material name="dark_grey">
+    <color rgba="0.1 0.1 0.1 1" />
+  </material>
+  <material name="grey">
+    <color rgba="0.6 0.6 0.6 1" />
+  </material>
+  <material name="white">
+    <color rgba="0.9 0.9 0.9 1" />
+  </material>
+
+  <link name="camera_body">
+    <visual>
+      <origin xyz="0. 0. 0." />
+      <geometry>
+        <box size="0.0994 0.0996 0.023" />
+      </geometry>
+      <material name="white" />
+    </visual>
+  </link>
+
+  <link name="camera_base">
+    <visual>
+      <origin xyz="-0.013 0. 0." />
+      <geometry>
+        <box size="0.026 0.103 0.039" />
+      </geometry>
+      <material name="grey" />
+    </visual>
+  </link>
+
+  <link name="camera_visor">
+    <visual>
+      <origin xyz="-0.0128 0. 0." />
+      <geometry>
+        <box size="0.026 0.101 0.037" />
+      </geometry>
+      <material name="black" />
+    </visual>
+  </link>
+
+  <joint name="camera_base_to_body" type="fixed">
+    <parent link="camera_base" />
+    <child link="camera_body" />
+    <origin xyz="-0.0757 0. 0.008" rpy="0. 0. 0." />
+  </joint>
+
+  <joint name="camera_base_to_visor" type="fixed">
+    <parent link="camera_base" />
+    <child link="camera_visor" />
+    <origin xyz="0. 0. 0." rpy="0. 0. 0." />
+  </joint>
+</robot>
