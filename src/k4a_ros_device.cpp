@@ -145,11 +145,21 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
 
 K4AROSDevice::~K4AROSDevice()
 {
+    // Start tearing down the publisher threads
+    running_ = false;
+
+    // Join the publisher thread
+    ROS_INFO("Joining camera publisher thread");
+    frame_publisher_thread_.join();
+    ROS_INFO("Camera publisher thread joined");
+
+    // Join the publisher thread
+    ROS_INFO("Joining IMU publisher thread");
+    imu_publisher_thread_.join();
+    ROS_INFO("IMU publisher thread joined");
+
     stopCameras();
     stopImu();
-
-    frame_publisher_thread_.join();
-    imu_publisher_thread_.join();
 }
 
 
@@ -196,32 +206,16 @@ k4a_result_t K4AROSDevice::startImu()
 
 void K4AROSDevice::stopCameras()
 {
-    // Start tearing down the publisher thread
-    running_ = false;
-
     // Stop the K4A SDK
     ROS_INFO("Stopping K4A device");
     k4a_device_.stop_cameras();
     ROS_INFO("K4A device stopped");
-
-    // Join the publisher thread
-    ROS_INFO("Joining camera publisher thread");
-    frame_publisher_thread_.join();
-    ROS_INFO("Camera publisher thread joined");
 }
 
 
 void K4AROSDevice::stopImu()
 {
-    // Start tearing down the publisher thread
-    running_ = false;
-
     k4a_device_.stop_imu();
-
-    // Join the publisher thread
-    ROS_INFO("Joining IMU publisher thread");
-    imu_publisher_thread_.join();
-    ROS_INFO("IMU publisher thread joined");
 }
 
 
@@ -681,46 +675,53 @@ void K4AROSDevice::framePublisherThread()
 
         if (params_.depth_enabled)
         {
-            // IR images are available in all depth modes
-            result = getIrFrame(capture, ir_raw_frame);
-            
-            if (result != K4A_RESULT_SUCCEEDED)
+            // Only do compute if we have subscribers
+            if (ir_raw_publisher_.getNumSubscribers() > 0)
             {
-                ROS_ERROR_STREAM("Failed to get raw IR frame");
-                ros::shutdown();
-                return;
-            }
-
-            // Re-sychronize the timestamps with the capture timestamp
-            ir_raw_camera_info.header.stamp = capture_time;
-            ir_raw_frame->header.stamp = capture_time;
-            ir_raw_frame->header.frame_id = calibration_data_.depth_camera_frame_;
-
-            ir_raw_publisher_.publish(ir_raw_frame);
-            ir_raw_camerainfo_publisher_.publish(ir_raw_camera_info);
-
-            // Depth images are not available in PASSIVE_IR mode
-            if (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR)
-            {
-                result = getDepthFrame(capture, depth_raw_frame);
-            
+                // IR images are available in all depth modes
+                result = getIrFrame(capture, ir_raw_frame);
+                
                 if (result != K4A_RESULT_SUCCEEDED)
                 {
-                    ROS_ERROR_STREAM("Failed to get raw depth frame");
+                    ROS_ERROR_STREAM("Failed to get raw IR frame");
                     ros::shutdown();
                     return;
                 }
 
                 // Re-sychronize the timestamps with the capture timestamp
-                depth_raw_camera_info.header.stamp = capture_time;
-                depth_raw_frame->header.stamp = capture_time;
-                depth_raw_frame->header.frame_id = calibration_data_.depth_camera_frame_;
+                ir_raw_camera_info.header.stamp = capture_time;
+                ir_raw_frame->header.stamp = capture_time;
+                ir_raw_frame->header.frame_id = calibration_data_.depth_camera_frame_;
 
-                depth_raw_publisher_.publish(depth_raw_frame);
-                depth_raw_camerainfo_publisher_.publish(depth_raw_camera_info);
+                ir_raw_publisher_.publish(ir_raw_frame);
+                ir_raw_camerainfo_publisher_.publish(ir_raw_camera_info);
+            }
 
+            // Depth images are not available in PASSIVE_IR mode
+            if (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR)
+            {
+                if (depth_raw_publisher_.getNumSubscribers() > 0)
+                {
+                    result = getDepthFrame(capture, depth_raw_frame);
+            
+                    if (result != K4A_RESULT_SUCCEEDED)
+                    {
+                        ROS_ERROR_STREAM("Failed to get raw depth frame");
+                        ros::shutdown();
+                        return;
+                    }
+
+                    // Re-sychronize the timestamps with the capture timestamp
+                    depth_raw_camera_info.header.stamp = capture_time;
+                    depth_raw_frame->header.stamp = capture_time;
+                    depth_raw_frame->header.frame_id = calibration_data_.depth_camera_frame_;
+
+                    depth_raw_publisher_.publish(depth_raw_frame);
+                    depth_raw_camerainfo_publisher_.publish(depth_raw_camera_info);
+                }
+                
                 // We can only rectify the depth into the color co-ordinates if the color camera is enabled!
-                if (params_.color_enabled)
+                if (params_.color_enabled && (depth_rect_publisher_.getNumSubscribers() > 0))
                 {
                     result = getDepthFrame(capture, depth_rect_frame, true /* rectified */);
                 
@@ -744,25 +745,31 @@ void K4AROSDevice::framePublisherThread()
 
         if (params_.color_enabled)
         {
-            result = getRbgFrame(capture, rgb_raw_frame);
-
-            if (result != K4A_RESULT_SUCCEEDED)
+            if (rgb_raw_publisher_.getNumSubscribers() > 0)
             {
-                ROS_ERROR_STREAM("Failed to get RGB frame");
-                ros::shutdown();
-                return;
+                result = getRbgFrame(capture, rgb_raw_frame);
+
+                if (result != K4A_RESULT_SUCCEEDED)
+                {
+                    ROS_ERROR_STREAM("Failed to get RGB frame");
+                    ros::shutdown();
+                    return;
+                }
+
+                rgb_raw_frame->header.stamp =  capture_time;
+                rgb_raw_frame->header.frame_id = calibration_data_.rgb_camera_frame_;
+                rgb_raw_publisher_.publish(rgb_raw_frame);
+
+                // Re-synchronize the header timestamps since we cache the camera calibration message
+                rgb_raw_camera_info.header.stamp = capture_time;
+                rgb_raw_camerainfo_publisher_.publish(rgb_raw_camera_info);
             }
 
-            rgb_raw_frame->header.stamp =  capture_time;
-            rgb_raw_frame->header.frame_id = calibration_data_.rgb_camera_frame_;
-            rgb_raw_publisher_.publish(rgb_raw_frame);
-
-            // Re-synchronize the header timestamps since we cache the camera calibration message
-            rgb_raw_camera_info.header.stamp = capture_time;
-            rgb_raw_camerainfo_publisher_.publish(rgb_raw_camera_info);
-
-            // We can only rectify the color into the depth co-ordinates if the color camera is enabled!
-            if (params_.depth_enabled && (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR))
+            // We can only rectify the color into the depth co-ordinates if the depth camera is 
+            // enabled and processing depth data
+            if (params_.depth_enabled && 
+                (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR) && 
+                (rgb_rect_publisher_.getNumSubscribers() > 0))
             {
                 result = getRbgFrame(capture, rgb_rect_frame, true /* rectified */);
             
@@ -783,35 +790,38 @@ void K4AROSDevice::framePublisherThread()
             }
         }
 
-        if (params_.rgb_point_cloud)
+        if (pointcloud_publisher_.getNumSubscribers() > 0)
         {
-            result = getRgbPointCloud(capture, point_cloud);
-
-            if (result != K4A_RESULT_SUCCEEDED)
+            if (params_.rgb_point_cloud)
             {
-                ROS_ERROR_STREAM("Failed to get RGB Point Cloud");
-                ros::shutdown();
-                return;
+                result = getRgbPointCloud(capture, point_cloud);
+
+                if (result != K4A_RESULT_SUCCEEDED)
+                {
+                    ROS_ERROR_STREAM("Failed to get RGB Point Cloud");
+                    ros::shutdown();
+                    return;
+                }
+            }
+            else if (params_.point_cloud)
+            {
+                result = getPointCloud(capture, point_cloud);
+                
+                if (result != K4A_RESULT_SUCCEEDED)
+                {
+                    ROS_ERROR_STREAM("Failed to get Point Cloud");
+                    ros::shutdown();
+                    return;
+                }
+            }
+
+            if (params_.point_cloud || params_.rgb_point_cloud)
+            {
+                point_cloud->header.stamp = capture_time;
+                pointcloud_publisher_.publish(point_cloud);
             }
         }
-        else if (params_.point_cloud)
-        {
-            result = getPointCloud(capture, point_cloud);
-            
-            if (result != K4A_RESULT_SUCCEEDED)
-            {
-                ROS_ERROR_STREAM("Failed to get Point Cloud");
-                ros::shutdown();
-                return;
-            }
-        }
-
-        if (params_.point_cloud || params_.rgb_point_cloud)
-        {
-            point_cloud->header.stamp = capture_time;
-            pointcloud_publisher_.publish(point_cloud);
-        }
-
+        
         ros::spinOnce();
         loop_rate.sleep();
     }

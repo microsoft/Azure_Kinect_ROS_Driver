@@ -43,11 +43,6 @@ int main(int argc, char **argv)
         ros::spin();
 
         ROS_INFO("ROS Exit Started");
-
-        device->stopCameras();
-        device->stopImu();
-
-        ROS_INFO("Cameras stopped");
     }
 
     device.reset();
