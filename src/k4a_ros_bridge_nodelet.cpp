@@ -26,8 +26,7 @@ namespace Azure_Kinect_ROS_Driver
 
     K4AROSBridgeNodelet::~K4AROSBridgeNodelet()
     {
-        k4a_device->stopCameras();
-        k4a_device->stopImu();
+        k4a_device.reset();
     }
 
     void K4AROSBridgeNodelet::onInit()
