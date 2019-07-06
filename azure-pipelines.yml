@@ -101,5 +101,6 @@ jobs:
 
   # Build the catkin workspace
   - bash: |
+      source /opt/ros/melodic/setup.bash
       catkin_make --force-cmake
     displayName: Build ROS Driver Node
