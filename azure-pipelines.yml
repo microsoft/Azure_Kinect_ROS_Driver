@@ -64,3 +64,44 @@ jobs:
       catkin_make --force-cmake
     displayName: Build ROS Driver Node
 
+- job: LinuxMelodic
+  displayName: Linux Melodic
+
+  pool:
+    vmImage: 'ubuntu-16.04'
+
+  container: 
+    image: ros:melodic-perception-bionic
+    options: "--name ci-container -v /usr/bin/docker:/tmp/docker:ro"
+
+  steps:
+  - script: |
+      /tmp/docker exec -t -u 0 ci-container \
+      sh -c "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confold" -y install sudo"
+    displayName: Enable sudo
+
+  - checkout: self
+    clean: "all"
+    fetchDepth: 20
+    lfs: false
+    persistCredentials: true
+    submodules: true
+    path: catkin_ws/src/Azure_Kinect_ROS_Driver
+
+  # Download and install the Azure Kinect Sensor SDK 
+  - bash: |
+      sudo apt-get -y install curl software-properties-common
+      curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+      sudo apt-add-repository https://packages.microsoft.com/ubuntu/18.04/prod
+      sudo apt-get update
+      echo libk4a1.1 libk4a1.1/accept-eula boolean true | sudo debconf-set-selections
+      echo libk4a1.1 libk4a1.1/accepted-eula-hash string 0f5d5c5de396e4fee4c0753a21fee0c1ed726cf0316204edda484f08cb266d76 | sudo debconf-set-selections -u
+      sudo apt-get -y install libk4a1.1-dev
+    displayName: Install the Azure Kinect Sensor SDK
+
+  # Build the catkin workspace
+  - bash: |
+      source /opt/ros/melodic/setup.bash
+      catkin_make --force-cmake
+    displayName: Build ROS Driver Node
+    workingDirectory: ../../
