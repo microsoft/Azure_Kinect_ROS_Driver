@@ -94,7 +94,7 @@ jobs:
       curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
       sudo apt-add-repository https://packages.microsoft.com/ubuntu/18.04/prod
       sudo apt-get update
-      sudo apt-get -y install libk4a1.1-dev
+      sudo DEBIAN_FRONTEND=noninteractive apt-get -y install libk4a1.1-dev
     displayName: Install the Azure Kinect Sensor SDK
 
   # Build the catkin workspace
