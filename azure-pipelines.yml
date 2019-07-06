@@ -103,4 +103,3 @@ jobs:
   - bash: |
       catkin_make --force-cmake
     displayName: Build ROS Driver Node
-    workingDirectory: $(Build.SourcesDirectory)/catkin_ws
