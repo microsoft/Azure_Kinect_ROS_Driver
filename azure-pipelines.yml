@@ -71,7 +71,7 @@ jobs:
     vmImage: 'ubuntu-16.04'
 
   container: 
-    image: ros:melodic
+    image: ros:melodic-ros-base
     options: "--name ci-container -v /usr/bin/docker:/tmp/docker:ro"
 
   steps:
