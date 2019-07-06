@@ -104,3 +104,4 @@ jobs:
       source /opt/ros/melodic/setup.bash
       catkin_make --force-cmake
     displayName: Build ROS Driver Node
+    workingDirectory: ../../
