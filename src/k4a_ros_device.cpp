@@ -180,7 +180,12 @@ k4a_result_t K4AROSDevice::startCameras()
 
     ROS_INFO_STREAM("STARTING CAMERAS");
     k4a_device_.start_cameras(&k4a_configuration);
-    start_time_ = ros::Time::now();
+
+    // Cannot assume the device timestamp begins increasing upon starting the cameras. 
+    // If we set the time base here, depending on the machine performance, the new timestamp 
+    // would lag the value of ros::Time::now() by at least 0.5 secs which is much larger than 
+    // the real transmission delay as can be observed using the rqt_plot tool.
+    // start_time_ = ros::Time::now();
 
     // Prevent the worker thread from exiting immediately
     running_ = true;
@@ -405,7 +410,8 @@ k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_
     }
 
     point_cloud->header.frame_id = calibration_data_.rgb_camera_frame_;
-    point_cloud->header.stamp = ros::Time::now();
+    point_cloud->header.stamp = timestampToROS(k4a_depth_frame.get_device_timestamp());
+    printTimestampDebugMessage("RGB point cloud", point_cloud->header.stamp);
     point_cloud->height = k4a_bgra_frame.get_height_pixels();
     point_cloud->width = k4a_bgra_frame.get_width_pixels();
     point_cloud->is_dense = false;
@@ -519,7 +525,9 @@ k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture &capture, sensor_msg
     }
 
     point_cloud->header.frame_id = calibration_data_.depth_camera_frame_;
-    point_cloud->header.stamp = ros::Time::now();
+    point_cloud->header.stamp = timestampToROS(k4a_depth_frame.get_device_timestamp());
+    printTimestampDebugMessage("Point cloud", point_cloud->header.stamp);
+
     point_cloud->height = k4a_depth_frame.get_height_pixels();
     point_cloud->width = k4a_depth_frame.get_width_pixels();
     point_cloud->is_dense = false;
@@ -596,7 +604,8 @@ k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture &capture, sensor_msg
 k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_msgs::ImuPtr imu_msg)
 {
     imu_msg->header.frame_id = calibration_data_.imu_frame_;
-    imu_msg->header.stamp = ros::Time::now();
+    imu_msg->header.stamp = timestampToROS(sample.acc_timestamp_usec);
+    printTimestampDebugMessage("IMU", imu_msg->header.stamp);
 
     // K4A IMU Co-ordinates
     //  x+ = "backwards"
@@ -664,8 +673,6 @@ void K4AROSDevice::framePublisherThread()
             return;
         }
 
-        capture_time = ros::Time::now();
-
         ImagePtr rgb_raw_frame(new Image);
         ImagePtr rgb_rect_frame(new Image);
         ImagePtr depth_raw_frame(new Image);
@@ -688,6 +695,9 @@ void K4AROSDevice::framePublisherThread()
                     return;
                 }
 
+                capture_time = timestampToROS(capture.get_ir_image().get_device_timestamp());
+                printTimestampDebugMessage("IR image", capture_time);
+
                 // Re-sychronize the timestamps with the capture timestamp
                 ir_raw_camera_info.header.stamp = capture_time;
                 ir_raw_frame->header.stamp = capture_time;
@@ -700,6 +710,9 @@ void K4AROSDevice::framePublisherThread()
             // Depth images are not available in PASSIVE_IR mode
             if (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR)
             {
+                capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
+                printTimestampDebugMessage("Depth image", capture_time);
+
                 if (depth_raw_publisher_.getNumSubscribers() > 0)
                 {
                     result = getDepthFrame(capture, depth_raw_frame);
@@ -745,6 +758,9 @@ void K4AROSDevice::framePublisherThread()
 
         if (params_.color_enabled)
         {
+            capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
+            printTimestampDebugMessage("Color image", capture_time);
+            
             if (rgb_raw_publisher_.getNumSubscribers() > 0)
             {
                 result = getRbgFrame(capture, rgb_raw_frame);
@@ -817,7 +833,6 @@ void K4AROSDevice::framePublisherThread()
 
             if (params_.point_cloud || params_.rgb_point_cloud)
             {
-                point_cloud->header.stamp = capture_time;
                 pointcloud_publisher_.publish(point_cloud);
             }
         }
@@ -859,4 +874,63 @@ void K4AROSDevice::imuPublisherThread()
         ros::spinOnce();
         loop_rate.sleep();
     }
+}
+
+// Converts a k4a_image_t timestamp to a ros::Time object
+ros::Time K4AROSDevice::timestampToROS(const std::chrono::microseconds & k4a_timestamp_us) 
+{
+    ros::Duration duration_since_device_startup(std::chrono::duration<double>(k4a_timestamp_us).count());
+
+    // Set the time base if it is not set yet. Possible race condition should cause no harm.
+    if (start_time_.isZero())
+    {
+        const ros::Duration transmission_delay(0.11);
+        ROS_WARN_STREAM("Setting the time base using a k4a_image_t timestamp. This will result in a "
+            "larger uncertainty than setting the time base using the timestamp of a k4a_imu_sample_t sample. "
+            "Assuming the transmission delay to be " << transmission_delay.toSec() * 1000.0  << " ms."); 
+        start_time_ = ros::Time::now() - duration_since_device_startup - transmission_delay;
+    }
+    return start_time_ + duration_since_device_startup;
+}
+
+// Converts a k4a_imu_sample_t timestamp to a ros::Time object
+ros::Time K4AROSDevice::timestampToROS(const uint64_t & k4a_timestamp_us) 
+{
+      ros::Duration duration_since_device_startup(k4a_timestamp_us / 1e6);
+
+      // Set the time base if it is not set yet.
+      if (start_time_.isZero())
+      {
+        const ros::Duration transmission_delay(0.005);
+        ROS_INFO_STREAM("Setting the time base using a k4a_imu_sample_t sample. "
+          "Assuming the transmission delay to be " << transmission_delay.toSec() * 1000.0 << " ms."); 
+        start_time_ = ros::Time::now() - duration_since_device_startup - transmission_delay;
+      }
+      return start_time_ + duration_since_device_startup;
+    }
+
+void printTimestampDebugMessage(const std::string name, const ros::Time & timestamp)
+{
+    ros::Duration lag = ros::Time::now() - timestamp;
+    static std::map<const std::string, std::pair<ros::Duration, ros::Duration>> map_min_max;
+    auto it = map_min_max.find(name);
+    if (it == map_min_max.end())
+    {
+        map_min_max[name] = std::make_pair(lag, lag);
+        it = map_min_max.find(name);
+    }
+    else
+    {
+        auto & min_lag = it->second.first;
+        auto & max_lag = it->second.second;
+        if (lag < min_lag)
+            min_lag = lag;
+        if (lag > max_lag)
+            max_lag = lag;
+    }
+    
+    ROS_DEBUG_STREAM(name << " timestamp lags ros::Time::now() by\n" 
+        << std::setw(23) << lag.toSec() * 1000.0 << " ms. "
+        << "The lag ranges from " << it->second.first.toSec() * 1000.0 << "ms"
+        <<" to " << it->second.second.toSec() * 1000.0 << "ms.");
 }
