@@ -1,5 +1,5 @@
 # External SDK Folder
-ext/sdk/*
+ext/**
 
 # Prerequisites
 *.d

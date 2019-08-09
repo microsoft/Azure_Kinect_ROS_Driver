@@ -11,7 +11,6 @@
 // Library headers
 //
 #include <k4a/k4a.h>
-#include <k4a/k4a.hpp>
 #include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
@@ -24,6 +23,7 @@
 //
 #include "azure_kinect_ros_driver/k4a_ros_device_params.h"
 #include "azure_kinect_ros_driver/k4a_calibration_transform_data.h"
+#include "azure_kinect_ros_driver/k4a.hpp"
 
 class K4AROSDevice
 {
