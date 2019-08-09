@@ -63,6 +63,12 @@ class K4AROSDevice
     void framePublisherThread();
     void imuPublisherThread();
 
+    // Converts a k4a_image_t timestamp to a ros::Time object
+    ros::Time timestampToROS(const std::chrono::microseconds & k4a_timestamp_us);
+
+    // Converts a k4a_imu_sample_t timestamp to a ros::Time object
+    ros::Time timestampToROS(const uint64_t & k4a_timestamp_us);
+
     // ROS Node variables
     ros::NodeHandle node_;
     ros::NodeHandle private_node_;
@@ -104,5 +110,7 @@ class K4AROSDevice
     std::thread frame_publisher_thread_;
     std::thread imu_publisher_thread_;
 };
+
+void printTimestampDebugMessage(const std::string name, const ros::Time & timestamp);
 
 #endif // K4A_ROS_DEVICE_H
