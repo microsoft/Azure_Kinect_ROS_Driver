@@ -683,7 +683,7 @@ void K4AROSDevice::framePublisherThread()
         if (params_.depth_enabled)
         {
             // Only do compute if we have subscribers
-            if (ir_raw_publisher_.getNumSubscribers() > 0)
+            if (ir_raw_publisher_.getNumSubscribers() > 0 || ir_raw_camerainfo_publisher_.getNumSubscribers() > 0)
             {
                 // IR images are available in all depth modes
                 result = getIrFrame(capture, ir_raw_frame);
@@ -734,7 +734,7 @@ void K4AROSDevice::framePublisherThread()
                 }
                 
                 // We can only rectify the depth into the color co-ordinates if the color camera is enabled!
-                if (params_.color_enabled && (depth_rect_publisher_.getNumSubscribers() > 0))
+                if (params_.color_enabled && (depth_rect_publisher_.getNumSubscribers() > 0 || depth_rect_camerainfo_publisher_.getNumSubscribers() > 0))
                 {
                     result = getDepthFrame(capture, depth_rect_frame, true /* rectified */);
                 
@@ -761,7 +761,7 @@ void K4AROSDevice::framePublisherThread()
             capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
             printTimestampDebugMessage("Color image", capture_time);
             
-            if (rgb_raw_publisher_.getNumSubscribers() > 0)
+            if (rgb_raw_publisher_.getNumSubscribers() > 0 || rgb_raw_camerainfo_publisher_.getNumSubscribers() > 0)
             {
                 result = getRbgFrame(capture, rgb_raw_frame);
 
@@ -785,7 +785,7 @@ void K4AROSDevice::framePublisherThread()
             // enabled and processing depth data
             if (params_.depth_enabled && 
                 (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR) && 
-                (rgb_rect_publisher_.getNumSubscribers() > 0))
+                (rgb_rect_publisher_.getNumSubscribers() > 0 || rgb_rect_camerainfo_publisher_.getNumSubscribers() > 0))
             {
                 result = getRbgFrame(capture, rgb_rect_frame, true /* rectified */);
             
