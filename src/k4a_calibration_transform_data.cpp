@@ -25,6 +25,7 @@ void K4ACalibrationTransformData::initialize(const k4a::device &device,
 {
     k4a_calibration_ = device.get_calibration(depth_mode, resolution);
     k4a_transformation_ = k4a::transformation(k4a_calibration_);
+    tf_prefix_ = params.tf_prefix;
 
     print();
 
@@ -178,8 +179,8 @@ void K4ACalibrationTransformData::publishRgbToBaseTf()
     geometry_msgs::TransformStamped static_transform;
 
     static_transform.header.stamp = ros::Time::now();
-    static_transform.header.frame_id = camera_base_frame_;
-    static_transform.child_frame_id = rgb_camera_frame_;
+    static_transform.header.frame_id = tf_prefix_ + camera_base_frame_;
+    static_transform.child_frame_id = tf_prefix_ + rgb_camera_frame_;
 
     tf2::Vector3 extrinsic_translation((target.xyz.z / -1000.0f), (target.xyz.x / 1000.0f), (target.xyz.y / 1000.0f));
     extrinsic_translation += getDepthToBaseTranslationCorrection();
@@ -229,8 +230,8 @@ void K4ACalibrationTransformData::publishImuToBaseTf()
     geometry_msgs::TransformStamped static_transform;
 
     static_transform.header.stamp = ros::Time::now();
-    static_transform.header.frame_id = camera_base_frame_;
-    static_transform.child_frame_id = imu_frame_;
+    static_transform.header.frame_id = tf_prefix_ + camera_base_frame_;
+    static_transform.child_frame_id = tf_prefix_ + imu_frame_;
 
     tf2::Vector3 extrinsic_translation((target.xyz.x / 1000.0f), (target.xyz.y / -1000.0f), (target.xyz.z / -1000.0f));
     extrinsic_translation += getDepthToBaseTranslationCorrection();
@@ -269,8 +270,8 @@ void K4ACalibrationTransformData::publishDepthToBaseTf()
     geometry_msgs::TransformStamped static_transform;
 
     static_transform.header.stamp = ros::Time::now();
-    static_transform.header.frame_id = camera_base_frame_;
-    static_transform.child_frame_id = depth_camera_frame_;
+    static_transform.header.frame_id = tf_prefix_ + camera_base_frame_;
+    static_transform.child_frame_id = tf_prefix_ + depth_camera_frame_;
 
     tf2::Vector3 depth_translation = getDepthToBaseTranslationCorrection();
     static_transform.transform.translation.x = depth_translation.x();
@@ -352,7 +353,7 @@ tf2::Quaternion K4ACalibrationTransformData::getColorToDepthRotationCorrection()
 
 void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo &camera_info)
 {
-    camera_info.header.frame_id = depth_camera_frame_;
+    camera_info.header.frame_id = tf_prefix_ + depth_camera_frame_;
     camera_info.width = getDepthWidth();
     camera_info.height = getDepthHeight();
     camera_info.distortion_model = sensor_msgs::distortion_models::RATIONAL_POLYNOMIAL;
@@ -401,7 +402,7 @@ void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo &ca
 
 void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo &camera_info)
 {
-    camera_info.header.frame_id = rgb_camera_frame_;
+    camera_info.header.frame_id = tf_prefix_ + rgb_camera_frame_;
     camera_info.width = getColorWidth();
     camera_info.height = getColorHeight();
     camera_info.distortion_model = sensor_msgs::distortion_models::RATIONAL_POLYNOMIAL;
