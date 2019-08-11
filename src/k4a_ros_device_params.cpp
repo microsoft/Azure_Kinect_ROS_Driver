@@ -97,7 +97,7 @@ k4a_result_t K4AROSDeviceParams::GetDeviceConfig(k4a_device_configuration_t *con
         }
         else
         {
-            ROS_ERROR_STREAM("Invalid Depth Camera Mode: " << color_resolution);
+            ROS_ERROR_STREAM("Invalid Depth Camera Mode: " << depth_mode);
             return K4A_RESULT_FAILED;
         }
     }
