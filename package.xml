@@ -23,6 +23,11 @@
   <depend>tf2_geometry_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>nodelet</depend>
+  <depend>image_proc</depend>
+  <depend>depth_image_proc</depend>
+  <depend>joint_state_publisher</depend>
+  <depend>robot_state_publisher</depend>
+  <depend>rtabmap_ros</depend>
 
   <export>
     <nodelet plugin="${prefix}/nodelet_plugins.xml" />
