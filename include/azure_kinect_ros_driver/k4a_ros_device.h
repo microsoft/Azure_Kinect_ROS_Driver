@@ -11,6 +11,7 @@
 // Library headers
 //
 #include <k4a/k4a.h>
+#include <k4arecord/playback.h>
 #include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
@@ -100,6 +101,9 @@ class K4AROSDevice
     // K4A device
     k4a::device k4a_device_;
     K4ACalibrationTransformData calibration_data_;
+
+    // K4A Recording
+    k4a_playback_t k4a_playback_handle_;
 
     ros::Time start_time_;
 

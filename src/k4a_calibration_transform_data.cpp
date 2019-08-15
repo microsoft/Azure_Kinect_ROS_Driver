@@ -24,6 +24,22 @@ void K4ACalibrationTransformData::initialize(const k4a::device &device,
                                              const K4AROSDeviceParams params)
 {
     k4a_calibration_ = device.get_calibration(depth_mode, resolution);
+    initialize(params);
+}
+
+void K4ACalibrationTransformData::initialize(const k4a_playback_t &k4a_playback_handle,
+                                             const K4AROSDeviceParams params)
+{
+    if (k4a_playback_get_calibration(k4a_playback_handle, &k4a_calibration_) != K4A_RESULT_SUCCEEDED)
+    {
+        ROS_ERROR("Failed to get playback calibration!");
+        return;
+    }
+    initialize(params);
+}
+
+void K4ACalibrationTransformData::initialize(const K4AROSDeviceParams params)
+{
     k4a_transformation_ = k4a::transformation(k4a_calibration_);
     tf_prefix_ = params.tf_prefix;
 

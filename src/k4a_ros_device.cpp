@@ -28,6 +28,7 @@ using namespace image_transport;
 using namespace std;
 
 K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_device_(nullptr),
+                                                                       k4a_playback_handle_(nullptr),
                                                                        node_(n),
                                                                        private_node_(p),
                                                                        image_transport_(n)
@@ -37,90 +38,138 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
     ROS_PARAM_LIST
 #undef LIST_ENTRY
 
-    // Print all parameters
-    ROS_INFO("K4A Parameters:");
-    params_.Print();
-
-    // Setup the K4A device
-    uint32_t k4a_device_count = k4a::device::get_installed_count();
-
-    ROS_INFO_STREAM("Found " << k4a_device_count << " sensors");
-
-    if (params_.sensor_sn != "")
+    if (params_.recording_file != "")
     {
-        ROS_INFO_STREAM("Searching for sensor with serial number: " << params_.sensor_sn);
+        ROS_INFO("Node is started in playback mode");
+        ROS_INFO_STREAM("Try to open recording file " << params_.recording_file);
+        // Open recording file
+        if (k4a_playback_open(params_.recording_file.c_str(), &k4a_playback_handle_) != K4A_RESULT_SUCCEEDED)
+        {
+            ROS_ERROR_STREAM("Failed to open recording");
+            return;
+        }
+        uint64_t recording_length = k4a_playback_get_last_timestamp_usec(k4a_playback_handle_);
+        ROS_INFO_STREAM("Successfully openend recording file. Recording is " << recording_length / 1000000 << " seconds long");
+
+        k4a_record_configuration_t record_config;
+        if (k4a_playback_get_record_configuration(k4a_playback_handle_, &record_config) != K4A_RESULT_SUCCEEDED)
+        {
+            ROS_ERROR_STREAM("Failed to get record configuration");
+            return;
+        }
+
+        // Overwrite fps param with recording configuration for a correct loop rate in the frame publisher thread
+        switch (record_config.camera_fps)
+        {
+        case K4A_FRAMES_PER_SECOND_5:
+            params_.fps = 5;
+            break;
+        case K4A_FRAMES_PER_SECOND_15:
+            params_.fps = 15;
+            break;
+        case K4A_FRAMES_PER_SECOND_30:
+            params_.fps = 30;
+            break;
+        
+        default:
+            break;
+        };
+
+        // This is necessary because at the moment there are only checks in place which use BgraPixel size
+        if (record_config.color_format != K4A_IMAGE_FORMAT_COLOR_BGRA32)
+        {
+            ROS_WARN("Disabling color and rgb_point_cloud because currently BGRA32 is only supported color format for playback");
+            params_.color_enabled = false;
+            params_.rgb_point_cloud = false;
+        }
     }
     else
     {
-        ROS_INFO("No serial number provided: picking first sensor");
-        ROS_WARN_COND(k4a_device_count > 1, "Multiple sensors connected! Picking first sensor.");
-    }
+        // Print all parameters
+        ROS_INFO("K4A Parameters:");
+        params_.Print();
 
-    for (uint32_t i = 0; i < k4a_device_count; i++)
-    {
-        k4a::device device;
-        try
-        {
-            device = k4a::device::open(i);
-        }
-        catch(exception)
-        {
-            ROS_ERROR_STREAM("Failed to open K4A device at index " << i);
-            continue;
-        }
+        // Setup the K4A device
+        uint32_t k4a_device_count = k4a::device::get_installed_count();
 
-        ROS_INFO_STREAM("K4A[" << i << "] : " << device.get_serialnum());
+        ROS_INFO_STREAM("Found " << k4a_device_count << " sensors");
 
-        // Try to match serial number
         if (params_.sensor_sn != "")
         {
-            if (device.get_serialnum() == params_.sensor_sn)
+            ROS_INFO_STREAM("Searching for sensor with serial number: " << params_.sensor_sn);
+        }
+        else
+        {
+            ROS_INFO("No serial number provided: picking first sensor");
+            ROS_WARN_COND(k4a_device_count > 1, "Multiple sensors connected! Picking first sensor.");
+        }
+
+        for (uint32_t i = 0; i < k4a_device_count; i++)
+        {
+            k4a::device device;
+            try
+            {
+                device = k4a::device::open(i);
+            }
+            catch(exception)
+            {
+                ROS_ERROR_STREAM("Failed to open K4A device at index " << i);
+                continue;
+            }
+
+            ROS_INFO_STREAM("K4A[" << i << "] : " << device.get_serialnum());
+
+            // Try to match serial number
+            if (params_.sensor_sn != "")
+            {
+                if (device.get_serialnum() == params_.sensor_sn)
+                {
+                    k4a_device_ = std::move(device);
+                    break;
+                }
+            }
+            // Pick the first device
+            else if (i == 0)
             {
                 k4a_device_ = std::move(device);
                 break;
             }
         }
-        // Pick the first device
-        else if (i == 0)
+
+        if (!k4a_device_)
         {
-            k4a_device_ = std::move(device);
-            break;
+            ROS_ERROR("Failed to open a K4A device. Cannot continue.");
+            return;
         }
+
+        ROS_INFO_STREAM("K4A Serial Number: " << k4a_device_.get_serialnum());
+
+        k4a_hardware_version_t version_info = k4a_device_.get_version();
+
+        ROS_INFO(
+            "RGB Version: %d.%d.%d",
+            version_info.rgb.major,
+            version_info.rgb.minor,
+            version_info.rgb.iteration);
+
+        ROS_INFO(
+            "Depth Version: %d.%d.%d",
+            version_info.depth.major,
+            version_info.depth.minor,
+            version_info.depth.iteration);
+
+        ROS_INFO(
+            "Audio Version: %d.%d.%d",
+            version_info.audio.major,
+            version_info.audio.minor,
+            version_info.audio.iteration);
+
+        ROS_INFO(
+            "Depth Sensor Version: %d.%d.%d",
+            version_info.depth_sensor.major,
+            version_info.depth_sensor.minor,
+            version_info.depth_sensor.iteration);
     }
-
-    if (!k4a_device_)
-    {
-        ROS_ERROR("Failed to open a K4A device. Cannot continue.");
-        return;
-    }
-
-    ROS_INFO_STREAM("K4A Serial Number: " << k4a_device_.get_serialnum());
-
-    k4a_hardware_version_t version_info = k4a_device_.get_version();
-
-    ROS_INFO(
-        "RGB Version: %d.%d.%d",
-        version_info.rgb.major,
-        version_info.rgb.minor,
-        version_info.rgb.iteration);
-
-    ROS_INFO(
-        "Depth Version: %d.%d.%d",
-        version_info.depth.major,
-        version_info.depth.minor,
-        version_info.depth.iteration);
-
-    ROS_INFO(
-        "Audio Version: %d.%d.%d",
-        version_info.audio.major,
-        version_info.audio.minor,
-        version_info.audio.iteration);
-
-    ROS_INFO(
-        "Depth Sensor Version: %d.%d.%d",
-        version_info.depth_sensor.major,
-        version_info.depth_sensor.minor,
-        version_info.depth_sensor.iteration);
     
     // Register our topics
     rgb_raw_publisher_ = image_transport_.advertise("rgb/image_raw", 1);
@@ -160,26 +209,40 @@ K4AROSDevice::~K4AROSDevice()
 
     stopCameras();
     stopImu();
+
+    if (k4a_playback_handle_)
+    {
+        k4a_playback_close(k4a_playback_handle_);
+    }
 }
 
 
 k4a_result_t K4AROSDevice::startCameras()
 {
-    k4a_device_configuration_t k4a_configuration = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-    k4a_result_t result = params_.GetDeviceConfig(&k4a_configuration);
-
-    if (result != K4A_RESULT_SUCCEEDED)
+    if (k4a_device_)
     {
-        ROS_ERROR("Failed to generate a device configuration. Not starting camera!");
-        return result;
+        k4a_device_configuration_t k4a_configuration = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+        k4a_result_t result = params_.GetDeviceConfig(&k4a_configuration);
+
+        if (result != K4A_RESULT_SUCCEEDED)
+        {
+            ROS_ERROR("Failed to generate a device configuration. Not starting camera!");
+            return result;
+        }
+
+        // Now that we have a proposed camera configuration, we can 
+        // initialize the class which will take care of device calibration information
+        calibration_data_.initialize(k4a_device_, k4a_configuration.depth_mode, k4a_configuration.color_resolution, params_);
+
+        ROS_INFO_STREAM("STARTING CAMERAS");
+        k4a_device_.start_cameras(&k4a_configuration);
     }
-
-    // Now that we have a proposed camera configuration, we can 
-    // initialize the class which will take care of device calibration information
-    calibration_data_.initialize(k4a_device_, k4a_configuration.depth_mode, k4a_configuration.color_resolution, params_);
-
-    ROS_INFO_STREAM("STARTING CAMERAS");
-    k4a_device_.start_cameras(&k4a_configuration);
+    else if (k4a_playback_handle_)
+    {
+        // initialize the class which will take care of device calibration information from the playback_handle
+        calibration_data_.initialize(k4a_playback_handle_, params_);
+    }
+    
 
     // Cannot assume the device timestamp begins increasing upon starting the cameras. 
     // If we set the time base here, depending on the machine performance, the new timestamp 
@@ -199,8 +262,11 @@ k4a_result_t K4AROSDevice::startCameras()
 
 k4a_result_t K4AROSDevice::startImu()
 {
-    ROS_INFO_STREAM("STARTING IMU");
-    k4a_device_.start_imu();
+    if (k4a_device_)
+    {
+        ROS_INFO_STREAM("STARTING IMU");
+        k4a_device_.start_imu();
+    }
 
     // Start the IMU publisher thread
     imu_publisher_thread_ = thread(&K4AROSDevice::imuPublisherThread, this);
@@ -211,16 +277,22 @@ k4a_result_t K4AROSDevice::startImu()
 
 void K4AROSDevice::stopCameras()
 {
-    // Stop the K4A SDK
-    ROS_INFO("Stopping K4A device");
-    k4a_device_.stop_cameras();
-    ROS_INFO("K4A device stopped");
+    if (k4a_device_)
+    {
+        // Stop the K4A SDK
+        ROS_INFO("Stopping K4A device");
+        k4a_device_.stop_cameras();
+        ROS_INFO("K4A device stopped");
+    }
 }
 
 
 void K4AROSDevice::stopImu()
 {
-    k4a_device_.stop_imu();
+    if (k4a_device_)
+    {
+        k4a_device_.stop_imu();
+    }
 }
 
 
@@ -663,14 +735,51 @@ void K4AROSDevice::framePublisherThread()
 
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
-        // TODO: consider appropriate capture timeout based on camera framerate
-        bool success = k4a_device_.get_capture(&capture, std::chrono::milliseconds(K4A_WAIT_INFINITE));
+        bool success = true;
 
-        if (!success)
+        if (k4a_device_)
         {
-            ROS_FATAL("Failed to poll cameras: node cannot continue.");
-            ros::requestShutdown();
-            return;
+            // TODO: consider appropriate capture timeout based on camera framerate
+            if (!k4a_device_.get_capture(&capture, std::chrono::milliseconds(K4A_WAIT_INFINITE)))
+            {
+                ROS_FATAL("Failed to poll cameras: node cannot continue.");
+                ros::requestShutdown();
+                return;
+            }
+        }
+        else if (k4a_playback_handle_)
+        {
+            k4a_capture_t capture_t;
+            k4a_stream_result_t stream_result = k4a_playback_get_next_capture(k4a_playback_handle_, &capture_t);
+
+            if (stream_result == K4A_STREAM_RESULT_EOF)
+            {
+                // rewind recording if looping is enabled
+                if (params_.recording_loop_enabled)
+                {
+                    if (k4a_playback_seek_timestamp(k4a_playback_handle_, 0, K4A_PLAYBACK_SEEK_BEGIN) != K4A_RESULT_SUCCEEDED)
+                    {
+                        ROS_FATAL("Error seeking recording to beginning. node cannot continue.");
+                        ros::requestShutdown();
+                        return;
+                    }
+                    stream_result = k4a_playback_get_next_capture(k4a_playback_handle_, &capture_t);
+                }
+                else
+                {
+                    ROS_WARN("Recording reached end of file. node cannot continue.");
+                    ros::requestShutdown();
+                    return;
+                }
+            }
+            else if (stream_result != K4A_STREAM_RESULT_SUCCEEDED)
+            {
+                ROS_FATAL("Failed to get next capture from recording file: node cannot continue.");
+                ros::requestShutdown();
+                return;
+            }
+
+            capture = k4a::capture(capture_t);
         }
 
         ImagePtr rgb_raw_frame(new Image);
@@ -854,12 +963,44 @@ void K4AROSDevice::imuPublisherThread()
 
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
-        // TODO: consider appropriate capture timeout based on camera framerate
-        bool success = k4a_device_.get_imu_sample(&sample, std::chrono::milliseconds(K4A_WAIT_INFINITE));
+        bool success = false;
+
+        if (k4a_device_)
+        {
+            // TODO: consider appropriate capture timeout based on camera framerate
+            success = k4a_device_.get_imu_sample(&sample, std::chrono::milliseconds(K4A_WAIT_INFINITE));
+            if (!success)
+            {
+                ROS_FATAL("Failed to poll IMU: node cannot continue.");
+            }
+        }
+        else if (k4a_playback_handle_)
+        {
+            k4a_stream_result_t stream_result = k4a_playback_get_next_imu_sample(k4a_playback_handle_, &sample);
+
+            if (stream_result == K4A_STREAM_RESULT_EOF) {
+                if (params_.recording_loop_enabled)
+                {
+                    if (k4a_playback_seek_timestamp(k4a_playback_handle_, 0, K4A_PLAYBACK_SEEK_BEGIN) != K4A_RESULT_SUCCEEDED)
+                    {
+                        ROS_ERROR("Error seeking recording to beginning.");
+                        success = false;
+                    }
+
+                    stream_result = k4a_playback_get_next_imu_sample(k4a_playback_handle_, &sample);
+                }
+            }
+
+            success = stream_result == K4A_STREAM_RESULT_SUCCEEDED;
+            if (!success)
+            {
+                ROS_FATAL("Failed to get next IMU sample from playback: node cannot continue.");
+            }
+        }
+        
 
         if (!success)
         {
-            ROS_FATAL("Failed to poll IMU: node cannot continue.");
             ros::requestShutdown();
             return;
         }
