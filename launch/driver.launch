@@ -19,6 +19,7 @@ Licensed under the MIT License.
   <arg name="point_cloud"       default="true" />           <!-- Generate a point cloud from depth data. Requires depth_enabled -->
   <arg name="rgb_point_cloud"   default="true" />           <!-- Colorize the point cloud using the RBG camera. Requires color_enabled and depth_enabled -->
   <arg name="required"         default="false" />          <!-- Argument which specified if the entire launch file should terminate if the node dies -->
+  <arg name="sensor_sn"         default="" />               <!-- Sensor serial number. If none provided, the first sensor will be selected -->
 
   <node pkg="azure_kinect_ros_driver" type="node" name="node" output="screen" required="$(arg required)">
     <param name="depth_enabled"     type="bool"   value="$(arg depth_enabled)" /> 
@@ -28,5 +29,6 @@ Licensed under the MIT License.
     <param name="fps"               type="int"    value="$(arg fps)" /> 
     <param name="point_cloud"       type="bool"   value="$(arg point_cloud)" /> 
     <param name="rgb_point_cloud"   type="bool"   value="$(arg rgb_point_cloud)" /> 
+    <param name="sensor_sn"         type="string" value="$(arg sensor_sn)" />
   </node>
 </launch>
