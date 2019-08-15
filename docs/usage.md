@@ -22,6 +22,7 @@ The node accepts the following parameters:
 - `rgb_point_cloud` (bool) : Defaults to `false`. If this parameter is set to `true`, the node will generate a sensor_msgs::PointCloud2 message from the depth camera data and colorize it using the color camera data. This requires that the `point_cloud` parameter be `true`, and the `color_enabled` parameter be `true`.
 - `recording_file` (string) : No default value. If this parameter contains a valid absolute path to a k4arecording file, the node will use the playback api with this file instead of opening a device.
 - `recording_loop_enabled` (bool) : Defaults to `false`. If this parameter is set to `true`, the node will rewind the recording file to the beginning after reaching the last frame. Otherwise the node will stop working after reaching the end of the recording file.
+- `body_tracking_enabled` (bool) : Defaults to `false`. If this parameter is set to `true`, the node will generate visualization_msgs::MarkerArray messages for the body tracking data. This requires that the `depth_enabled` parameter is set to `true` and an installed azure kinect body tracking sdk.
 
 #### Parameter Restrictions
 
@@ -49,6 +50,7 @@ The node emits a variety of topics into its namespace.
 - `ir/image_raw` (`sensor_msgs::Image`) : The raw infrared image from the depth camera sensor. In most depth modes, this image will be illuminated by the infrared illuminator built into the Azure Kinect DK. In `PASSIVE_IR` mode, this image will not be illuminated by the Azure Kinect DK.
 - `ir/camera_info` (`sensor_msgs::CameraInfo`) : Calibration information for the infrared camera, converted from the Azure Kinect Sensor SDK format. Since the depth camera and infrared camera are physically the same camera, this `camera_info` is a copy of the camera info published for the depth camera.
 - `imu` (`sensor_msgs::Imu`) : The intrinsics-corrected IMU sensor stream, provided by the Azure Kinect Sensor SDK. The sensor SDK automatically corrects for IMU intrinsics before sensor data is emitted.
+- `body_tracking_data` (`visualization_msgs::MarkerArray`) : Topic for receiving body tracking data. Each message contains all joints for all bodies for the most recent depth image. The markers are grouped by the [body id](https://microsoft.github.io/Azure-Kinect-Body-Tracking/release/0.9.x/structk4abt__body__t.html#a38fed6c7125f92b41165ffe2e1da9dd4) and the joints are in the same order as in the [joint enum of body tracking sdk](https://microsoft.github.io/Azure-Kinect-Body-Tracking/release/0.9.x/group__btenums.html#ga5fe6fa921525a37dec7175c91c473781). The id field of a marker is calculated by: `body_id * 100 + joint_index` where body_id is the corresponding body id from the body tracking sdk and the joint index is analogue to enum value for joints in the body tracking sdk. Subscribers can calculate the body.id by `floor(marker.id / 100)` and the joint_index by `marker.id % 100`.
 
 ## Azure Kinect Developer Kit Calibration
 

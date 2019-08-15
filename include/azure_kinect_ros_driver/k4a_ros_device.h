@@ -23,6 +23,11 @@
 #include <sensor_msgs/Temperature.h>
 #include <image_transport/image_transport.h>
 
+#if defined(K4A_BODY_TRACKING)
+#include <k4abt.hpp>
+#include <visualization_msgs/MarkerArray.h>
+#endif
+
 // Project headers
 //
 #include "azure_kinect_ros_driver/k4a_ros_device_params.h"
@@ -57,6 +62,10 @@ class K4AROSDevice
     k4a_result_t getRbgFrame(const k4a::capture &capture, sensor_msgs::ImagePtr rgb_frame, bool rectified);
 
     k4a_result_t getIrFrame(const k4a::capture &capture, sensor_msgs::ImagePtr ir_image);
+
+#if defined(K4A_BODY_TRACKING)
+    k4a_result_t getBodyMarker(const k4abt_body_t& body, visualization_msgs::MarkerPtr marker_msg, int jointType, ros::Time capture_time);
+#endif
 
   private:
     k4a_result_t renderBGRA32ToROS(sensor_msgs::ImagePtr rgb_frame, k4a::image& k4a_bgra_frame);
@@ -100,6 +109,10 @@ class K4AROSDevice
 
     ros::Publisher pointcloud_publisher_;
 
+#if defined(K4A_BODY_TRACKING)
+    ros::Publisher body_marker_publisher_;
+#endif
+
     // Parameters
     K4AROSDeviceParams params_;
 
@@ -110,6 +123,11 @@ class K4AROSDevice
     // K4A Recording
     k4a_playback_t k4a_playback_handle_;
     std::mutex k4a_playback_handle_mutex_;
+    
+#if defined(K4A_BODY_TRACKING)
+    // Body tracker
+    k4abt::tracker k4abt_tracker_;
+#endif
 
     ros::Time start_time_;
 

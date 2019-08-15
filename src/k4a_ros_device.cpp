@@ -27,8 +27,15 @@ using namespace sensor_msgs;
 using namespace image_transport;
 using namespace std;
 
+#if defined(K4A_BODY_TRACKING)
+using namespace visualization_msgs;
+#endif
+
 K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_device_(nullptr),
                                                                        k4a_playback_handle_(nullptr),
+#if defined(K4A_BODY_TRACKING)
+                                                                       k4abt_tracker_(nullptr),
+#endif
                                                                        node_(n),
                                                                        private_node_(p),
                                                                        image_transport_(n),
@@ -223,6 +230,10 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
     imu_orientation_publisher_ = node_.advertise<Imu>("imu", 200);
 
     pointcloud_publisher_ = node_.advertise<PointCloud2>("points2", 1);
+
+#if defined(K4A_BODY_TRACKING)
+    body_marker_publisher_ = node_.advertise<MarkerArray>("body_tracking_data", 1);
+#endif
 }
 
 K4AROSDevice::~K4AROSDevice()
@@ -247,16 +258,23 @@ K4AROSDevice::~K4AROSDevice()
     {
         k4a_playback_close(k4a_playback_handle_);
     }
+
+#if defined(K4A_BODY_TRACKING)
+    if (k4abt_tracker_)
+    {
+        k4abt_tracker_.shutdown();
+    }
+#endif
 }
 
 
 k4a_result_t K4AROSDevice::startCameras()
 {
+    k4a_device_configuration_t k4a_configuration = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+    k4a_result_t result = params_.GetDeviceConfig(&k4a_configuration);
+    
     if (k4a_device_)
     {
-        k4a_device_configuration_t k4a_configuration = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-        k4a_result_t result = params_.GetDeviceConfig(&k4a_configuration);
-
         if (result != K4A_RESULT_SUCCEEDED)
         {
             ROS_ERROR("Failed to generate a device configuration. Not starting camera!");
@@ -266,16 +284,28 @@ k4a_result_t K4AROSDevice::startCameras()
         // Now that we have a proposed camera configuration, we can 
         // initialize the class which will take care of device calibration information
         calibration_data_.initialize(k4a_device_, k4a_configuration.depth_mode, k4a_configuration.color_resolution, params_);
-
-        ROS_INFO_STREAM("STARTING CAMERAS");
-        k4a_device_.start_cameras(&k4a_configuration);
     }
     else if (k4a_playback_handle_)
     {
         // initialize the class which will take care of device calibration information from the playback_handle
         calibration_data_.initialize(k4a_playback_handle_, params_);
     }
+
     
+    
+#if defined(K4A_BODY_TRACKING)
+    // When calibration is initialized the body tracker can be created with the device calibration
+    if (params_.body_tracking_enabled)
+    {
+        k4abt_tracker_ = k4abt::tracker::create(calibration_data_.k4a_calibration_);
+    }
+#endif
+
+    if (k4a_device_)
+    {
+        ROS_INFO_STREAM("STARTING CAMERAS");
+        k4a_device_.start_cameras(&k4a_configuration);
+    }
 
     // Cannot assume the device timestamp begins increasing upon starting the cameras. 
     // If we set the time base here, depending on the machine performance, the new timestamp 
@@ -742,6 +772,42 @@ k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_ms
     return K4A_RESULT_SUCCEEDED;
 }
 
+#if defined(K4A_BODY_TRACKING)
+k4a_result_t K4AROSDevice::getBodyMarker(const k4abt_body_t& body, MarkerPtr marker_msg, int jointType, ros::Time capture_time)
+{
+    k4a_float3_t position = body.skeleton.joints[jointType].position;
+    k4a_quaternion_t orientation = body.skeleton.joints[jointType].orientation;
+
+    marker_msg->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
+    marker_msg->header.stamp = capture_time;
+
+    // Set the lifetime to 0.25 to prevent flickering for even 5fps configurations.
+    // New markers with the same ID will replace old markers as soon as they arrive.
+    marker_msg->lifetime = ros::Duration(0.25);
+    marker_msg->id = body.id * 100 + jointType;
+    marker_msg->type = Marker::SPHERE;
+
+    marker_msg->color.a = 1.0;
+    marker_msg->color.r = 255;
+    marker_msg->color.g = 0;
+    marker_msg->color.b = 0;
+
+    marker_msg->scale.x = 0.05;
+    marker_msg->scale.y = 0.05;
+    marker_msg->scale.z = 0.05;
+
+    marker_msg->pose.position.x = position.v[0] / 1000.0f;
+    marker_msg->pose.position.y = position.v[1] / 1000.0f;
+    marker_msg->pose.position.z = position.v[2] / 1000.0f;
+    marker_msg->pose.orientation.x = orientation.v[0];
+    marker_msg->pose.orientation.y = orientation.v[1];
+    marker_msg->pose.orientation.z = orientation.v[2];
+    marker_msg->pose.orientation.w = orientation.v[3];
+
+    return K4A_RESULT_SUCCEEDED;
+}
+#endif
+
 void K4AROSDevice::framePublisherThread()
 {
     ros::Rate loop_rate(params_.fps);
@@ -916,6 +982,51 @@ void K4AROSDevice::framePublisherThread()
                         depth_rect_camerainfo_publisher_.publish(depth_rect_camera_info);
                     }
                 }
+
+#if defined(K4A_BODY_TRACKING)
+                // Publish body markers when body tracking is enabled and a depth image is available
+                if (params_.body_tracking_enabled && body_marker_publisher_.getNumSubscribers() > 0)
+                {
+                    capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
+
+                    if (!k4abt_tracker_.enqueue_capture(capture))
+                    {
+                        ROS_ERROR("Error! Add capture to tracker process queue failed!");
+                        ros::shutdown();
+                        return;
+                    }
+                    else
+                    {
+                        k4abt::frame body_frame = k4abt_tracker_.pop_result();
+                        if (body_frame == nullptr)
+                        {
+                            ROS_ERROR_STREAM("Pop body frame result failed!");
+                            ros::shutdown();
+                            return;
+                        }
+                        else
+                        {
+                            auto num_bodies = body_frame.get_num_bodies();
+                            if (num_bodies > 0)
+                            {
+                                MarkerArrayPtr markerArrayPtr(new MarkerArray);
+                                for (size_t i = 0; i < num_bodies; ++i)
+                                {
+                                    k4abt_body_t body = body_frame.get_body(i);   
+                                    for (int j = 0; j < (int) K4ABT_JOINT_COUNT; ++j)
+                                    {
+                                        MarkerPtr markerPtr(new Marker);
+                                        getBodyMarker(body, markerPtr, j, capture_time);
+                                        markerArrayPtr->markers.push_back(*markerPtr);
+                                    }
+                                }
+
+                                body_marker_publisher_.publish(markerArrayPtr);
+                            }
+                        }
+                    }
+                }
+#endif
             }            
         }
 
