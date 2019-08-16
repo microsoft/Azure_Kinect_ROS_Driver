@@ -75,12 +75,26 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
             break;
         };
 
+        // Disable color if the recording has no color track
+        if (params_.color_enabled && !record_config.color_track_enabled)
+        {
+            ROS_WARN("Disabling color and rgb_point_cloud because recording has no color track");
+            params_.color_enabled = false;
+            params_.rgb_point_cloud = false;
+        }
         // This is necessary because at the moment there are only checks in place which use BgraPixel size
-        if (record_config.color_format != K4A_IMAGE_FORMAT_COLOR_BGRA32)
+        else if (params_.color_enabled && record_config.color_track_enabled && record_config.color_format != K4A_IMAGE_FORMAT_COLOR_BGRA32)
         {
             ROS_WARN("Disabling color and rgb_point_cloud because currently BGRA32 is only supported color format for playback");
             params_.color_enabled = false;
             params_.rgb_point_cloud = false;
+        }
+
+        // Disable depth if the recording has no depth track
+        if (params_.depth_enabled && !record_config.depth_track_enabled)
+        {
+            ROS_WARN("Disabling depth because recording has no depth track");
+            params_.depth_enabled = false;
         }
     }
     else
