@@ -713,7 +713,7 @@ void K4AROSDevice::framePublisherThread()
                 capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
                 printTimestampDebugMessage("Depth image", capture_time);
 
-                if (depth_raw_publisher_.getNumSubscribers() > 0 || depth_raw_camerainfo_publisher_.getNumSubscriber() > 0)
+                if (depth_raw_publisher_.getNumSubscribers() > 0 || depth_raw_camerainfo_publisher_.getNumSubscribers() > 0)
                 {
                     result = getDepthFrame(capture, depth_raw_frame);
             
