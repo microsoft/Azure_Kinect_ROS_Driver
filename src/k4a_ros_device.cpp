@@ -766,6 +766,7 @@ void K4AROSDevice::framePublisherThread()
         }
         else if (k4a_playback_handle_)
         {
+            std::lock_guard<std::mutex> guard(k4a_playback_handle_mutex_);
             k4a_capture_t capture_t;
             k4a_stream_result_t stream_result = k4a_playback_get_next_capture(k4a_playback_handle_, &capture_t);
 
@@ -1007,6 +1008,7 @@ void K4AROSDevice::imuPublisherThread()
             // compare signed with unsigned shouldn't cause a problem because timestamps should always be positive
             while (last_imu_time_usec_ <= last_capture_time_usec_ && !imu_stream_end_of_file_)
             {
+                std::lock_guard<std::mutex> guard(k4a_playback_handle_mutex_);
                 k4a_stream_result_t stream_result = k4a_playback_get_next_imu_sample(k4a_playback_handle_, &sample);
                 if (stream_result == K4A_STREAM_RESULT_EOF)
                 {

@@ -8,6 +8,7 @@
 //
 #include <thread>
 #include <atomic>
+#include <mutex>
 
 // Library headers
 //
@@ -108,6 +109,7 @@ class K4AROSDevice
 
     // K4A Recording
     k4a_playback_t k4a_playback_handle_;
+    std::mutex k4a_playback_handle_mutex_;
 
     ros::Time start_time_;
 
