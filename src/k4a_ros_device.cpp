@@ -31,7 +31,10 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
                                                                        k4a_playback_handle_(nullptr),
                                                                        node_(n),
                                                                        private_node_(p),
-                                                                       image_transport_(n)
+                                                                       image_transport_(n),
+                                                                       last_capture_time_usec_(0),
+                                                                       last_imu_time_usec_(0),
+                                                                       imu_stream_end_of_file_(false)
 {
     // Collect ROS parameters from the param server or from the command line
 #define LIST_ENTRY(param_variable, param_help_string, param_type, param_default_val) private_node_.param(#param_variable, params_.param_variable, param_default_val);
@@ -778,6 +781,8 @@ void K4AROSDevice::framePublisherThread()
                         return;
                     }
                     stream_result = k4a_playback_get_next_capture(k4a_playback_handle_, &capture_t);
+                    imu_stream_end_of_file_ = false;
+                    last_imu_time_usec_ = 0;
                 }
                 else
                 {
@@ -794,6 +799,7 @@ void K4AROSDevice::framePublisherThread()
             }
 
             capture = k4a::capture(capture_t);
+            last_capture_time_usec_ = getCaptureTimestamp(capture).count();
         }
 
         ImagePtr rgb_raw_frame(new Image);
@@ -977,58 +983,90 @@ void K4AROSDevice::imuPublisherThread()
 
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
-        bool success = false;
 
         if (k4a_device_)
         {
             // TODO: consider appropriate capture timeout based on camera framerate
-            success = k4a_device_.get_imu_sample(&sample, std::chrono::milliseconds(K4A_WAIT_INFINITE));
-            if (!success)
+            if (!k4a_device_.get_imu_sample(&sample, std::chrono::milliseconds(K4A_WAIT_INFINITE)))
             {
                 ROS_FATAL("Failed to poll IMU: node cannot continue.");
+                ros::requestShutdown();
+                return;
             }
+
+            ImuPtr imu_msg(new Imu);
+
+            result = getImuFrame(sample, imu_msg);
+            ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
+
+            imu_orientation_publisher_.publish(imu_msg);
         }
         else if (k4a_playback_handle_)
         {
-            k4a_stream_result_t stream_result = k4a_playback_get_next_imu_sample(k4a_playback_handle_, &sample);
-
-            if (stream_result == K4A_STREAM_RESULT_EOF) {
-                if (params_.recording_loop_enabled)
-                {
-                    if (k4a_playback_seek_timestamp(k4a_playback_handle_, 0, K4A_PLAYBACK_SEEK_BEGIN) != K4A_RESULT_SUCCEEDED)
-                    {
-                        ROS_ERROR("Error seeking recording to beginning.");
-                        success = false;
-                    }
-
-                    stream_result = k4a_playback_get_next_imu_sample(k4a_playback_handle_, &sample);
-                }
-            }
-
-            success = stream_result == K4A_STREAM_RESULT_SUCCEEDED;
-            if (!success)
+            // publish imu messages as long as the imu timestamp is less than the last capture timestamp to catch up to the cameras
+            // compare signed with unsigned shouldn't cause a problem because timestamps should always be positive
+            while (last_imu_time_usec_ <= last_capture_time_usec_ && !imu_stream_end_of_file_)
             {
-                ROS_FATAL("Failed to get next IMU sample from playback: node cannot continue.");
+                k4a_stream_result_t stream_result = k4a_playback_get_next_imu_sample(k4a_playback_handle_, &sample);
+                if (stream_result == K4A_STREAM_RESULT_EOF)
+                {
+                    imu_stream_end_of_file_ = true;
+                }
+                else if (stream_result == K4A_STREAM_RESULT_SUCCEEDED)
+                {
+                    ImuPtr imu_msg(new Imu);
+                    result = getImuFrame(sample, imu_msg);
+                    ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
+
+                    imu_orientation_publisher_.publish(imu_msg);
+
+                    last_imu_time_usec_ = sample.acc_timestamp_usec;
+                }
+                else
+                {
+                    ROS_FATAL("Failed to get next imu sample from recording. node cannot continue.");
+                    ros::requestShutdown();
+                    return;
+                }
+                
             }
         }
-        
-
-        if (!success)
-        {
-            ros::requestShutdown();
-            return;
-        }
-
-        ImuPtr imu_msg(new Imu);
-
-        result = getImuFrame(sample, imu_msg);
-        ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
-
-        imu_orientation_publisher_.publish(imu_msg);
 
         ros::spinOnce();
         loop_rate.sleep();
     }
+}
+
+std::chrono::microseconds K4AROSDevice::getCaptureTimestamp(const k4a::capture &capture)
+{
+    // Captures don't actually have timestamps, images do, so we have to look at all the images
+    // associated with the capture.  We only need an approximate timestamp for seeking, so we just
+    // return the first one we get back (we don't have to care if a capture has multiple images but
+    // the timestamps are slightly off).
+    //
+    // We check the IR capture instead of the depth capture because if the depth camera is started
+    // in passive IR mode, it only has an IR image (i.e. no depth image), but there is no mode
+    // where a capture will have a depth image but not an IR image.
+    //
+    const auto irImage = capture.get_ir_image();
+    if (irImage != nullptr)
+    {
+        return irImage.get_device_timestamp();
+    }
+
+    const auto depthImage = capture.get_depth_image();
+    if (depthImage != nullptr)
+    {
+        return depthImage.get_device_timestamp();
+    }
+
+    const auto colorImage = capture.get_color_image();
+    if (colorImage != nullptr)
+    {
+        return colorImage.get_device_timestamp();
+    }
+
+    return std::chrono::microseconds::zero();
 }
 
 // Converts a k4a_image_t timestamp to a ros::Time object
