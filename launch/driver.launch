@@ -4,9 +4,10 @@ Licensed under the MIT License.
 -->
 
 <launch>
+  <arg name="tf_prefix"         default="" />               <!-- Prefix added to tf frame IDs. It typically contains a trailing '_' unless empty. -->
 
   <param name="robot_description"
-    textfile="$(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf" />
+    command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf.xacro tf_prefix:=$(arg tf_prefix)" />
 
   <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
   <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
@@ -30,5 +31,6 @@ Licensed under the MIT License.
     <param name="point_cloud"       type="bool"   value="$(arg point_cloud)" /> 
     <param name="rgb_point_cloud"   type="bool"   value="$(arg rgb_point_cloud)" /> 
     <param name="sensor_sn"         type="string" value="$(arg sensor_sn)" />
+    <param name="tf_prefix"         type="string" value="$(arg tf_prefix)" />
   </node>
 </launch>

@@ -6,7 +6,7 @@ Licensed under the MIT License.
 <launch>
 
   <param name="robot_description"
-      textfile="$(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf" />
+    command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf.xacro" />
 
   <!-- Start the K4A sensor driver -->
   <group ns="k4a" >

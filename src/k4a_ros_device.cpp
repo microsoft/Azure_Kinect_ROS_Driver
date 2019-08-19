@@ -409,7 +409,7 @@ k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_
         return K4A_RESULT_FAILED;
     }
 
-    point_cloud->header.frame_id = calibration_data_.rgb_camera_frame_;
+    point_cloud->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
     point_cloud->header.stamp = timestampToROS(k4a_depth_frame.get_device_timestamp());
     printTimestampDebugMessage("RGB point cloud", point_cloud->header.stamp);
     point_cloud->height = k4a_bgra_frame.get_height_pixels();
@@ -524,7 +524,7 @@ k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture &capture, sensor_msg
         return K4A_RESULT_FAILED;
     }
 
-    point_cloud->header.frame_id = calibration_data_.depth_camera_frame_;
+    point_cloud->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
     point_cloud->header.stamp = timestampToROS(k4a_depth_frame.get_device_timestamp());
     printTimestampDebugMessage("Point cloud", point_cloud->header.stamp);
 
@@ -603,7 +603,7 @@ k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture &capture, sensor_msg
 
 k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_msgs::ImuPtr imu_msg)
 {
-    imu_msg->header.frame_id = calibration_data_.imu_frame_;
+    imu_msg->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.imu_frame_;
     imu_msg->header.stamp = timestampToROS(sample.acc_timestamp_usec);
     printTimestampDebugMessage("IMU", imu_msg->header.stamp);
 
@@ -701,7 +701,7 @@ void K4AROSDevice::framePublisherThread()
                 // Re-sychronize the timestamps with the capture timestamp
                 ir_raw_camera_info.header.stamp = capture_time;
                 ir_raw_frame->header.stamp = capture_time;
-                ir_raw_frame->header.frame_id = calibration_data_.depth_camera_frame_;
+                ir_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
 
                 ir_raw_publisher_.publish(ir_raw_frame);
                 ir_raw_camerainfo_publisher_.publish(ir_raw_camera_info);
@@ -727,7 +727,7 @@ void K4AROSDevice::framePublisherThread()
                     // Re-sychronize the timestamps with the capture timestamp
                     depth_raw_camera_info.header.stamp = capture_time;
                     depth_raw_frame->header.stamp = capture_time;
-                    depth_raw_frame->header.frame_id = calibration_data_.depth_camera_frame_;
+                    depth_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
 
                     depth_raw_publisher_.publish(depth_raw_frame);
                     depth_raw_camerainfo_publisher_.publish(depth_raw_camera_info);
@@ -746,7 +746,7 @@ void K4AROSDevice::framePublisherThread()
                     }
 
                     depth_rect_frame->header.stamp = capture_time;
-                    depth_rect_frame->header.frame_id = calibration_data_.rgb_camera_frame_;
+                    depth_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
                     depth_rect_publisher_.publish(depth_rect_frame);
 
                     // Re-synchronize the header timestamps since we cache the camera calibration message
@@ -773,7 +773,7 @@ void K4AROSDevice::framePublisherThread()
                 }
 
                 rgb_raw_frame->header.stamp =  capture_time;
-                rgb_raw_frame->header.frame_id = calibration_data_.rgb_camera_frame_;
+                rgb_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
                 rgb_raw_publisher_.publish(rgb_raw_frame);
 
                 // Re-synchronize the header timestamps since we cache the camera calibration message
@@ -797,7 +797,7 @@ void K4AROSDevice::framePublisherThread()
                 }
 
                 rgb_rect_frame->header.stamp = capture_time;
-                rgb_rect_frame->header.frame_id = calibration_data_.depth_camera_frame_;
+                rgb_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
                 rgb_rect_publisher_.publish(rgb_rect_frame);
 
                 // Re-synchronize the header timestamps since we cache the camera calibration message

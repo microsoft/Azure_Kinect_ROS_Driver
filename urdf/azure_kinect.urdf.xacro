@@ -3,7 +3,9 @@
  Copyright (c) Microsoft Corporation. All rights reserved.
  Licensed under the MIT License.
  -->
-<robot name="azure-kinect">
+
+<robot name="azure-kinect" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:arg name="tf_prefix" default=""/>
   <material name="black">
     <color rgba="0. 0. 0. 1" />
   </material>
@@ -17,7 +19,7 @@
     <color rgba="0.9 0.9 0.9 1" />
   </material>
 
-  <link name="camera_body">
+  <link name="$(arg tf_prefix)camera_body">
     <visual>
       <origin xyz="0. 0. 0." />
       <geometry>
@@ -27,7 +29,7 @@
     </visual>
   </link>
 
-  <link name="camera_base">
+  <link name="$(arg tf_prefix)camera_base">
     <visual>
       <origin xyz="-0.013 0. 0." />
       <geometry>
@@ -37,7 +39,7 @@
     </visual>
   </link>
 
-  <link name="camera_visor">
+  <link name="$(arg tf_prefix)camera_visor">
     <visual>
       <origin xyz="-0.0128 0. 0." />
       <geometry>
@@ -47,15 +49,15 @@
     </visual>
   </link>
 
-  <joint name="camera_base_to_body" type="fixed">
-    <parent link="camera_base" />
-    <child link="camera_body" />
+  <joint name="$(arg tf_prefix)camera_base_to_body" type="fixed">
+    <parent link="$(arg tf_prefix)camera_base" />
+    <child link="$(arg tf_prefix)camera_body" />
     <origin xyz="-0.0757 0. 0.008" rpy="0. 0. 0." />
   </joint>
 
-  <joint name="camera_base_to_visor" type="fixed">
-    <parent link="camera_base" />
-    <child link="camera_visor" />
+  <joint name="$(arg tf_prefix)camera_base_to_visor" type="fixed">
+    <parent link="$(arg tf_prefix)camera_base" />
+    <child link="$(arg tf_prefix)camera_visor" />
     <origin xyz="0. 0. 0." rpy="0. 0. 0." />
   </joint>
 </robot>
