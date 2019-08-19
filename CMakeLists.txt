@@ -1,15 +1,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.10)
 project(azure_kinect_ros_driver LANGUAGES C CXX)
-
-
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-  add_compile_options(/std:c++latest)
-else()
-  add_compile_options(-std=c++11)
-endif()
 
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
@@ -60,12 +53,16 @@ add_executable(${PROJECT_NAME}_node
   src/k4a_calibration_transform_data.cpp
   )
 
+target_compile_features(${PROJECT_NAME}_node PUBLIC cxx_std_11)
+
 add_library(${PROJECT_NAME}_nodelet
   src/k4a_ros_bridge_nodelet.cpp
   src/k4a_ros_device.cpp
   src/k4a_ros_device_params.cpp
   src/k4a_calibration_transform_data.cpp
   )
+
+  target_compile_features(${PROJECT_NAME}_nodelet PUBLIC cxx_std_11)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -164,30 +161,45 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
   set(K4A_INSTALL_NEEDED true)
 
   # Try to find K4A installed to Program Files
-  find_package(azure-kinect-sensor-sdk 1.1.0 EXACT QUIET PATHS "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+  find_package(k4a 1.1.0 QUIET REQUIRED)
 
-  if (${azure-kinect-sensor-sdk_FOUND})
-    message("K4A SDK found in Program Files!")
+  if (${k4a_FOUND})
+    message(STATUS "K4A SDK found in Program Files!")
 
-    list(APPEND K4A_LIBS ${azure-kinect-sensor-sdk_LIBRARIES})
-    list(APPEND K4A_BINS ${azure-kinect-sensor-sdk_BINARIES})
-    set(K4A_INCLUDE_DIRS ${azure-kinect-sensor-sdk_INCLUDE_DIRS})
+    set(_k4a_libs k4a::k4a;k4a::k4arecord)
+    
+    foreach(_lib ${_k4a_libs})
+      set(_dll "PROPERTY-NOTFOUND")
+      get_property(_dll TARGET ${_lib} PROPERTY IMPORTED_LOCATION)
+      message(STATUS "IMPORTED_LOCATION: ${_dll}")
 
-    # Create a list of all K4A DLLs
-    list(APPEND K4A_DLLS ${azure-kinect-sensor-sdk_LIBRARIES})
-    list(APPEND K4A_DLLS ${azure-kinect-sensor-sdk_BINARIES})
-
-    foreach(DLL ${K4A_DLLS})
-      set(prop "PROPERTY-NOTFOUND")
-      get_property(prop TARGET ${DLL} PROPERTY IMPORTED_LOCATION)
-      message(STATUS "IMPORTED_LOCATION: ${prop}")
-
-      if((NOT prop) OR (prop EQUAL "PROPERTY-NOTFOUND"))
-        message(FATAL_ERROR "Target '${DLL}' in package azure-kinect-sensor-sdk does not contain an IMPORTED_LOCATION property")
+      if((NOT _dll) OR (_dll EQUAL "PROPERTY-NOTFOUND"))
+        message(FATAL_ERROR "Target '${_lib}' in package k4a does not contain an IMPORTED_LOCATION property")
       endif()
 
-      list(APPEND K4A_DLL_FILES ${prop})
-    endforeach(DLL)
+      if(NOT EXISTS ${_dll})
+        message(FATAL_ERROR "Target '${_lib}' in package k4a requires ${_dll}, which was not found")
+      endif()
+
+      # Check and see if any of these targets depend on other DLLs (for example, depthengine or libusb)
+      set(_dependent_dlls "PROPERTY-NOTFOUND")
+      get_property(_dependent_dlls TARGET ${_lib} PROPERTY IMPORTED_LINK_DEPENDENT_LIBRARIES)
+      message(STATUS "IMPORTED_LINK_DEPENDENT_LIBRARIES: ${_dependent_dlls}")
+
+      if((NOT _dependent_dlls) OR (_dependent_dlls EQUAL "PROPERTY-NOTFOUND"))
+        message(WARNING "Target '${_lib}' in package k4a does not contain an IMPORTED_LINK_DEPENDENT_LIBRARIES property")
+      else()
+        foreach(_dependent_dll ${_dependent_dlls})
+          if(NOT EXISTS ${_dependent_dll})
+            message(FATAL_ERROR "Target '${_lib}' in package k4a requires ${_dependent_dll}, which was not found")
+          endif()
+          list(APPEND K4A_DLL_FILES ${_dependent_dll})
+        endforeach()
+      endif()
+
+      list(APPEND K4A_DLL_FILES ${_dll})
+    endforeach()
+
   else()
     # Try to find K4A installed to ./ext/sdk
     find_package(k4a 1.1.0 QUIET PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdk")
@@ -202,7 +214,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
 endif()
 
 message("K4A Include Dirs: ${K4A_INCLUDE_DIRS}")
-message("K4A Libs: ${K4A_LIBS}")
+message("K4A Libs: ${_k4a_libs}")
 message("K4A DLLs: ${K4A_DLL_FILES}")
 message("K4A Install Needed: ${K4A_INSTALL_NEEDED}")
 
@@ -237,17 +249,16 @@ endif()
 
 include_directories(
   ${catkin_INCLUDE_DIRS}
-  ${K4A_INCLUDE_DIRS}
   "include"
 )
 
 target_link_libraries(${PROJECT_NAME}_node
-  ${K4A_LIBS}
+  ${_k4a_libs}
   ${catkin_LIBRARIES}
 )
 
 target_link_libraries(${PROJECT_NAME}_nodelet
-  ${K4A_LIBS}
+  ${_k4a_libs}
   ${catkin_LIBRARIES}
 )
 
