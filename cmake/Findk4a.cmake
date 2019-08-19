@@ -47,6 +47,8 @@ find_package(k4arecord ${FIND_VERSION} ${_exact_arg} ${_quiet_arg} NO_MODULE NO_
 if(${k4a_FOUND} AND ${k4arecord_FOUND})
     set(K4A_INSTALL_NEEDED TRUE)
 
+    quiet_message(STATUS "Found an Azure Kinect SDK in ./ext/sdk")
+
     # Add the depth engine as an IMPORTED_LINK_DEPENDENT_LIBRARIES to ensure it gets copied
     unset(_depthengine_bin)
     file(GLOB_RECURSE _depthengine_bin 
@@ -60,6 +62,7 @@ if(${k4a_FOUND} AND ${k4arecord_FOUND})
 
         # If we found a valid SDK in ext/sdk, this always overrides anything we might find in the system path.
         # k4a_FOUND should be set by find_package(k4a), so return now.
+        quiet_message(STATUS "Accepted SDK in ./ext/sdk. System paths will not be searched")
         return()
     endif()
 endif()
