@@ -1,39 +1,3 @@
-#CMAKE_FIND_PACKAGE_NAME
-#the <package> name which is searched for
-#
-#<package>_FIND_REQUIRED
-#true if REQUIRED option was given
-#
-#<package>_FIND_QUIETLY
-#true if QUIET option was given
-#
-#<package>_FIND_VERSION
-#full requested version string
-#
-#<package>_FIND_VERSION_MAJOR
-#major version if requested, else 0
-#
-#<package>_FIND_VERSION_MINOR
-#minor version if requested, else 0
-#
-#<package>_FIND_VERSION_PATCH
-#patch version if requested, else 0
-#
-#<package>_FIND_VERSION_TWEAK
-#tweak version if requested, else 0
-#
-#<package>_FIND_VERSION_COUNT
-#number of version components, 0 to 4
-#
-#<package>_FIND_VERSION_EXACT
-#true if EXACT option was given
-#
-#<package>_FIND_COMPONENTS
-#list of requested components
-#
-#<package>_FIND_REQUIRED_<c>
-#true if component <c> is required, false if component <c> is optional
-
 function(print_variable x)
     message(STATUS "${x}: ${${x}}")
 endfunction()
@@ -52,6 +16,7 @@ set(FIND_VERSION_MAJOR ${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION_MAJOR})
 set(FIND_VERSION_MINOR ${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION_MINOR})
 set(FIND_VERSION_PATCH ${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION_PATCH})
 set(FIND_QUIETLY ${${CMAKE_FIND_PACKAGE_NAME}_FIND_QUIETLY})
+set(FIND_REQUIRED ${${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED})
 
 set(RELATIVE_WIN_LIB_DIR "sdk/windows-desktop/amd64/release/lib")
 set(RELATIVE_WIN_BIN_DIR "sdk/windows-desktop/amd64/release/bin")
@@ -62,16 +27,48 @@ set(RELATIVE_WIN_K4A_DLL_PATH "${RELATIVE_WIN_BIN_DIR}/k4a.dll")
 set(RELATIVE_WIN_K4ARECORD_LIB_PATH "${RELATIVE_WIN_LIB_DIR}/k4arecord.lib")
 set(RELATIVE_WIN_K4ARECORD_DLL_PATH "${RELATIVE_WIN_BIN_DIR}/k4arecord.dll")
 
-set(DEPTHENGINE_GLOB "depthengine_*.dll")
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    set(DEPTHENGINE_GLOB "depthengine_*.dll")
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    set(DEPTHENGINE_GLOB "libdepthengine.so.*")
+else()
+    message(FATAL_ERROR "Unknown CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+endif()
 
-## K4A versions have exactly 3 components: major.minor.rev
+# K4A versions have exactly 3 components: major.minor.rev
 if (NOT (FIND_VERSION_COUNT EQUAL 3))
     message(FATAL_ERROR "Error: Azure Kinect SDK Version numbers contain exactly 3 components (major.minor.rev). Requested number of components: ${FIND_VERSION_COUNT}")
 endif()
 
-## On Linux, we might find k4a installed to the system path. Failing that, we can search the SDK folder.
+# First, check the ext/sdk folder. Always do this first so that we can do platform-dependent work afterwards
+find_package(k4a ${FIND_VERSION} ${_exact_arg} ${_quiet_arg} NO_MODULE NO_DEFAULT_PATH PATHS "${PROJECT_SOURCE_DIR}/ext/sdk")
+find_package(k4arecord ${FIND_VERSION} ${_exact_arg} ${_quiet_arg} NO_MODULE NO_DEFAULT_PATH PATHS "${PROJECT_SOURCE_DIR}/ext/sdk")
+
+if(${k4a_FOUND} AND ${k4arecord_FOUND})
+    set(K4A_INSTALL_NEEDED TRUE)
+
+    # Add the depth engine as an IMPORTED_LINK_DEPENDENT_LIBRARIES to ensure it gets copied
+    unset(_depthengine_bin)
+    file(GLOB_RECURSE _depthengine_bin 
+        LIST_DIRECTORIES FALSE 
+        "${PROJECT_SOURCE_DIR}/ext/sdk/*${DEPTHENGINE_GLOB}")
+
+    if(NOT _depthengine_bin)
+        quiet_message(WARNING "Could not find depth engine in ./ext/sdk! Rejecting ext/sdk")
+    else()
+        set_property(TARGET k4a PROPERTY IMPORTED_LINK_DEPENDENT_LIBRARIES "${_depthengine_bin}")
+
+        # If we found a valid SDK in ext/sdk, this always overrides anything we might find in the system path.
+        # k4a_FOUND should be set by find_package(k4a), so return now.
+        return()
+    endif()
+endif()
+
+# On Linux, we might find k4a installed to the system path. Failing that, we can search the ext/sdk folder.
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    ## TODO: Linux development
+    
+    set(K4A_INSTALL_NEEDED FALSE)
+
     set(_exact_arg )
     if (FIND_VERSION_EXACT)
         set(_exact_arg EXACT)
@@ -82,10 +79,20 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
         set(_quiet_arg QUIET)
     endif()
 
-    find_package(k4a ${FIND_VERSION} ${_exact_arg} ${_quiet_arg})
+    set(_required_arg )
+    if (FIND_REQUIRED)
+        set(_required_arg REQUIRED)
+    endif()
 
-# On Windows, we will have to find K4A installed in Program Files.
+    # Linux is much easier: just check if k4a is installed to the system path
+    find_package(k4a ${FIND_VERSION} ${_exact_arg} ${_quiet_arg} ${_required_arg} NO_MODULE)
+    find_package(k4arecord ${FIND_VERSION} ${_exact_arg} ${_quiet_arg} ${_required_arg} NO_MODULE)
+
+# On Windows, we will have to find K4A installed in Program Files. Failing that, we can search the ext/sdk folder.
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+    
+    # Windows always needs installation
+    set(K4A_INSTALL_NEEDED TRUE)
 
     # Get a list of SDK's installed in Program Files
     file(GLOB _sdk_dirs "C:/Program Files/Azure Kinect SDK*")
@@ -202,7 +209,6 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
 
     endforeach()
     
-    # TODO: check ext/sdk first?
     if (_best_sdk_version VERSION_EQUAL "0.0.0")
 
         set(_message_type WARNING)

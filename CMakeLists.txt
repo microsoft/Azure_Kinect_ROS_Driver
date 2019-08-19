@@ -62,7 +62,7 @@ add_library(${PROJECT_NAME}_nodelet
   src/k4a_calibration_transform_data.cpp
   )
 
-  target_compile_features(${PROJECT_NAME}_nodelet PUBLIC cxx_std_11)
+target_compile_features(${PROJECT_NAME}_nodelet PUBLIC cxx_std_11)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -74,51 +74,6 @@ set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX ""
 #### AZURE KINECT SDK ######
 ############################
 
-macro(process_ext_sdk)
-  message(STATUS "K4A SDK found in ext/sdk!")
-  message(STATUS "!! Not searching for SDK in system path !!")
-
-  # mark that the K4A SDK will need to be copied to the output binary folder
-  # this is needed even on Linux if the SDK is not installed to the system path
-  set(K4A_INSTALL_NEEDED true)
-
-  get_target_property(K4A_INCLUDE_DIRS k4a::k4a INTERFACE_INCLUDE_DIRECTORIES)
-  get_target_property(K4A_CONFIGS k4a::k4a IMPORTED_CONFIGURATIONS)
-  message("Configs: ${K4A_CONFIGS}")
-
-  # TODO: if we find more than one configuration, we should fail
-  # TODO: potentially clean this logic up
-  foreach(imported_config ${K4A_CONFIGS})
-    if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-      get_target_property(K4A_CONFIG_LIBS k4a::k4a IMPORTED_IMPLIB_${imported_config})
-      get_target_property(K4A_CONFIG_DLLS k4a::k4a IMPORTED_LOCATION_${imported_config})
-      list(APPEND K4A_LIBS ${K4A_CONFIG_LIBS})
-      list(APPEND K4A_DLL_FILES ${K4A_CONFIG_DLLS})
-    elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-      get_target_property(K4A_CONFIG_LIBS k4a::k4a IMPORTED_LOCATION_${imported_config})
-      get_target_property(K4A_CONFIG_DLLS k4a::k4a IMPORTED_LOCATION_${imported_config})
-      list(APPEND K4A_LIBS ${K4A_CONFIG_LIBS})
-      list(APPEND K4A_DLL_FILES ${K4A_CONFIG_DLLS})
-    endif()
-  endforeach()
-
-  if(DEFINED DEPTHENGINE_DLL)
-    ## Find the depth engine DLL
-    file(GLOB_RECURSE DEPTHENGINE_DLL_FILE
-      "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdk/*/${DEPTHENGINE_DLL}" )
-    list(APPEND K4A_DLL_FILES ${DEPTHENGINE_DLL_FILE})
-  endif()
-endmacro()
-
-# Define the names of some files that we are going to try and find
-if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-  set(DEPTHENGINE_DLL "depthengine_1_0.dll")
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-  set(DEPTHENGINE_DLL "libdepthengine.so.1.0")
-else()
-  message(FATAL_ERROR "Platform ${CMAKE_SYSTEM_NAME} is not supported")
-endif()
-
 message("Finding K4A SDK binaries")
 
 # Disable cached locations for K4A SDK binaries.
@@ -129,119 +84,12 @@ message("Finding K4A SDK binaries")
 # differently (one needs install, one doesn't) we must disable the cache
 # so that find_package(k4a) will fail in all cases if not installed via the .deb.
 unset(k4a_DIR CACHE)
-unset(azure-kinect-sensor-sdk_DIR CACHE)
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-  message("Linux mode: Searching for K4A in system path and ./ext/sdk")
+# Force running the Findk4a.cmake module
+find_package(k4a 1.1.0 QUIET MODULE REQUIRED)
+set(K4A_LIBS k4a::k4a;k4a::k4arecord)
 
-  # Test if we can find the k4a library in the system path
-  find_package(k4a 1.1.0 QUIET)
-
-  if (${k4a_FOUND})
-    message("K4A SDK found in system libraries!")
-    # For system libraries on linux, we can just append the target name (k4a::k4a)
-    # to what will be passed into target_link_libraries()
-    list(APPEND K4A_LIBS k4a::k4a)
-  else()
-    message("K4A SDK not found in system libraries. Searching ./ext/sdk...")
-    find_package(k4a 1.1.0 PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdk")
-
-    if(${k4a_FOUND})
-      set(K4A_INSTALL_NEEDED true)
-      message("K4A SDK found in ./ext/sdk!")
-      process_ext_sdk()
-    else()
-      message(FATAL_ERROR "K4A SDK not found in system libraries or ./ext/sdk. Please install the Azure Kinect SDK.")
-    endif()
-
-  endif()
-
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-  # Windows will always need K4A install for all targets
-  set(K4A_INSTALL_NEEDED true)
-
-  # Try to find K4A installed to Program Files
-  find_package(k4a 1.1.0 QUIET REQUIRED)
-
-  if (${k4a_FOUND})
-    message(STATUS "K4A SDK found in Program Files!")
-
-    set(_k4a_libs k4a::k4a;k4a::k4arecord)
-    
-    foreach(_lib ${_k4a_libs})
-      set(_dll "PROPERTY-NOTFOUND")
-      get_property(_dll TARGET ${_lib} PROPERTY IMPORTED_LOCATION)
-      message(STATUS "IMPORTED_LOCATION: ${_dll}")
-
-      if((NOT _dll) OR (_dll EQUAL "PROPERTY-NOTFOUND"))
-        message(FATAL_ERROR "Target '${_lib}' in package k4a does not contain an IMPORTED_LOCATION property")
-      endif()
-
-      if(NOT EXISTS ${_dll})
-        message(FATAL_ERROR "Target '${_lib}' in package k4a requires ${_dll}, which was not found")
-      endif()
-
-      # Check and see if any of these targets depend on other DLLs (for example, depthengine or libusb)
-      set(_dependent_dlls "PROPERTY-NOTFOUND")
-      get_property(_dependent_dlls TARGET ${_lib} PROPERTY IMPORTED_LINK_DEPENDENT_LIBRARIES)
-      message(STATUS "IMPORTED_LINK_DEPENDENT_LIBRARIES: ${_dependent_dlls}")
-
-      if((NOT _dependent_dlls) OR (_dependent_dlls EQUAL "PROPERTY-NOTFOUND"))
-        message(WARNING "Target '${_lib}' in package k4a does not contain an IMPORTED_LINK_DEPENDENT_LIBRARIES property")
-      else()
-        foreach(_dependent_dll ${_dependent_dlls})
-          if(NOT EXISTS ${_dependent_dll})
-            message(FATAL_ERROR "Target '${_lib}' in package k4a requires ${_dependent_dll}, which was not found")
-          endif()
-          list(APPEND K4A_DLL_FILES ${_dependent_dll})
-        endforeach()
-      endif()
-
-      list(APPEND K4A_DLL_FILES ${_dll})
-    endforeach()
-
-  else()
-    # Try to find K4A installed to ./ext/sdk
-    find_package(k4a 1.1.0 QUIET PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ext/sdk")
-
-    if (${k4a_FOUND})
-      message("K4A SDK found in ./ext/sdk!")
-      process_ext_sdk()
-    else()
-      message(FATAL_ERROR "K4A SDK not found in Program Files or ./ext/sdk. Please install the Azure Kinect SDK.")
-    endif()
-  endif()  
-endif()
-
-message("K4A Include Dirs: ${K4A_INCLUDE_DIRS}")
-message("K4A Libs: ${_k4a_libs}")
-message("K4A DLLs: ${K4A_DLL_FILES}")
-message("K4A Install Needed: ${K4A_INSTALL_NEEDED}")
-
-if (${K4A_INSTALL_NEEDED})
-  # Tell cmake that we need to reconfigure if any of the DLL files change
-  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${K4A_DLL_FILES})
-
-  # We need to copy the DLLs into the CATKIN_PACKAGE_LIB_DESTINATION so
-  # the node executable can find them on launch, and CATKIN_PACKAGE_BIN_DESTINATION
-  # so the nodelet can find them on launch
-  set(DLL_COPY_DIRECTORY "${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION};${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}")
-
-  foreach(DIRECTORY ${DLL_COPY_DIRECTORY})
-    file(MAKE_DIRECTORY "${DIRECTORY}")
-  endforeach(DIRECTORY)
-
-  foreach(DLL ${K4A_DLL_FILES})
-    foreach(DIRECTORY ${DLL_COPY_DIRECTORY})
-      file(COPY "${DLL}" DESTINATION "${DIRECTORY}")
-      get_filename_component(DLL_NAME ${DLL} NAME)
-      message(STATUS "Copied dll from ${DLL_NAME} to ${DIRECTORY}")
-      # Tell cmake that we need to clean up these DLLs on a "make clean"
-      set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES "${DIRECTORY}/${DLL_NAME}")
-    endforeach(DIRECTORY)
-  endforeach(DLL)
-  
-endif()
+include(Installk4a)
 
 ##################################
 ###### END AZURE KINECT SDK ######
@@ -253,12 +101,12 @@ include_directories(
 )
 
 target_link_libraries(${PROJECT_NAME}_node
-  ${_k4a_libs}
+  ${K4A_LIBS}
   ${catkin_LIBRARIES}
 )
 
 target_link_libraries(${PROJECT_NAME}_nodelet
-  ${_k4a_libs}
+  ${K4A_LIBS}
   ${catkin_LIBRARIES}
 )
 
@@ -282,14 +130,3 @@ install(
   launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
-
-## Run a custom install script for the K4A components
-## Running the two "CODE" blocks populates the cmake_install.cmake script with the information
-## about which DLLs to install, and where to install them.
-## We then run the more complex script to actually perform the installation.
-if (${K4A_INSTALL_NEEDED})
-  message("Installing K4A SDK to binary output folder")
-  install(CODE "set(K4A_DLL_FILES \"${K4A_DLL_FILES}\")")
-  install(CODE "set(DLL_COPY_DIRECTORY \"${CMAKE_INSTALL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}\")")
-  install(SCRIPT "./cmake/azure-kinect-sensor-sdk-install.cmake")
-endif()
