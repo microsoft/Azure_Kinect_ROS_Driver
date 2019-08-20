@@ -38,7 +38,7 @@
     LIST_ENTRY(rgb_point_cloud, "Add RGB camera data to the point cloud. Requires point_cloud=true and color_enabled=true", bool, false) \
     LIST_ENTRY(tf_prefix, "The prefix prepended to tf frame ID's", std::string, std::string()) \
     LIST_ENTRY(recording_file, "Path to a recording file to open instead of opening a device", std::string, std::string("")) \
-    LIST_ENTRY(recording_loop_enabled, "True if the recording should be rewinded at EOF", bool, false) \
+    LIST_ENTRY(recording_loop_enabled, "True if the recording should be rewound at EOF", bool, false) \
 
 class K4AROSDeviceParams
 {

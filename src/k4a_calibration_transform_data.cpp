@@ -7,6 +7,7 @@
 
 // System headers
 //
+#include <stdexcept>
 
 // Library headers
 //
@@ -32,8 +33,7 @@ void K4ACalibrationTransformData::initialize(const k4a_playback_t &k4a_playback_
 {
     if (k4a_playback_get_calibration(k4a_playback_handle, &k4a_calibration_) != K4A_RESULT_SUCCEEDED)
     {
-        ROS_ERROR("Failed to get playback calibration!");
-        return;
+        throw std::runtime_error("Failed to get playback calibration!");
     }
     initialize(params);
 }

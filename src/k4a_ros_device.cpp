@@ -64,18 +64,18 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
         // Overwrite fps param with recording configuration for a correct loop rate in the frame publisher thread
         switch (record_config.camera_fps)
         {
-        case K4A_FRAMES_PER_SECOND_5:
-            params_.fps = 5;
-            break;
-        case K4A_FRAMES_PER_SECOND_15:
-            params_.fps = 15;
-            break;
-        case K4A_FRAMES_PER_SECOND_30:
-            params_.fps = 30;
-            break;
-        
-        default:
-            break;
+            case K4A_FRAMES_PER_SECOND_5:
+                params_.fps = 5;
+                break;
+            case K4A_FRAMES_PER_SECOND_15:
+                params_.fps = 15;
+                break;
+            case K4A_FRAMES_PER_SECOND_30:
+                params_.fps = 30;
+                break;
+            
+            default:
+                break;
         };
 
         // Disable color if the recording has no color track
@@ -94,10 +94,23 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
         }
 
         // Disable depth if the recording has no depth track
-        if (params_.depth_enabled && !record_config.depth_track_enabled)
+        if (!record_config.depth_track_enabled)
         {
-            ROS_WARN("Disabling depth because recording has no depth track");
-            params_.depth_enabled = false;
+            if (params_.depth_enabled)
+            {
+                ROS_WARN("Disabling depth because recording has no depth track");
+                params_.depth_enabled = false;
+            }
+            if (params_.point_cloud)
+            {
+                ROS_WARN("Disabling point cloud because recording has no depth track");
+                params_.point_cloud = false;
+            }
+            if (params_.rgb_point_cloud)
+            {
+                ROS_WARN("Disabling rgb point cloud because recording has no depth track");
+                params_.rgb_point_cloud = false;
+            }
         }
     }
     else
@@ -767,8 +780,8 @@ void K4AROSDevice::framePublisherThread()
         else if (k4a_playback_handle_)
         {
             std::lock_guard<std::mutex> guard(k4a_playback_handle_mutex_);
-            k4a_capture_t capture_t;
-            k4a_stream_result_t stream_result = k4a_playback_get_next_capture(k4a_playback_handle_, &capture_t);
+            k4a_capture_t capture_temp;
+            k4a_stream_result_t stream_result = k4a_playback_get_next_capture(k4a_playback_handle_, &capture_temp);
 
             if (stream_result == K4A_STREAM_RESULT_EOF)
             {
@@ -781,13 +794,13 @@ void K4AROSDevice::framePublisherThread()
                         ros::requestShutdown();
                         return;
                     }
-                    stream_result = k4a_playback_get_next_capture(k4a_playback_handle_, &capture_t);
+                    stream_result = k4a_playback_get_next_capture(k4a_playback_handle_, &capture_temp);
                     imu_stream_end_of_file_ = false;
                     last_imu_time_usec_ = 0;
                 }
                 else
                 {
-                    ROS_WARN("Recording reached end of file. node cannot continue.");
+                    ROS_INFO("Recording reached end of file. node cannot continue.");
                     ros::requestShutdown();
                     return;
                 }
@@ -799,7 +812,7 @@ void K4AROSDevice::framePublisherThread()
                 return;
             }
 
-            capture = k4a::capture(capture_t);
+            capture = k4a::capture(capture_temp);
             last_capture_time_usec_ = getCaptureTimestamp(capture).count();
         }
 
@@ -1042,9 +1055,7 @@ void K4AROSDevice::imuPublisherThread()
 std::chrono::microseconds K4AROSDevice::getCaptureTimestamp(const k4a::capture &capture)
 {
     // Captures don't actually have timestamps, images do, so we have to look at all the images
-    // associated with the capture.  We only need an approximate timestamp for seeking, so we just
-    // return the first one we get back (we don't have to care if a capture has multiple images but
-    // the timestamps are slightly off).
+    // associated with the capture.  We just return the first one we get back.
     //
     // We check the IR capture instead of the depth capture because if the depth camera is started
     // in passive IR mode, it only has an IR image (i.e. no depth image), but there is no mode
@@ -1054,12 +1065,6 @@ std::chrono::microseconds K4AROSDevice::getCaptureTimestamp(const k4a::capture &
     if (irImage != nullptr)
     {
         return irImage.get_device_timestamp();
-    }
-
-    const auto depthImage = capture.get_depth_image();
-    if (depthImage != nullptr)
-    {
-        return depthImage.get_device_timestamp();
     }
 
     const auto colorImage = capture.get_color_image();

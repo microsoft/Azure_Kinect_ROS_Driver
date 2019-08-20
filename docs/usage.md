@@ -20,7 +20,7 @@ The node accepts the following parameters:
 - `fps` (int) : Defaults to `5`. This parameter controls the FPS of the color and depth cameras. The cameras cannot operate at different frame rates. Valid options are `5`, `15`, `30`. Note that some FPS values are not compatible with high color camera resolutions or depth camera resolutions. For more information, see the [Azure Kinect Sensor SDK documentation](https://docs.microsoft.com/en-us/azure/Kinect-dk/hardware-specification#depth-camera-supported-operating-modes).
 - `point_cloud` (bool) : Defaults to `true`. If this parameter is set to `true`, the node will generate a sensor_msgs::PointCloud2 message from the depth camera data. This requires that the `depth_enabled` parameter be `true`.
 - `rgb_point_cloud` (bool) : Defaults to `false`. If this parameter is set to `true`, the node will generate a sensor_msgs::PointCloud2 message from the depth camera data and colorize it using the color camera data. This requires that the `point_cloud` parameter be `true`, and the `color_enabled` parameter be `true`.
-- `recording_file` (string) : If this parameter contains a valid absolute path to a k4arecording file, the node will use the playback api with this file instead of opening a device.
+- `recording_file` (string) : No default value. If this parameter contains a valid absolute path to a k4arecording file, the node will use the playback api with this file instead of opening a device.
 - `recording_loop_enabled` (bool) : Defaults to `false`. If this parameter is set to `true`, the node will rewind the recording file to the beginning after reaching the last frame. Otherwise the node will stop working after reaching the end of the recording file.
 
 #### Parameter Restrictions
