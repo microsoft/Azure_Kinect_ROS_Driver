@@ -34,7 +34,6 @@ foreach(_lib ${K4A_LIBS})
     # Check and see if any of these targets depend on other DLLs (for example, depthengine or libusb)
     set(_dependent_dlls "PROPERTY-NOTFOUND")
     get_property(_dependent_dlls TARGET ${_lib} PROPERTY IMPORTED_LINK_DEPENDENT_LIBRARIES)
-    message(STATUS "IMPORTED_LINK_DEPENDENT_LIBRARIES: ${_dependent_dlls}")
 
     if(_dependent_dlls AND (NOT (_dependent_dlls EQUAL "PROPERTY-NOTFOUND")))
         foreach(_dependent_dll ${_dependent_dlls})

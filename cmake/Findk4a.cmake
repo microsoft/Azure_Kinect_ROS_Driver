@@ -61,7 +61,7 @@ else()
         quiet_message(STATUS "Found an Azure Kinect SDK in ./ext/sdk")
 
         # Add the depth engine as an IMPORTED_LINK_DEPENDENT_LIBRARIES to ensure it gets copied
-        set_property(TARGET k4a PROPERTY IMPORTED_LINK_DEPENDENT_LIBRARIES "${_depthengine_bin}") 
+        set_property(TARGET k4a::k4a PROPERTY IMPORTED_LINK_DEPENDENT_LIBRARIES "${_depthengine_bin}") 
         
         # If we found a valid SDK in ext/sdk, this always overrides anything we might find in the system path.
         # k4a_FOUND should have been set by find_package(k4a), so return now.
@@ -233,19 +233,18 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
         return()
     endif()
 
-    add_library(k4a SHARED IMPORTED GLOBAL)
-    add_library(k4a::k4a ALIAS k4a)
+    add_library(k4a::k4a SHARED IMPORTED GLOBAL)
 
     target_include_directories(
-        k4a 
+        k4a::k4a 
         INTERFACE
             ${_best_sdk_dir}/sdk/include
             ${_best_sdk_dir}/sdk/include/k4a
     )
 
-    set_property(TARGET k4a PROPERTY IMPORTED_CONFIGURATIONS "")
-    set_property(TARGET k4a PROPERTY IMPORTED_LOCATION "${_best_sdk_dir}/${RELATIVE_WIN_K4A_DLL_PATH}")
-    set_property(TARGET k4a PROPERTY IMPORTED_IMPLIB "${_best_sdk_dir}/${RELATIVE_WIN_K4A_LIB_PATH}")
+    set_property(TARGET k4a::k4a PROPERTY IMPORTED_CONFIGURATIONS "")
+    set_property(TARGET k4a::k4a PROPERTY IMPORTED_LOCATION "${_best_sdk_dir}/${RELATIVE_WIN_K4A_DLL_PATH}")
+    set_property(TARGET k4a::k4a PROPERTY IMPORTED_IMPLIB "${_best_sdk_dir}/${RELATIVE_WIN_K4A_LIB_PATH}")
     
     unset(_depthengine_bin)
     file(GLOB _depthengine_bin 
@@ -258,21 +257,20 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
     endif()
 
     # Mark the depthengine as a requirement for running k4a.dll
-    set_property(TARGET k4a PROPERTY IMPORTED_LINK_DEPENDENT_LIBRARIES "${_depthengine_bin}")
+    set_property(TARGET k4a::k4a PROPERTY IMPORTED_LINK_DEPENDENT_LIBRARIES "${_depthengine_bin}")
     
-    add_library(k4arecord SHARED IMPORTED GLOBAL)
-    add_library(k4a::k4arecord ALIAS k4arecord)
+    add_library(k4a::k4arecord SHARED IMPORTED GLOBAL)
 
     target_include_directories(
-        k4arecord 
+        k4a::k4arecord 
         INTERFACE
             ${_best_sdk_dir}/sdk/include
             ${_best_sdk_dir}/sdk/include/k4arecord
     )
     
-    set_property(TARGET k4arecord PROPERTY IMPORTED_CONFIGURATIONS "")
-    set_property(TARGET k4arecord PROPERTY IMPORTED_LOCATION "${_best_sdk_dir}/${RELATIVE_WIN_K4ARECORD_DLL_PATH}")
-    set_property(TARGET k4arecord PROPERTY IMPORTED_IMPLIB "${_best_sdk_dir}/${RELATIVE_WIN_K4ARECORD_LIB_PATH}")
+    set_property(TARGET k4a::k4arecord PROPERTY IMPORTED_CONFIGURATIONS "")
+    set_property(TARGET k4a::k4arecord PROPERTY IMPORTED_LOCATION "${_best_sdk_dir}/${RELATIVE_WIN_K4ARECORD_DLL_PATH}")
+    set_property(TARGET k4a::k4arecord PROPERTY IMPORTED_IMPLIB "${_best_sdk_dir}/${RELATIVE_WIN_K4ARECORD_LIB_PATH}")
     
     set(${CMAKE_FIND_PACKAGE_NAME}_FOUND TRUE)
 
