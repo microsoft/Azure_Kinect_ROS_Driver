@@ -17,10 +17,8 @@ foreach(_lib ${K4A_LIBS})
 
     if (_configs)
         get_target_property(_dll ${_lib} IMPORTED_LOCATION_${_configs})
-        message(STATUS "IMPORTED_LOCATION_${_configs}: ${_dll}")
     else()
         get_target_property(_dll ${_lib} IMPORTED_LOCATION)
-        message(STATUS "IMPORTED_LOCATION: ${_dll}")
     endif()
 
     if((NOT _dll) OR (_dll EQUAL "PROPERTY-NOTFOUND"))
