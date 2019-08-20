@@ -89,6 +89,8 @@ unset(k4a_DIR CACHE)
 find_package(k4a 1.1.0 QUIET MODULE REQUIRED)
 set(K4A_LIBS k4a::k4a;k4a::k4arecord)
 
+# This reads the K4A_LIBS and K4A_INSTALL_REQUIRED variables and decides how to install 
+# the various shared objects / DLLs
 include(Installk4a)
 
 ##################################

@@ -40,30 +40,35 @@ if (NOT (FIND_VERSION_COUNT EQUAL 3))
     message(FATAL_ERROR "Error: Azure Kinect SDK Version numbers contain exactly 3 components (major.minor.rev). Requested number of components: ${FIND_VERSION_COUNT}")
 endif()
 
-# First, check the ext/sdk folder. Always do this first so that we can do platform-dependent work afterwards
-find_package(k4a ${FIND_VERSION} ${_exact_arg} ${_quiet_arg} NO_MODULE NO_DEFAULT_PATH PATHS "${PROJECT_SOURCE_DIR}/ext/sdk")
-find_package(k4arecord ${FIND_VERSION} ${_exact_arg} ${_quiet_arg} NO_MODULE NO_DEFAULT_PATH PATHS "${PROJECT_SOURCE_DIR}/ext/sdk")
+# First, check the ext/sdk folder for a depth engine. ALWAYS DO THIS FIRST.
+# We must not run "find_package(k4a)" until we are certain that we can use
+# the ext/sdk folder. Otherwise, the k4a::k4a target will 
+# override any attempts to later create a new imported k4a::k4a target.
+unset(_depthengine_bin)
+file(GLOB_RECURSE _depthengine_bin 
+    LIST_DIRECTORIES FALSE 
+    "${PROJECT_SOURCE_DIR}/ext/sdk/*${DEPTHENGINE_GLOB}")
 
-if(${k4a_FOUND} AND ${k4arecord_FOUND})
-    set(K4A_INSTALL_NEEDED TRUE)
+if(NOT _depthengine_bin)
+    quiet_message(STATUS "Could not find depth engine in ./ext/sdk! Rejecting ext/sdk")
+else()
+    find_package(k4a ${FIND_VERSION} ${_exact_arg} ${_quiet_arg} NO_MODULE NO_DEFAULT_PATH PATHS "${PROJECT_SOURCE_DIR}/ext/sdk")
+    find_package(k4arecord ${FIND_VERSION} ${_exact_arg} ${_quiet_arg} NO_MODULE NO_DEFAULT_PATH PATHS "${PROJECT_SOURCE_DIR}/ext/sdk")
 
-    quiet_message(STATUS "Found an Azure Kinect SDK in ./ext/sdk")
+    if(${k4a_FOUND} AND ${k4arecord_FOUND})
+        set(K4A_INSTALL_NEEDED TRUE)
 
-    # Add the depth engine as an IMPORTED_LINK_DEPENDENT_LIBRARIES to ensure it gets copied
-    unset(_depthengine_bin)
-    file(GLOB_RECURSE _depthengine_bin 
-        LIST_DIRECTORIES FALSE 
-        "${PROJECT_SOURCE_DIR}/ext/sdk/*${DEPTHENGINE_GLOB}")
+        quiet_message(STATUS "Found an Azure Kinect SDK in ./ext/sdk")
 
-    if(NOT _depthengine_bin)
-        quiet_message(WARNING "Could not find depth engine in ./ext/sdk! Rejecting ext/sdk")
-    else()
-        set_property(TARGET k4a PROPERTY IMPORTED_LINK_DEPENDENT_LIBRARIES "${_depthengine_bin}")
-
+        # Add the depth engine as an IMPORTED_LINK_DEPENDENT_LIBRARIES to ensure it gets copied
+        set_property(TARGET k4a PROPERTY IMPORTED_LINK_DEPENDENT_LIBRARIES "${_depthengine_bin}") 
+        
         # If we found a valid SDK in ext/sdk, this always overrides anything we might find in the system path.
-        # k4a_FOUND should be set by find_package(k4a), so return now.
+        # k4a_FOUND should have been set by find_package(k4a), so return now.
         quiet_message(STATUS "Accepted SDK in ./ext/sdk. System paths will not be searched")
         return()
+    else()
+        quiet_message(STATUS "No Azure Kinect SDK found in ./ext/sdk")
     endif()
 endif()
 
@@ -238,6 +243,7 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
             ${_best_sdk_dir}/sdk/include/k4a
     )
 
+    set_property(TARGET k4a PROPERTY IMPORTED_CONFIGURATIONS "")
     set_property(TARGET k4a PROPERTY IMPORTED_LOCATION "${_best_sdk_dir}/${RELATIVE_WIN_K4A_DLL_PATH}")
     set_property(TARGET k4a PROPERTY IMPORTED_IMPLIB "${_best_sdk_dir}/${RELATIVE_WIN_K4A_LIB_PATH}")
     
@@ -256,15 +262,18 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
     
     add_library(k4arecord SHARED IMPORTED GLOBAL)
     add_library(k4a::k4arecord ALIAS k4arecord)
-    set_property(TARGET k4arecord PROPERTY IMPORTED_LOCATION "${_best_sdk_dir}/${RELATIVE_WIN_K4ARECORD_DLL_PATH}")
-    set_property(TARGET k4arecord PROPERTY IMPORTED_IMPLIB "${_best_sdk_dir}/${RELATIVE_WIN_K4ARECORD_LIB_PATH}")
+
     target_include_directories(
-        k4a 
+        k4arecord 
         INTERFACE
             ${_best_sdk_dir}/sdk/include
             ${_best_sdk_dir}/sdk/include/k4arecord
     )
-
+    
+    set_property(TARGET k4arecord PROPERTY IMPORTED_CONFIGURATIONS "")
+    set_property(TARGET k4arecord PROPERTY IMPORTED_LOCATION "${_best_sdk_dir}/${RELATIVE_WIN_K4ARECORD_DLL_PATH}")
+    set_property(TARGET k4arecord PROPERTY IMPORTED_IMPLIB "${_best_sdk_dir}/${RELATIVE_WIN_K4ARECORD_LIB_PATH}")
+    
     set(${CMAKE_FIND_PACKAGE_NAME}_FOUND TRUE)
 
 else()
