@@ -93,14 +93,19 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
             params_.rgb_point_cloud = false;
         }
 
-        // Disable depth if the recording has no depth track
-        if (!record_config.depth_track_enabled)
+        // Disable depth if the recording has neither ir track nor depth track
+        if (!record_config.ir_track_enabled && !record_config.depth_track_enabled)
         {
             if (params_.depth_enabled)
             {
-                ROS_WARN("Disabling depth because recording has no depth track");
+                ROS_WARN("Disabling depth because recording has neither ir track nor depth track");
                 params_.depth_enabled = false;
             }
+        }
+
+        // Disable depth if the recording has no depth track
+        if (!record_config.depth_track_enabled)
+        {
             if (params_.point_cloud)
             {
                 ROS_WARN("Disabling point cloud because recording has no depth track");
@@ -826,7 +831,10 @@ void K4AROSDevice::framePublisherThread()
         if (params_.depth_enabled)
         {
             // Only do compute if we have subscribers
-            if (ir_raw_publisher_.getNumSubscribers() > 0 || ir_raw_camerainfo_publisher_.getNumSubscribers() > 0)
+            // Only create ir frame when we are using a device or we have an ir image.
+            // Recordings may not have synchronized captures. For unsynchronized captures without ir image skip ir frame.
+            if ((ir_raw_publisher_.getNumSubscribers() > 0 || ir_raw_camerainfo_publisher_.getNumSubscribers() > 0) &&
+                (k4a_device_ || capture.get_ir_image() != nullptr))
             {
                 // IR images are available in all depth modes
                 result = getIrFrame(capture, ir_raw_frame);
@@ -837,26 +845,28 @@ void K4AROSDevice::framePublisherThread()
                     ros::shutdown();
                     return;
                 }
+                else if (result == K4A_RESULT_SUCCEEDED)
+                {
+                    capture_time = timestampToROS(capture.get_ir_image().get_device_timestamp());
+                    printTimestampDebugMessage("IR image", capture_time);
 
-                capture_time = timestampToROS(capture.get_ir_image().get_device_timestamp());
-                printTimestampDebugMessage("IR image", capture_time);
+                    // Re-sychronize the timestamps with the capture timestamp
+                    ir_raw_camera_info.header.stamp = capture_time;
+                    ir_raw_frame->header.stamp = capture_time;
+                    ir_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
 
-                // Re-sychronize the timestamps with the capture timestamp
-                ir_raw_camera_info.header.stamp = capture_time;
-                ir_raw_frame->header.stamp = capture_time;
-                ir_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
-
-                ir_raw_publisher_.publish(ir_raw_frame);
-                ir_raw_camerainfo_publisher_.publish(ir_raw_camera_info);
+                    ir_raw_publisher_.publish(ir_raw_frame);
+                    ir_raw_camerainfo_publisher_.publish(ir_raw_camera_info);
+                }
             }
 
             // Depth images are not available in PASSIVE_IR mode
             if (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR)
             {
-                capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
-                printTimestampDebugMessage("Depth image", capture_time);
-
-                if (depth_raw_publisher_.getNumSubscribers() > 0 || depth_raw_camerainfo_publisher_.getNumSubscribers() > 0)
+                // Only create depth frame when we are using a device or we have an depth image.
+                // Recordings may not have synchronized captures. For unsynchronized captures without depth image skip depth frame.
+                if ((depth_raw_publisher_.getNumSubscribers() > 0 || depth_raw_camerainfo_publisher_.getNumSubscribers() > 0) &&
+                    (k4a_device_ || capture.get_depth_image() != nullptr))
                 {
                     result = getDepthFrame(capture, depth_raw_frame);
             
@@ -866,18 +876,26 @@ void K4AROSDevice::framePublisherThread()
                         ros::shutdown();
                         return;
                     }
+                    else if (result == K4A_RESULT_SUCCEEDED)
+                    {
+                        capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
+                        printTimestampDebugMessage("Depth image", capture_time);
 
-                    // Re-sychronize the timestamps with the capture timestamp
-                    depth_raw_camera_info.header.stamp = capture_time;
-                    depth_raw_frame->header.stamp = capture_time;
-                    depth_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
+                        // Re-sychronize the timestamps with the capture timestamp
+                        depth_raw_camera_info.header.stamp = capture_time;
+                        depth_raw_frame->header.stamp = capture_time;
+                        depth_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
 
-                    depth_raw_publisher_.publish(depth_raw_frame);
-                    depth_raw_camerainfo_publisher_.publish(depth_raw_camera_info);
+                        depth_raw_publisher_.publish(depth_raw_frame);
+                        depth_raw_camerainfo_publisher_.publish(depth_raw_camera_info);
+                    }
                 }
                 
                 // We can only rectify the depth into the color co-ordinates if the color camera is enabled!
-                if (params_.color_enabled && (depth_rect_publisher_.getNumSubscribers() > 0 || depth_rect_camerainfo_publisher_.getNumSubscribers() > 0))
+                // Only create rect depth frame when we are using a device or we have an depth image.
+                // Recordings may not have synchronized captures. For unsynchronized captures without depth image skip rect depth frame.
+                if (params_.color_enabled && (depth_rect_publisher_.getNumSubscribers() > 0 || depth_rect_camerainfo_publisher_.getNumSubscribers() > 0) &&
+                    (k4a_device_ || capture.get_depth_image() != nullptr))
                 {
                     result = getDepthFrame(capture, depth_rect_frame, true /* rectified */);
                 
@@ -887,24 +905,29 @@ void K4AROSDevice::framePublisherThread()
                         ros::shutdown();
                         return;
                     }
+                    else if (result == K4A_RESULT_SUCCEEDED)
+                    {
+                        capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
+                        printTimestampDebugMessage("Depth image", capture_time);
 
-                    depth_rect_frame->header.stamp = capture_time;
-                    depth_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
-                    depth_rect_publisher_.publish(depth_rect_frame);
+                        depth_rect_frame->header.stamp = capture_time;
+                        depth_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
+                        depth_rect_publisher_.publish(depth_rect_frame);
 
-                    // Re-synchronize the header timestamps since we cache the camera calibration message
-                    depth_rect_camera_info.header.stamp = capture_time;
-                    depth_rect_camerainfo_publisher_.publish(depth_rect_camera_info);
+                        // Re-synchronize the header timestamps since we cache the camera calibration message
+                        depth_rect_camera_info.header.stamp = capture_time;
+                        depth_rect_camerainfo_publisher_.publish(depth_rect_camera_info);
+                    }
                 }
             }            
         }
 
         if (params_.color_enabled)
-        {
-            capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
-            printTimestampDebugMessage("Color image", capture_time);
-            
-            if (rgb_raw_publisher_.getNumSubscribers() > 0 || rgb_raw_camerainfo_publisher_.getNumSubscribers() > 0)
+        {   
+            // Only create rgb frame when we are using a device or we have a color image.
+            // Recordings may not have synchronized captures. For unsynchronized captures without color image skip rgb frame.
+            if ((rgb_raw_publisher_.getNumSubscribers() > 0 || rgb_raw_camerainfo_publisher_.getNumSubscribers() > 0) &&
+                (k4a_device_ || capture.get_color_image() != nullptr))
             {
                 result = getRbgFrame(capture, rgb_raw_frame);
 
@@ -914,6 +937,9 @@ void K4AROSDevice::framePublisherThread()
                     ros::shutdown();
                     return;
                 }
+
+                capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
+                printTimestampDebugMessage("Color image", capture_time);
 
                 rgb_raw_frame->header.stamp =  capture_time;
                 rgb_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
@@ -926,9 +952,12 @@ void K4AROSDevice::framePublisherThread()
 
             // We can only rectify the color into the depth co-ordinates if the depth camera is 
             // enabled and processing depth data
+            // Only create rgb rect frame when we are using a device or we have a synchronized image.
+            // Recordings may not have synchronized captures. For unsynchronized captures image skip rgb rect frame.
             if (params_.depth_enabled && 
                 (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR) && 
-                (rgb_rect_publisher_.getNumSubscribers() > 0 || rgb_rect_camerainfo_publisher_.getNumSubscribers() > 0))
+                (rgb_rect_publisher_.getNumSubscribers() > 0 || rgb_rect_camerainfo_publisher_.getNumSubscribers() > 0) &&
+                (k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr)))
             {
                 result = getRbgFrame(capture, rgb_rect_frame, true /* rectified */);
             
@@ -938,6 +967,9 @@ void K4AROSDevice::framePublisherThread()
                     ros::shutdown();
                     return;
                 }
+
+                capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
+                printTimestampDebugMessage("Color image", capture_time);
 
                 rgb_rect_frame->header.stamp = capture_time;
                 rgb_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
@@ -949,7 +981,10 @@ void K4AROSDevice::framePublisherThread()
             }
         }
 
-        if (pointcloud_publisher_.getNumSubscribers() > 0)
+        // Only create pointcloud when we are using a device or we have a synchronized image.
+        // Recordings may not have synchronized captures. In unsynchronized captures skip point cloud.
+        if (pointcloud_publisher_.getNumSubscribers() > 0 && 
+            (k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr)))
         {
             if (params_.rgb_point_cloud)
             {
