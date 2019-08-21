@@ -1,22 +1,4 @@
-function(print_variable x)
-    message(STATUS "${x}: ${${x}}")
-endfunction()
-
-function(quiet_message)
-    if(NOT FIND_QUIETLY)
-        message(${ARGV})
-    endif()
-endfunction()
-
-## Initialize some standardized variables
-set(FIND_VERSION_COUNT ${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION_COUNT})
-set(FIND_VERSION_EXACT ${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION_EXACT})
-set(FIND_VERSION ${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION})
-set(FIND_VERSION_MAJOR ${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION_MAJOR})
-set(FIND_VERSION_MINOR ${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION_MINOR})
-set(FIND_VERSION_PATCH ${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION_PATCH})
-set(FIND_QUIETLY ${${CMAKE_FIND_PACKAGE_NAME}_FIND_QUIETLY})
-set(FIND_REQUIRED ${${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED})
+include(FindModuleHelpers)
 
 set(RELATIVE_WIN_LIB_DIR "sdk/windows-desktop/amd64/release/lib")
 set(RELATIVE_WIN_BIN_DIR "sdk/windows-desktop/amd64/release/bin")
@@ -145,7 +127,7 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
                 # For K4A, this means:
                 # - Major version must be the same as requested
                 # - Minor version must be greater-than-or-equal requested
-                # - Patch version must be greater-than-or-equal requested
+                # - Patch version must be greater-than-or-equal requested, but ONLY if Minor version equals the requested version
                 
                 # First check if this SDK is major-version compatible
                 if (NOT (_sdk_version_major EQUAL FIND_VERSION_MAJOR))
@@ -159,10 +141,14 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
                     continue()
                 endif()
 
-                # Finally, check if patch version is greater than or equal requested
-                if (NOT (_sdk_version_patch GREATER_EQUAL FIND_VERSION_PATCH))
-                    quiet_message(STATUS "Rejecting SDK located at ${_sdk_dir}: Patch version too low (found ${_sdk_version_patch}, requested at least ${FIND_VERSION_PATCH})")
-                    continue()
+                # If the _sdk_version_minor is greater than the FIND_VERSION_MINOR, we don't care about the patch version
+                # since the patch version resets on a minor version upgrade
+                if (_sdk_version_minor EQUAL FIND_VERSION_MINOR)
+                    # Finally, check if patch version is greater than or equal requested
+                    if (NOT (_sdk_version_patch GREATER_EQUAL FIND_VERSION_PATCH))
+                        quiet_message(STATUS "Rejecting SDK located at ${_sdk_dir}: Patch version too low (found ${_sdk_version_patch}, requested at least ${FIND_VERSION_PATCH})")
+                        continue()
+                    endif()
                 endif()
 
                 # If we got here, the SDK is version compatible. Check if a better SDK version has already been selected
@@ -273,7 +259,7 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
     set_property(TARGET k4a::k4arecord PROPERTY IMPORTED_IMPLIB "${_best_sdk_dir}/${RELATIVE_WIN_K4ARECORD_LIB_PATH}")
     
     set(${CMAKE_FIND_PACKAGE_NAME}_FOUND TRUE)
-
+    set(${CMAKE_FIND_PACKAGE_NAME}_VERSION ${_best_sdk_version})
 else()
     message(FATAL_ERROR "Unknown host system: ${CMAKE_HOST_SYSTEM_NAME}")
 endif()

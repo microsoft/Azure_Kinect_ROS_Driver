@@ -89,6 +89,17 @@ unset(k4a_DIR CACHE)
 find_package(k4a 1.1.0 QUIET MODULE REQUIRED)
 set(K4A_LIBS k4a::k4a;k4a::k4arecord)
 
+# Try to find and enable the body tracking SDK
+find_package(k4abt 0.9.1 QUIET MODULE)
+if (k4abt_FOUND)
+  list(APPEND K4A_LIBS k4abt::k4abt)
+  message(STATUS "Body Tracking SDK found: compiling support for Body Tracking")
+  target_compile_definitions(${PROJECT_NAME}_node PUBLIC K4A_BODY_TRACKING)
+  target_compile_definitions(${PROJECT_NAME}_nodelet PUBLIC K4A_BODY_TRACKING)
+else()
+  message("!!! Body Tracking SDK not found: body tracking features will not be available !!!")
+endif()
+
 # This reads the K4A_LIBS and K4A_INSTALL_REQUIRED variables and decides how to install 
 # the various shared objects / DLLs
 include(Installk4a)
