@@ -5,10 +5,6 @@ foreach(_lib ${K4A_LIBS})
     set(_configs "PROPERTY-NOTFOUND")
     get_target_property(_configs ${_lib} IMPORTED_CONFIGURATIONS)
 
-    if((NOT _configs) OR (_configs EQUAL "PROPERTY-NOTFOUND"))
-        message(STATUS "Target '${_lib}' in package k4a does not contain an IMPORTED_CONFIGURATIONS property")
-    endif()
-
     ## TODO: I tried using CMake's list(LENGTH) on the output of IMPORTED_CONFIGURATIONS so that
     ## I could assert that there was only one imported configuration, but for some reason the list length
     ## always returned 0. Potentially revisit this check in future.
