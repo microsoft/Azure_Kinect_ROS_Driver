@@ -88,9 +88,7 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
         // This is necessary because at the moment there are only checks in place which use BgraPixel size
         else if (params_.color_enabled && record_config.color_track_enabled && record_config.color_format != K4A_IMAGE_FORMAT_COLOR_BGRA32)
         {
-            ROS_WARN("Disabling color and rgb_point_cloud because currently BGRA32 is only supported color format for playback");
-            params_.color_enabled = false;
-            params_.rgb_point_cloud = false;
+            k4a_playback_set_color_conversion(k4a_playback_handle_, K4A_IMAGE_FORMAT_COLOR_BGRA32);
         }
 
         // Disable depth if the recording has neither ir track nor depth track
@@ -743,7 +741,6 @@ k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_ms
 
     return K4A_RESULT_SUCCEEDED;
 }
-
 
 void K4AROSDevice::framePublisherThread()
 {
