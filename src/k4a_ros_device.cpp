@@ -1035,20 +1035,24 @@ void K4AROSDevice::imuPublisherThread()
 
         if (k4a_device_)
         {
-            // TODO: consider appropriate capture timeout based on camera framerate
-            if (!k4a_device_.get_imu_sample(&sample, std::chrono::milliseconds(K4A_WAIT_INFINITE)))
+            // IMU messages are delivered in batches at 300 Hz. Drain the queue of IMU messages by
+            // constantly reading until we get a timeout
+            bool read = false;
+            do
             {
-                ROS_FATAL("Failed to poll IMU: node cannot continue.");
-                ros::requestShutdown();
-                return;
-            }
+                read = k4a_device_.get_imu_sample(&sample, std::chrono::milliseconds(0));
+                
+                if (read)
+                {
+                    ImuPtr imu_msg(new Imu);
 
-            ImuPtr imu_msg(new Imu);
+                    result = getImuFrame(sample, imu_msg);
+                    ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
 
-            result = getImuFrame(sample, imu_msg);
-            ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
+                    imu_orientation_publisher_.publish(imu_msg);
+                }
 
-            imu_orientation_publisher_.publish(imu_msg);
+            } while (read);
         }
         else if (k4a_playback_handle_)
         {
