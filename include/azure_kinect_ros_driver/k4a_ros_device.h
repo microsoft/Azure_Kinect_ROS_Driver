@@ -7,10 +7,13 @@
 // System headers
 //
 #include <thread>
+#include <atomic>
+#include <mutex>
 
 // Library headers
 //
 #include <k4a/k4a.h>
+#include <k4arecord/playback.h>
 #include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
@@ -63,6 +66,9 @@ class K4AROSDevice
     void framePublisherThread();
     void imuPublisherThread();
 
+    // Gets a timestap from one of the captures images
+    std::chrono::microseconds getCaptureTimestamp(const k4a::capture &capture);
+
     // Converts a k4a_image_t timestamp to a ros::Time object
     ros::Time timestampToROS(const std::chrono::microseconds & k4a_timestamp_us);
 
@@ -101,10 +107,21 @@ class K4AROSDevice
     k4a::device k4a_device_;
     K4ACalibrationTransformData calibration_data_;
 
+    // K4A Recording
+    k4a_playback_t k4a_playback_handle_;
+    std::mutex k4a_playback_handle_mutex_;
+
     ros::Time start_time_;
 
     // Thread control
     volatile bool running_;
+
+    // Last capture timestamp for synchronizing playback capture and imu thread
+    std::atomic_int64_t last_capture_time_usec_;
+
+    // Last imu timestamp for synchronizing playback capture and imu thread
+    std::atomic_uint64_t last_imu_time_usec_;
+    std::atomic_bool imu_stream_end_of_file_;
 
     // Threads
     std::thread frame_publisher_thread_;

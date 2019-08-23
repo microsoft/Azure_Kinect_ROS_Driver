@@ -28,99 +28,183 @@ using namespace image_transport;
 using namespace std;
 
 K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_device_(nullptr),
+                                                                       k4a_playback_handle_(nullptr),
                                                                        node_(n),
                                                                        private_node_(p),
-                                                                       image_transport_(n)
+                                                                       image_transport_(n),
+                                                                       last_capture_time_usec_(0),
+                                                                       last_imu_time_usec_(0),
+                                                                       imu_stream_end_of_file_(false)
 {
     // Collect ROS parameters from the param server or from the command line
 #define LIST_ENTRY(param_variable, param_help_string, param_type, param_default_val) private_node_.param(#param_variable, params_.param_variable, param_default_val);
     ROS_PARAM_LIST
 #undef LIST_ENTRY
 
-    // Print all parameters
-    ROS_INFO("K4A Parameters:");
-    params_.Print();
-
-    // Setup the K4A device
-    uint32_t k4a_device_count = k4a::device::get_installed_count();
-
-    ROS_INFO_STREAM("Found " << k4a_device_count << " sensors");
-
-    if (params_.sensor_sn != "")
+    if (params_.recording_file != "")
     {
-        ROS_INFO_STREAM("Searching for sensor with serial number: " << params_.sensor_sn);
+        ROS_INFO("Node is started in playback mode");
+        ROS_INFO_STREAM("Try to open recording file " << params_.recording_file);
+        // Open recording file
+        if (k4a_playback_open(params_.recording_file.c_str(), &k4a_playback_handle_) != K4A_RESULT_SUCCEEDED)
+        {
+            ROS_ERROR_STREAM("Failed to open recording");
+            return;
+        }
+        uint64_t recording_length = k4a_playback_get_last_timestamp_usec(k4a_playback_handle_);
+        ROS_INFO_STREAM("Successfully openend recording file. Recording is " << recording_length / 1000000 << " seconds long");
+
+        k4a_record_configuration_t record_config;
+        if (k4a_playback_get_record_configuration(k4a_playback_handle_, &record_config) != K4A_RESULT_SUCCEEDED)
+        {
+            ROS_ERROR_STREAM("Failed to get record configuration");
+            return;
+        }
+
+        // Overwrite fps param with recording configuration for a correct loop rate in the frame publisher thread
+        switch (record_config.camera_fps)
+        {
+            case K4A_FRAMES_PER_SECOND_5:
+                params_.fps = 5;
+                break;
+            case K4A_FRAMES_PER_SECOND_15:
+                params_.fps = 15;
+                break;
+            case K4A_FRAMES_PER_SECOND_30:
+                params_.fps = 30;
+                break;
+            
+            default:
+                break;
+        };
+
+        // Disable color if the recording has no color track
+        if (params_.color_enabled && !record_config.color_track_enabled)
+        {
+            ROS_WARN("Disabling color and rgb_point_cloud because recording has no color track");
+            params_.color_enabled = false;
+            params_.rgb_point_cloud = false;
+        }
+        // This is necessary because at the moment there are only checks in place which use BgraPixel size
+        else if (params_.color_enabled && record_config.color_track_enabled && record_config.color_format != K4A_IMAGE_FORMAT_COLOR_BGRA32)
+        {
+            ROS_WARN("Disabling color and rgb_point_cloud because currently BGRA32 is only supported color format for playback");
+            params_.color_enabled = false;
+            params_.rgb_point_cloud = false;
+        }
+
+        // Disable depth if the recording has neither ir track nor depth track
+        if (!record_config.ir_track_enabled && !record_config.depth_track_enabled)
+        {
+            if (params_.depth_enabled)
+            {
+                ROS_WARN("Disabling depth because recording has neither ir track nor depth track");
+                params_.depth_enabled = false;
+            }
+        }
+
+        // Disable depth if the recording has no depth track
+        if (!record_config.depth_track_enabled)
+        {
+            if (params_.point_cloud)
+            {
+                ROS_WARN("Disabling point cloud because recording has no depth track");
+                params_.point_cloud = false;
+            }
+            if (params_.rgb_point_cloud)
+            {
+                ROS_WARN("Disabling rgb point cloud because recording has no depth track");
+                params_.rgb_point_cloud = false;
+            }
+        }
     }
     else
     {
-        ROS_INFO("No serial number provided: picking first sensor");
-        ROS_WARN_COND(k4a_device_count > 1, "Multiple sensors connected! Picking first sensor.");
-    }
+        // Print all parameters
+        ROS_INFO("K4A Parameters:");
+        params_.Print();
 
-    for (uint32_t i = 0; i < k4a_device_count; i++)
-    {
-        k4a::device device;
-        try
-        {
-            device = k4a::device::open(i);
-        }
-        catch(exception)
-        {
-            ROS_ERROR_STREAM("Failed to open K4A device at index " << i);
-            continue;
-        }
+        // Setup the K4A device
+        uint32_t k4a_device_count = k4a::device::get_installed_count();
 
-        ROS_INFO_STREAM("K4A[" << i << "] : " << device.get_serialnum());
+        ROS_INFO_STREAM("Found " << k4a_device_count << " sensors");
 
-        // Try to match serial number
         if (params_.sensor_sn != "")
         {
-            if (device.get_serialnum() == params_.sensor_sn)
+            ROS_INFO_STREAM("Searching for sensor with serial number: " << params_.sensor_sn);
+        }
+        else
+        {
+            ROS_INFO("No serial number provided: picking first sensor");
+            ROS_WARN_COND(k4a_device_count > 1, "Multiple sensors connected! Picking first sensor.");
+        }
+
+        for (uint32_t i = 0; i < k4a_device_count; i++)
+        {
+            k4a::device device;
+            try
+            {
+                device = k4a::device::open(i);
+            }
+            catch(exception)
+            {
+                ROS_ERROR_STREAM("Failed to open K4A device at index " << i);
+                continue;
+            }
+
+            ROS_INFO_STREAM("K4A[" << i << "] : " << device.get_serialnum());
+
+            // Try to match serial number
+            if (params_.sensor_sn != "")
+            {
+                if (device.get_serialnum() == params_.sensor_sn)
+                {
+                    k4a_device_ = std::move(device);
+                    break;
+                }
+            }
+            // Pick the first device
+            else if (i == 0)
             {
                 k4a_device_ = std::move(device);
                 break;
             }
         }
-        // Pick the first device
-        else if (i == 0)
+
+        if (!k4a_device_)
         {
-            k4a_device_ = std::move(device);
-            break;
+            ROS_ERROR("Failed to open a K4A device. Cannot continue.");
+            return;
         }
+
+        ROS_INFO_STREAM("K4A Serial Number: " << k4a_device_.get_serialnum());
+
+        k4a_hardware_version_t version_info = k4a_device_.get_version();
+
+        ROS_INFO(
+            "RGB Version: %d.%d.%d",
+            version_info.rgb.major,
+            version_info.rgb.minor,
+            version_info.rgb.iteration);
+
+        ROS_INFO(
+            "Depth Version: %d.%d.%d",
+            version_info.depth.major,
+            version_info.depth.minor,
+            version_info.depth.iteration);
+
+        ROS_INFO(
+            "Audio Version: %d.%d.%d",
+            version_info.audio.major,
+            version_info.audio.minor,
+            version_info.audio.iteration);
+
+        ROS_INFO(
+            "Depth Sensor Version: %d.%d.%d",
+            version_info.depth_sensor.major,
+            version_info.depth_sensor.minor,
+            version_info.depth_sensor.iteration);
     }
-
-    if (!k4a_device_)
-    {
-        ROS_ERROR("Failed to open a K4A device. Cannot continue.");
-        return;
-    }
-
-    ROS_INFO_STREAM("K4A Serial Number: " << k4a_device_.get_serialnum());
-
-    k4a_hardware_version_t version_info = k4a_device_.get_version();
-
-    ROS_INFO(
-        "RGB Version: %d.%d.%d",
-        version_info.rgb.major,
-        version_info.rgb.minor,
-        version_info.rgb.iteration);
-
-    ROS_INFO(
-        "Depth Version: %d.%d.%d",
-        version_info.depth.major,
-        version_info.depth.minor,
-        version_info.depth.iteration);
-
-    ROS_INFO(
-        "Audio Version: %d.%d.%d",
-        version_info.audio.major,
-        version_info.audio.minor,
-        version_info.audio.iteration);
-
-    ROS_INFO(
-        "Depth Sensor Version: %d.%d.%d",
-        version_info.depth_sensor.major,
-        version_info.depth_sensor.minor,
-        version_info.depth_sensor.iteration);
     
     // Register our topics
     rgb_raw_publisher_ = image_transport_.advertise("rgb/image_raw", 1);
@@ -160,26 +244,40 @@ K4AROSDevice::~K4AROSDevice()
 
     stopCameras();
     stopImu();
+
+    if (k4a_playback_handle_)
+    {
+        k4a_playback_close(k4a_playback_handle_);
+    }
 }
 
 
 k4a_result_t K4AROSDevice::startCameras()
 {
-    k4a_device_configuration_t k4a_configuration = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-    k4a_result_t result = params_.GetDeviceConfig(&k4a_configuration);
-
-    if (result != K4A_RESULT_SUCCEEDED)
+    if (k4a_device_)
     {
-        ROS_ERROR("Failed to generate a device configuration. Not starting camera!");
-        return result;
+        k4a_device_configuration_t k4a_configuration = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+        k4a_result_t result = params_.GetDeviceConfig(&k4a_configuration);
+
+        if (result != K4A_RESULT_SUCCEEDED)
+        {
+            ROS_ERROR("Failed to generate a device configuration. Not starting camera!");
+            return result;
+        }
+
+        // Now that we have a proposed camera configuration, we can 
+        // initialize the class which will take care of device calibration information
+        calibration_data_.initialize(k4a_device_, k4a_configuration.depth_mode, k4a_configuration.color_resolution, params_);
+
+        ROS_INFO_STREAM("STARTING CAMERAS");
+        k4a_device_.start_cameras(&k4a_configuration);
     }
-
-    // Now that we have a proposed camera configuration, we can 
-    // initialize the class which will take care of device calibration information
-    calibration_data_.initialize(k4a_device_, k4a_configuration.depth_mode, k4a_configuration.color_resolution, params_);
-
-    ROS_INFO_STREAM("STARTING CAMERAS");
-    k4a_device_.start_cameras(&k4a_configuration);
+    else if (k4a_playback_handle_)
+    {
+        // initialize the class which will take care of device calibration information from the playback_handle
+        calibration_data_.initialize(k4a_playback_handle_, params_);
+    }
+    
 
     // Cannot assume the device timestamp begins increasing upon starting the cameras. 
     // If we set the time base here, depending on the machine performance, the new timestamp 
@@ -199,8 +297,11 @@ k4a_result_t K4AROSDevice::startCameras()
 
 k4a_result_t K4AROSDevice::startImu()
 {
-    ROS_INFO_STREAM("STARTING IMU");
-    k4a_device_.start_imu();
+    if (k4a_device_)
+    {
+        ROS_INFO_STREAM("STARTING IMU");
+        k4a_device_.start_imu();
+    }
 
     // Start the IMU publisher thread
     imu_publisher_thread_ = thread(&K4AROSDevice::imuPublisherThread, this);
@@ -211,16 +312,22 @@ k4a_result_t K4AROSDevice::startImu()
 
 void K4AROSDevice::stopCameras()
 {
-    // Stop the K4A SDK
-    ROS_INFO("Stopping K4A device");
-    k4a_device_.stop_cameras();
-    ROS_INFO("K4A device stopped");
+    if (k4a_device_)
+    {
+        // Stop the K4A SDK
+        ROS_INFO("Stopping K4A device");
+        k4a_device_.stop_cameras();
+        ROS_INFO("K4A device stopped");
+    }
 }
 
 
 void K4AROSDevice::stopImu()
 {
-    k4a_device_.stop_imu();
+    if (k4a_device_)
+    {
+        k4a_device_.stop_imu();
+    }
 }
 
 
@@ -663,14 +770,55 @@ void K4AROSDevice::framePublisherThread()
 
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
-        // TODO: consider appropriate capture timeout based on camera framerate
-        bool success = k4a_device_.get_capture(&capture, std::chrono::milliseconds(K4A_WAIT_INFINITE));
+        bool success = true;
 
-        if (!success)
+        if (k4a_device_)
         {
-            ROS_FATAL("Failed to poll cameras: node cannot continue.");
-            ros::requestShutdown();
-            return;
+            // TODO: consider appropriate capture timeout based on camera framerate
+            if (!k4a_device_.get_capture(&capture, std::chrono::milliseconds(K4A_WAIT_INFINITE)))
+            {
+                ROS_FATAL("Failed to poll cameras: node cannot continue.");
+                ros::requestShutdown();
+                return;
+            }
+        }
+        else if (k4a_playback_handle_)
+        {
+            std::lock_guard<std::mutex> guard(k4a_playback_handle_mutex_);
+            k4a_capture_t capture_temp;
+            k4a_stream_result_t stream_result = k4a_playback_get_next_capture(k4a_playback_handle_, &capture_temp);
+
+            if (stream_result == K4A_STREAM_RESULT_EOF)
+            {
+                // rewind recording if looping is enabled
+                if (params_.recording_loop_enabled)
+                {
+                    if (k4a_playback_seek_timestamp(k4a_playback_handle_, 0, K4A_PLAYBACK_SEEK_BEGIN) != K4A_RESULT_SUCCEEDED)
+                    {
+                        ROS_FATAL("Error seeking recording to beginning. node cannot continue.");
+                        ros::requestShutdown();
+                        return;
+                    }
+                    stream_result = k4a_playback_get_next_capture(k4a_playback_handle_, &capture_temp);
+                    imu_stream_end_of_file_ = false;
+                    last_imu_time_usec_ = 0;
+                }
+                else
+                {
+                    ROS_INFO("Recording reached end of file. node cannot continue.");
+                    ros::requestShutdown();
+                    return;
+                }
+            }
+            else if (stream_result != K4A_STREAM_RESULT_SUCCEEDED)
+            {
+                ROS_FATAL("Failed to get next capture from recording file: node cannot continue.");
+                ros::requestShutdown();
+                return;
+            }
+
+            capture = k4a::capture(capture_temp);
+            last_capture_time_usec_ = getCaptureTimestamp(capture).count();
         }
 
         ImagePtr rgb_raw_frame(new Image);
@@ -683,7 +831,10 @@ void K4AROSDevice::framePublisherThread()
         if (params_.depth_enabled)
         {
             // Only do compute if we have subscribers
-            if (ir_raw_publisher_.getNumSubscribers() > 0 || ir_raw_camerainfo_publisher_.getNumSubscribers() > 0)
+            // Only create ir frame when we are using a device or we have an ir image.
+            // Recordings may not have synchronized captures. For unsynchronized captures without ir image skip ir frame.
+            if ((ir_raw_publisher_.getNumSubscribers() > 0 || ir_raw_camerainfo_publisher_.getNumSubscribers() > 0) &&
+                (k4a_device_ || capture.get_ir_image() != nullptr))
             {
                 // IR images are available in all depth modes
                 result = getIrFrame(capture, ir_raw_frame);
@@ -694,26 +845,28 @@ void K4AROSDevice::framePublisherThread()
                     ros::shutdown();
                     return;
                 }
+                else if (result == K4A_RESULT_SUCCEEDED)
+                {
+                    capture_time = timestampToROS(capture.get_ir_image().get_device_timestamp());
+                    printTimestampDebugMessage("IR image", capture_time);
 
-                capture_time = timestampToROS(capture.get_ir_image().get_device_timestamp());
-                printTimestampDebugMessage("IR image", capture_time);
+                    // Re-sychronize the timestamps with the capture timestamp
+                    ir_raw_camera_info.header.stamp = capture_time;
+                    ir_raw_frame->header.stamp = capture_time;
+                    ir_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
 
-                // Re-sychronize the timestamps with the capture timestamp
-                ir_raw_camera_info.header.stamp = capture_time;
-                ir_raw_frame->header.stamp = capture_time;
-                ir_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
-
-                ir_raw_publisher_.publish(ir_raw_frame);
-                ir_raw_camerainfo_publisher_.publish(ir_raw_camera_info);
+                    ir_raw_publisher_.publish(ir_raw_frame);
+                    ir_raw_camerainfo_publisher_.publish(ir_raw_camera_info);
+                }
             }
 
             // Depth images are not available in PASSIVE_IR mode
             if (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR)
             {
-                capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
-                printTimestampDebugMessage("Depth image", capture_time);
-
-                if (depth_raw_publisher_.getNumSubscribers() > 0 || depth_raw_camerainfo_publisher_.getNumSubscribers() > 0)
+                // Only create depth frame when we are using a device or we have an depth image.
+                // Recordings may not have synchronized captures. For unsynchronized captures without depth image skip depth frame.
+                if ((depth_raw_publisher_.getNumSubscribers() > 0 || depth_raw_camerainfo_publisher_.getNumSubscribers() > 0) &&
+                    (k4a_device_ || capture.get_depth_image() != nullptr))
                 {
                     result = getDepthFrame(capture, depth_raw_frame);
             
@@ -723,18 +876,26 @@ void K4AROSDevice::framePublisherThread()
                         ros::shutdown();
                         return;
                     }
+                    else if (result == K4A_RESULT_SUCCEEDED)
+                    {
+                        capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
+                        printTimestampDebugMessage("Depth image", capture_time);
 
-                    // Re-sychronize the timestamps with the capture timestamp
-                    depth_raw_camera_info.header.stamp = capture_time;
-                    depth_raw_frame->header.stamp = capture_time;
-                    depth_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
+                        // Re-sychronize the timestamps with the capture timestamp
+                        depth_raw_camera_info.header.stamp = capture_time;
+                        depth_raw_frame->header.stamp = capture_time;
+                        depth_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
 
-                    depth_raw_publisher_.publish(depth_raw_frame);
-                    depth_raw_camerainfo_publisher_.publish(depth_raw_camera_info);
+                        depth_raw_publisher_.publish(depth_raw_frame);
+                        depth_raw_camerainfo_publisher_.publish(depth_raw_camera_info);
+                    }
                 }
                 
                 // We can only rectify the depth into the color co-ordinates if the color camera is enabled!
-                if (params_.color_enabled && (depth_rect_publisher_.getNumSubscribers() > 0 || depth_rect_camerainfo_publisher_.getNumSubscribers() > 0))
+                // Only create rect depth frame when we are using a device or we have an depth image.
+                // Recordings may not have synchronized captures. For unsynchronized captures without depth image skip rect depth frame.
+                if (params_.color_enabled && (depth_rect_publisher_.getNumSubscribers() > 0 || depth_rect_camerainfo_publisher_.getNumSubscribers() > 0) &&
+                    (k4a_device_ || capture.get_depth_image() != nullptr))
                 {
                     result = getDepthFrame(capture, depth_rect_frame, true /* rectified */);
                 
@@ -744,24 +905,29 @@ void K4AROSDevice::framePublisherThread()
                         ros::shutdown();
                         return;
                     }
+                    else if (result == K4A_RESULT_SUCCEEDED)
+                    {
+                        capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
+                        printTimestampDebugMessage("Depth image", capture_time);
 
-                    depth_rect_frame->header.stamp = capture_time;
-                    depth_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
-                    depth_rect_publisher_.publish(depth_rect_frame);
+                        depth_rect_frame->header.stamp = capture_time;
+                        depth_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
+                        depth_rect_publisher_.publish(depth_rect_frame);
 
-                    // Re-synchronize the header timestamps since we cache the camera calibration message
-                    depth_rect_camera_info.header.stamp = capture_time;
-                    depth_rect_camerainfo_publisher_.publish(depth_rect_camera_info);
+                        // Re-synchronize the header timestamps since we cache the camera calibration message
+                        depth_rect_camera_info.header.stamp = capture_time;
+                        depth_rect_camerainfo_publisher_.publish(depth_rect_camera_info);
+                    }
                 }
             }            
         }
 
         if (params_.color_enabled)
-        {
-            capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
-            printTimestampDebugMessage("Color image", capture_time);
-            
-            if (rgb_raw_publisher_.getNumSubscribers() > 0 || rgb_raw_camerainfo_publisher_.getNumSubscribers() > 0)
+        {   
+            // Only create rgb frame when we are using a device or we have a color image.
+            // Recordings may not have synchronized captures. For unsynchronized captures without color image skip rgb frame.
+            if ((rgb_raw_publisher_.getNumSubscribers() > 0 || rgb_raw_camerainfo_publisher_.getNumSubscribers() > 0) &&
+                (k4a_device_ || capture.get_color_image() != nullptr))
             {
                 result = getRbgFrame(capture, rgb_raw_frame);
 
@@ -771,6 +937,9 @@ void K4AROSDevice::framePublisherThread()
                     ros::shutdown();
                     return;
                 }
+
+                capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
+                printTimestampDebugMessage("Color image", capture_time);
 
                 rgb_raw_frame->header.stamp =  capture_time;
                 rgb_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
@@ -783,9 +952,12 @@ void K4AROSDevice::framePublisherThread()
 
             // We can only rectify the color into the depth co-ordinates if the depth camera is 
             // enabled and processing depth data
+            // Only create rgb rect frame when we are using a device or we have a synchronized image.
+            // Recordings may not have synchronized captures. For unsynchronized captures image skip rgb rect frame.
             if (params_.depth_enabled && 
                 (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR) && 
-                (rgb_rect_publisher_.getNumSubscribers() > 0 || rgb_rect_camerainfo_publisher_.getNumSubscribers() > 0))
+                (rgb_rect_publisher_.getNumSubscribers() > 0 || rgb_rect_camerainfo_publisher_.getNumSubscribers() > 0) &&
+                (k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr)))
             {
                 result = getRbgFrame(capture, rgb_rect_frame, true /* rectified */);
             
@@ -795,6 +967,9 @@ void K4AROSDevice::framePublisherThread()
                     ros::shutdown();
                     return;
                 }
+
+                capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
+                printTimestampDebugMessage("Color image", capture_time);
 
                 rgb_rect_frame->header.stamp = capture_time;
                 rgb_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
@@ -806,7 +981,10 @@ void K4AROSDevice::framePublisherThread()
             }
         }
 
-        if (pointcloud_publisher_.getNumSubscribers() > 0)
+        // Only create pointcloud when we are using a device or we have a synchronized image.
+        // Recordings may not have synchronized captures. In unsynchronized captures skip point cloud.
+        if (pointcloud_publisher_.getNumSubscribers() > 0 && 
+            (k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr)))
         {
             if (params_.rgb_point_cloud)
             {
@@ -854,26 +1032,83 @@ void K4AROSDevice::imuPublisherThread()
 
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
-        // TODO: consider appropriate capture timeout based on camera framerate
-        bool success = k4a_device_.get_imu_sample(&sample, std::chrono::milliseconds(K4A_WAIT_INFINITE));
 
-        if (!success)
+        if (k4a_device_)
         {
-            ROS_FATAL("Failed to poll IMU: node cannot continue.");
-            ros::requestShutdown();
-            return;
+            // TODO: consider appropriate capture timeout based on camera framerate
+            if (!k4a_device_.get_imu_sample(&sample, std::chrono::milliseconds(K4A_WAIT_INFINITE)))
+            {
+                ROS_FATAL("Failed to poll IMU: node cannot continue.");
+                ros::requestShutdown();
+                return;
+            }
+
+            ImuPtr imu_msg(new Imu);
+
+            result = getImuFrame(sample, imu_msg);
+            ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
+
+            imu_orientation_publisher_.publish(imu_msg);
         }
+        else if (k4a_playback_handle_)
+        {
+            // publish imu messages as long as the imu timestamp is less than the last capture timestamp to catch up to the cameras
+            // compare signed with unsigned shouldn't cause a problem because timestamps should always be positive
+            while (last_imu_time_usec_ <= last_capture_time_usec_ && !imu_stream_end_of_file_)
+            {
+                std::lock_guard<std::mutex> guard(k4a_playback_handle_mutex_);
+                k4a_stream_result_t stream_result = k4a_playback_get_next_imu_sample(k4a_playback_handle_, &sample);
+                if (stream_result == K4A_STREAM_RESULT_EOF)
+                {
+                    imu_stream_end_of_file_ = true;
+                }
+                else if (stream_result == K4A_STREAM_RESULT_SUCCEEDED)
+                {
+                    ImuPtr imu_msg(new Imu);
+                    result = getImuFrame(sample, imu_msg);
+                    ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
 
-        ImuPtr imu_msg(new Imu);
+                    imu_orientation_publisher_.publish(imu_msg);
 
-        result = getImuFrame(sample, imu_msg);
-        ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
-
-        imu_orientation_publisher_.publish(imu_msg);
+                    last_imu_time_usec_ = sample.acc_timestamp_usec;
+                }
+                else
+                {
+                    ROS_FATAL("Failed to get next imu sample from recording. node cannot continue.");
+                    ros::requestShutdown();
+                    return;
+                }
+                
+            }
+        }
 
         ros::spinOnce();
         loop_rate.sleep();
     }
+}
+
+std::chrono::microseconds K4AROSDevice::getCaptureTimestamp(const k4a::capture &capture)
+{
+    // Captures don't actually have timestamps, images do, so we have to look at all the images
+    // associated with the capture.  We just return the first one we get back.
+    //
+    // We check the IR capture instead of the depth capture because if the depth camera is started
+    // in passive IR mode, it only has an IR image (i.e. no depth image), but there is no mode
+    // where a capture will have a depth image but not an IR image.
+    //
+    const auto irImage = capture.get_ir_image();
+    if (irImage != nullptr)
+    {
+        return irImage.get_device_timestamp();
+    }
+
+    const auto colorImage = capture.get_color_image();
+    if (colorImage != nullptr)
+    {
+        return colorImage.get_device_timestamp();
+    }
+
+    return std::chrono::microseconds::zero();
 }
 
 // Converts a k4a_image_t timestamp to a ros::Time object

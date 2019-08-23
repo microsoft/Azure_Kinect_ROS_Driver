@@ -20,6 +20,8 @@ The node accepts the following parameters:
 - `fps` (int) : Defaults to `5`. This parameter controls the FPS of the color and depth cameras. The cameras cannot operate at different frame rates. Valid options are `5`, `15`, `30`. Note that some FPS values are not compatible with high color camera resolutions or depth camera resolutions. For more information, see the [Azure Kinect Sensor SDK documentation](https://docs.microsoft.com/en-us/azure/Kinect-dk/hardware-specification#depth-camera-supported-operating-modes).
 - `point_cloud` (bool) : Defaults to `true`. If this parameter is set to `true`, the node will generate a sensor_msgs::PointCloud2 message from the depth camera data. This requires that the `depth_enabled` parameter be `true`.
 - `rgb_point_cloud` (bool) : Defaults to `false`. If this parameter is set to `true`, the node will generate a sensor_msgs::PointCloud2 message from the depth camera data and colorize it using the color camera data. This requires that the `point_cloud` parameter be `true`, and the `color_enabled` parameter be `true`.
+- `recording_file` (string) : No default value. If this parameter contains a valid absolute path to a k4arecording file, the node will use the playback api with this file instead of opening a device.
+- `recording_loop_enabled` (bool) : Defaults to `false`. If this parameter is set to `true`, the node will rewind the recording file to the beginning after reaching the last frame. Otherwise the node will stop working after reaching the end of the recording file.
 
 #### Parameter Restrictions
 
@@ -29,6 +31,7 @@ Some example incompatibilities are provided here:
 - The `rgb_point_cloud` parameter requires that both the depth and color camera be enabled. This means that `depth_enabled` and `color_enabled` must both be `true`, `depth_mode`, `color_resolution`, and `fps` must be valid.
 - Some combinations of depth mode / color resolution / FPS are incompatible. The Azure Kinect Sensor SDK will generate an exception and print a log message when this situation is detected. The ROS node will then exit.
 - Enabling `rgb_point_cloud` will restrict the resolution of the emitted point cloud to the overlapping region between the depth and color cameras. This region is significantly smaller than the normal field-of-view of the depth camera.
+- `recording_file` parameter accepts only absolute filepaths. Moreover color gets disabled if the color format is not BGRA32.
 
 ## Topics
 
