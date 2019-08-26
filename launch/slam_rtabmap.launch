@@ -8,6 +8,9 @@ Licensed under the MIT License.
   <param name="robot_description"
     command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf.xacro" />
 
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
+
   <!-- Start the K4A sensor driver -->
   <group ns="k4a" >
     
@@ -45,8 +48,6 @@ Licensed under the MIT License.
       <param name="required"          value="true" />
     </node>
 
-    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
-    <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
   </group>
 
   <!-- Start rtabmap_ros node -->
