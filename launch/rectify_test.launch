@@ -14,6 +14,9 @@ Licensed under the MIT License.
   <arg name="point_cloud" default="1" />
   <arg name="rgb_point_cloud" default="1" />
 
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
+
   <!-- Start the K4A sensor driver -->
   <group ns="k4a" >
     
@@ -91,7 +94,5 @@ Licensed under the MIT License.
       <param name="required"          value="true" />
     </node>
 
-    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
-    <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
   </group>
 </launch>
