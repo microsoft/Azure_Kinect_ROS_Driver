@@ -54,7 +54,7 @@ jobs:
 
   # Download and install the Azure Kinect Sensor SDK 
   - powershell: |
-      wget http://download.microsoft.com/download/E/B/D/EBDBB3C1-ED3F-4236-96D6-2BCB352F3710/Azure%20Kinect%20SDK%201.1.0.msi -OutFile $(Build.SourcesDirectory)\sdk.msi
+      wget http://download.microsoft.com/download/1/9/8/198048e8-63f2-45c6-8f96-1fd541d1b4bc/Azure%20Kinect%20SDK%201.2.0.msi -OutFile $(Build.SourcesDirectory)\sdk.msi
       $(Build.SourcesDirectory)\sdk.msi /passive
 
   # Build the catkin workspace
@@ -94,9 +94,9 @@ jobs:
       curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
       sudo apt-add-repository https://packages.microsoft.com/ubuntu/18.04/prod
       sudo apt-get update
-      echo libk4a1.1 libk4a1.1/accept-eula boolean true | sudo debconf-set-selections
-      echo libk4a1.1 libk4a1.1/accepted-eula-hash string 0f5d5c5de396e4fee4c0753a21fee0c1ed726cf0316204edda484f08cb266d76 | sudo debconf-set-selections -u
-      sudo apt-get -y install libk4a1.1-dev
+      echo libk4a1.2 libk4a1.2/accept-eula boolean true | sudo debconf-set-selections
+      echo libk4a1.2 libk4a1.2/accepted-eula-hash string 0f5d5c5de396e4fee4c0753a21fee0c1ed726cf0316204edda484f08cb266d76 | sudo debconf-set-selections -u
+      sudo apt-get -y install libk4a1.2-dev
     displayName: Install the Azure Kinect Sensor SDK
 
   # Build the catkin workspace
