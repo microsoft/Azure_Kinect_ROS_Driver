@@ -21,7 +21,6 @@ The camera is fully configurable using a variety of options which can be specifi
 
 However, this node does ***not*** expose all the sensor data from the Azure Kinect Developer Kit hardware. It does not provide access to:
 
-- Body tracking data
 - Microphone array
 
 For more information about how to use the node, please see the [usage guide](docs/usage.md).

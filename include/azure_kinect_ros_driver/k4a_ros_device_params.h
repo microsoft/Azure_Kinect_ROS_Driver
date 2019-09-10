@@ -39,6 +39,7 @@
     LIST_ENTRY(tf_prefix, "The prefix prepended to tf frame ID's", std::string, std::string()) \
     LIST_ENTRY(recording_file, "Path to a recording file to open instead of opening a device", std::string, std::string("")) \
     LIST_ENTRY(recording_loop_enabled, "True if the recording should be rewound at EOF", bool, false) \
+    LIST_ENTRY(body_tracking_enabled, "True if body joints should be published as a marker array message", bool, false) \
 
 class K4AROSDeviceParams
 {
