@@ -14,7 +14,7 @@
 //
 #include <k4a/k4a.h>
 #include <k4a/k4a.hpp>
-#include <k4arecord/playback.h>
+#include <k4arecord/playback.hpp>
 #include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
@@ -121,7 +121,7 @@ class K4AROSDevice
     K4ACalibrationTransformData calibration_data_;
 
     // K4A Recording
-    k4a_playback_t k4a_playback_handle_;
+    k4a::playback k4a_playback_handle_;
     std::mutex k4a_playback_handle_mutex_;
     
 #if defined(K4A_BODY_TRACKING)

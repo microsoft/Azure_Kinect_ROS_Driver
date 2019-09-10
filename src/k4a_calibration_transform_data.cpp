@@ -28,13 +28,10 @@ void K4ACalibrationTransformData::initialize(const k4a::device &device,
     initialize(params);
 }
 
-void K4ACalibrationTransformData::initialize(const k4a_playback_t &k4a_playback_handle,
+void K4ACalibrationTransformData::initialize(const k4a::playback &k4a_playback_handle,
                                              const K4AROSDeviceParams params)
 {
-    if (k4a_playback_get_calibration(k4a_playback_handle, &k4a_calibration_) != K4A_RESULT_SUCCEEDED)
-    {
-        throw std::runtime_error("Failed to get playback calibration!");
-    }
+    k4a_calibration_ = k4a_playback_handle.get_calibration();
     initialize(params);
 }
 
