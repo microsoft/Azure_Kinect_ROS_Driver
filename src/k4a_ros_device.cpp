@@ -52,21 +52,14 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
     {
         ROS_INFO("Node is started in playback mode");
         ROS_INFO_STREAM("Try to open recording file " << params_.recording_file);
-        // Open recording file
-        if (k4a_playback_open(params_.recording_file.c_str(), &k4a_playback_handle_) != K4A_RESULT_SUCCEEDED)
-        {
-            ROS_ERROR_STREAM("Failed to open recording");
-            return;
-        }
-        uint64_t recording_length = k4a_playback_get_last_timestamp_usec(k4a_playback_handle_);
-        ROS_INFO_STREAM("Successfully openend recording file. Recording is " << recording_length / 1000000 << " seconds long");
 
-        k4a_record_configuration_t record_config;
-        if (k4a_playback_get_record_configuration(k4a_playback_handle_, &record_config) != K4A_RESULT_SUCCEEDED)
-        {
-            ROS_ERROR_STREAM("Failed to get record configuration");
-            return;
-        }
+        // Open recording file and print its length
+        k4a_playback_handle_ = k4a::playback::open(params_.recording_file.c_str());
+        auto recording_length = k4a_playback_handle_.get_recording_length();
+        ROS_INFO_STREAM("Successfully openend recording file. Recording is " << recording_length.count() / 1000000 << " seconds long");
+
+        // Get the recordings configuration to overwrite node parameters
+        k4a_record_configuration_t record_config = k4a_playback_handle_.get_record_configuration();
 
         // Overwrite fps param with recording configuration for a correct loop rate in the frame publisher thread
         switch (record_config.camera_fps)
@@ -95,7 +88,7 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
         // This is necessary because at the moment there are only checks in place which use BgraPixel size
         else if (params_.color_enabled && record_config.color_track_enabled && record_config.color_format != K4A_IMAGE_FORMAT_COLOR_BGRA32)
         {
-            k4a_playback_set_color_conversion(k4a_playback_handle_, K4A_IMAGE_FORMAT_COLOR_BGRA32);
+            k4a_playback_handle_.set_color_conversion(K4A_IMAGE_FORMAT_COLOR_BGRA32);
         }
 
         // Disable depth if the recording has neither ir track nor depth track
@@ -256,7 +249,7 @@ K4AROSDevice::~K4AROSDevice()
 
     if (k4a_playback_handle_)
     {
-        k4a_playback_close(k4a_playback_handle_);
+        k4a_playback_handle_.close();
     }
 
 #if defined(K4A_BODY_TRACKING)
@@ -833,8 +826,6 @@ void K4AROSDevice::framePublisherThread()
 
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
-        bool success = true;
-
         if (k4a_device_)
         {
             // TODO: consider appropriate capture timeout based on camera framerate
@@ -848,21 +839,13 @@ void K4AROSDevice::framePublisherThread()
         else if (k4a_playback_handle_)
         {
             std::lock_guard<std::mutex> guard(k4a_playback_handle_mutex_);
-            k4a_capture_t capture_temp;
-            k4a_stream_result_t stream_result = k4a_playback_get_next_capture(k4a_playback_handle_, &capture_temp);
-
-            if (stream_result == K4A_STREAM_RESULT_EOF)
+            if (!k4a_playback_handle_.get_next_capture(&capture))
             {
                 // rewind recording if looping is enabled
                 if (params_.recording_loop_enabled)
                 {
-                    if (k4a_playback_seek_timestamp(k4a_playback_handle_, 0, K4A_PLAYBACK_SEEK_BEGIN) != K4A_RESULT_SUCCEEDED)
-                    {
-                        ROS_FATAL("Error seeking recording to beginning. node cannot continue.");
-                        ros::requestShutdown();
-                        return;
-                    }
-                    stream_result = k4a_playback_get_next_capture(k4a_playback_handle_, &capture_temp);
+                    k4a_playback_handle_.seek_timestamp(std::chrono::microseconds(0), K4A_PLAYBACK_SEEK_BEGIN);
+                    k4a_playback_handle_.get_next_capture(&capture);
                     imu_stream_end_of_file_ = false;
                     last_imu_time_usec_ = 0;
                 }
@@ -873,14 +856,7 @@ void K4AROSDevice::framePublisherThread()
                     return;
                 }
             }
-            else if (stream_result != K4A_STREAM_RESULT_SUCCEEDED)
-            {
-                ROS_FATAL("Failed to get next capture from recording file: node cannot continue.");
-                ros::requestShutdown();
-                return;
-            }
 
-            capture = k4a::capture(capture_temp);
             last_capture_time_usec_ = getCaptureTimestamp(capture).count();
         }
 
@@ -1141,14 +1117,11 @@ void K4AROSDevice::imuPublisherThread()
 {
     ros::Rate loop_rate(300);
 
-    k4a_wait_result_t waitResult;
     k4a_result_t result;
-
     k4a_imu_sample_t sample;
 
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
-
         if (k4a_device_)
         {
             // IMU messages are delivered in batches at 300 Hz. Drain the queue of IMU messages by
@@ -1177,12 +1150,11 @@ void K4AROSDevice::imuPublisherThread()
             while (last_imu_time_usec_ <= last_capture_time_usec_ && !imu_stream_end_of_file_)
             {
                 std::lock_guard<std::mutex> guard(k4a_playback_handle_mutex_);
-                k4a_stream_result_t stream_result = k4a_playback_get_next_imu_sample(k4a_playback_handle_, &sample);
-                if (stream_result == K4A_STREAM_RESULT_EOF)
+                if (!k4a_playback_handle_.get_next_imu_sample(&sample))
                 {
                     imu_stream_end_of_file_ = true;
                 }
-                else if (stream_result == K4A_STREAM_RESULT_SUCCEEDED)
+                else
                 {
                     ImuPtr imu_msg(new Imu);
                     result = getImuFrame(sample, imu_msg);
@@ -1192,13 +1164,6 @@ void K4AROSDevice::imuPublisherThread()
 
                     last_imu_time_usec_ = sample.acc_timestamp_usec;
                 }
-                else
-                {
-                    ROS_FATAL("Failed to get next imu sample from recording. node cannot continue.");
-                    ros::requestShutdown();
-                    return;
-                }
-                
             }
         }
 
