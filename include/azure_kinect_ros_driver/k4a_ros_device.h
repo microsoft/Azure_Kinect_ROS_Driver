@@ -17,6 +17,7 @@
 #include <k4arecord/playback.hpp>
 #include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/CompressedImage.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Imu.h>
@@ -60,6 +61,7 @@ class K4AROSDevice
     k4a_result_t getImuFrame(const k4a_imu_sample_t &capture, sensor_msgs::ImuPtr imu_frame);
 
     k4a_result_t getRbgFrame(const k4a::capture &capture, sensor_msgs::ImagePtr rgb_frame, bool rectified);
+    k4a_result_t getJpegRgbFrame(const k4a::capture &capture, sensor_msgs::CompressedImagePtr jpeg_image);
 
     k4a_result_t getIrFrame(const k4a::capture &capture, sensor_msgs::ImagePtr ir_image);
 
@@ -91,6 +93,7 @@ class K4AROSDevice
     image_transport::ImageTransport image_transport_;
 
     image_transport::Publisher  rgb_raw_publisher_;
+    ros::Publisher              rgb_jpeg_publisher_;
     ros::Publisher              rgb_raw_camerainfo_publisher_;
 
     image_transport::Publisher  depth_raw_publisher_;
