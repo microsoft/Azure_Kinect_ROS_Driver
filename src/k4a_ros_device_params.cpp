@@ -167,6 +167,13 @@ k4a_result_t K4AROSDeviceParams::GetDeviceConfig(k4a_device_configuration_t *con
         return K4A_RESULT_FAILED;
     }
 
+    // Ensure that color image contains RGB pixels instead of compressed JPEG data.
+    if (rgb_point_cloud && color_format == "jpeg")
+    {
+        ROS_ERROR_STREAM("Incompatible options: cannot generate RGB point cloud if color format is JPEG.");
+        return K4A_RESULT_FAILED;
+    }
+
     return K4A_RESULT_SUCCEEDED;
 }
 
