@@ -86,9 +86,17 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
             params_.rgb_point_cloud = false;
         }
         // This is necessary because at the moment there are only checks in place which use BgraPixel size
-        else if (params_.color_enabled && record_config.color_track_enabled && record_config.color_format != K4A_IMAGE_FORMAT_COLOR_BGRA32)
+        else if (params_.color_enabled && record_config.color_track_enabled)
         {
-            k4a_playback_handle_.set_color_conversion(K4A_IMAGE_FORMAT_COLOR_BGRA32);
+            if (params_.color_format == "jpeg" && record_config.color_format != K4A_IMAGE_FORMAT_COLOR_MJPG)
+            {
+                ROS_WARN("Converting color images to K4A_IMAGE_FORMAT_COLOR_MJPG is not supported.");
+                params_.color_format = "bgra";
+            }
+            if (params_.color_format == "bgra" && record_config.color_format != K4A_IMAGE_FORMAT_COLOR_BGRA32)
+            {
+                k4a_playback_handle_.set_color_conversion(K4A_IMAGE_FORMAT_COLOR_BGRA32);
+            }
         }
 
         // Disable depth if the recording has neither ir track nor depth track
