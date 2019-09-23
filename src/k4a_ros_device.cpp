@@ -291,6 +291,7 @@ k4a_result_t K4AROSDevice::startCameras()
     if (params_.body_tracking_enabled)
     {
         k4abt_tracker_ = k4abt::tracker::create(calibration_data_.k4a_calibration_);
+        k4abt_tracker_.set_temporal_smoothing(params_.body_tracking_smoothing_factor);
     }
 #endif
 
