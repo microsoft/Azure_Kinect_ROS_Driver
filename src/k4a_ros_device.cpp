@@ -226,6 +226,8 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
 
 #if defined(K4A_BODY_TRACKING)
     body_marker_publisher_ = node_.advertise<MarkerArray>("body_tracking_data", 1);
+
+    body_index_map_publisher_ = image_transport_.advertise("body_index_map/image_raw", 1);
 #endif
 }
 
@@ -780,10 +782,12 @@ k4a_result_t K4AROSDevice::getBodyMarker(const k4abt_body_t& body, MarkerPtr mar
     marker_msg->id = body.id * 100 + jointType;
     marker_msg->type = Marker::SPHERE;
 
-    marker_msg->color.a = 1.0;
-    marker_msg->color.r = 255;
-    marker_msg->color.g = 0;
-    marker_msg->color.b = 0;
+    Color color = BODY_COLOR_PALETTE[body.id % BODY_COLOR_PALETTE.size()];
+
+    marker_msg->color.a = color.a;
+    marker_msg->color.r = color.r;
+    marker_msg->color.g = color.g;
+    marker_msg->color.b = color.b;
 
     marker_msg->scale.x = 0.05;
     marker_msg->scale.y = 0.05;
@@ -796,6 +800,65 @@ k4a_result_t K4AROSDevice::getBodyMarker(const k4abt_body_t& body, MarkerPtr mar
     marker_msg->pose.orientation.y = orientation.v[1];
     marker_msg->pose.orientation.z = orientation.v[2];
     marker_msg->pose.orientation.w = orientation.v[3];
+
+    return K4A_RESULT_SUCCEEDED;
+}
+
+k4a_result_t K4AROSDevice::getBodyIndexMap(const k4abt::frame& body_frame, sensor_msgs::ImagePtr body_index_map_image)
+{
+    k4a::image k4a_body_index_map = body_frame.get_body_index_map();
+
+    if (!k4a_body_index_map)
+    {
+        ROS_ERROR("Cannot render body index map: no body index map");
+        return K4A_RESULT_FAILED;
+    }
+
+    return renderBodyIndexMapToROS(body_index_map_image, k4a_body_index_map, body_frame);
+}
+
+k4a_result_t K4AROSDevice::renderBodyIndexMapToROS(sensor_msgs::ImagePtr body_index_map_image, k4a::image& k4a_body_index_map, const k4abt::frame& body_frame)
+{
+    // Compute the expected size of the frame and compare to the actual frame size in bytes
+    size_t body_index_map_size = static_cast<size_t>(k4a_body_index_map.get_width_pixels() * k4a_body_index_map.get_height_pixels()) * sizeof(BodyIndexMapPixel);
+
+    // Access the ir image as an array of uint16 pixels
+    BodyIndexMapPixel* body_index_map_frame_buffer = k4a_body_index_map.get_buffer();
+    size_t body_index_map_pixel_count = body_index_map_size / sizeof(BodyIndexMapPixel);
+
+    // Build the ROS message
+    body_index_map_image->height = k4a_body_index_map.get_height_pixels();
+    body_index_map_image->width = k4a_body_index_map.get_width_pixels();
+    body_index_map_image->encoding = sensor_msgs::image_encodings::RGB8;
+    body_index_map_image->is_bigendian = false;
+    body_index_map_image->step = k4a_body_index_map.get_width_pixels() * 3 * sizeof(BodyIndexMapPixel);
+
+    // Enlarge the data buffer in the ROS message to hold the frame
+    body_index_map_image->data.resize(body_index_map_image->height * body_index_map_image->step);
+    
+    BodyIndexMapPixel* body_index_map_image_data = reinterpret_cast<BodyIndexMapPixel*>(&body_index_map_image->data[0]);
+
+    // Copy the depth pixels into the ROS message, transforming them to floats at the same time
+    // TODO: can this be done faster?
+    for (size_t i = 0; i < body_index_map_pixel_count; ++i)
+    {
+        BodyIndexMapPixel val = body_index_map_frame_buffer[i];
+        if (val == K4ABT_BODY_INDEX_MAP_BACKGROUND)
+        {
+            body_index_map_image->data[i * 3 + 0] = 220;
+            body_index_map_image->data[i * 3 + 1] = 220;
+            body_index_map_image->data[i * 3 + 2] = 220;
+        }
+        else
+        {
+            auto body_index = k4abt_frame_get_body_id(body_frame.handle(), val);
+            Color color = BODY_COLOR_PALETTE[body_index % BODY_COLOR_PALETTE.size()];
+
+            body_index_map_image->data[i * 3 + 0] = 255 * color.r;
+            body_index_map_image->data[i * 3 + 1] = 255 * color.g;
+            body_index_map_image->data[i * 3 + 2] = 255 * color.b;
+        }
+    }
 
     return K4A_RESULT_SUCCEEDED;
 }
@@ -961,7 +1024,7 @@ void K4AROSDevice::framePublisherThread()
 
 #if defined(K4A_BODY_TRACKING)
                 // Publish body markers when body tracking is enabled and a depth image is available
-                if (params_.body_tracking_enabled && body_marker_publisher_.getNumSubscribers() > 0)
+                if (params_.body_tracking_enabled && (body_marker_publisher_.getNumSubscribers() > 0 || body_index_map_publisher_.getNumSubscribers() > 0))
                 {
                     capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
 
@@ -982,22 +1045,44 @@ void K4AROSDevice::framePublisherThread()
                         }
                         else
                         {
-                            auto num_bodies = body_frame.get_num_bodies();
-                            if (num_bodies > 0)
+                            if (body_marker_publisher_.getNumSubscribers() > 0)
                             {
+                                // Joint marker array
                                 MarkerArrayPtr markerArrayPtr(new MarkerArray);
+                                auto num_bodies = body_frame.get_num_bodies();
                                 for (size_t i = 0; i < num_bodies; ++i)
                                 {
-                                    k4abt_body_t body = body_frame.get_body(i);   
-                                    for (int j = 0; j < (int) K4ABT_JOINT_COUNT; ++j)
+                                    k4abt_body_t body = body_frame.get_body(i);
+                                    for (int j = 0; j < (int)K4ABT_JOINT_COUNT; ++j)
                                     {
                                         MarkerPtr markerPtr(new Marker);
                                         getBodyMarker(body, markerPtr, j, capture_time);
                                         markerArrayPtr->markers.push_back(*markerPtr);
                                     }
                                 }
-
                                 body_marker_publisher_.publish(markerArrayPtr);
+                            }
+                            
+                            if (body_index_map_publisher_.getNumSubscribers() > 0)
+                            {
+                                // Body index map
+                                ImagePtr body_index_map_frame(new Image);
+                                result = getBodyIndexMap(body_frame, body_index_map_frame);
+
+                                if (result != K4A_RESULT_SUCCEEDED)
+                                {
+                                    ROS_ERROR_STREAM("Failed to get body index map");
+                                    ros::shutdown();
+                                    return;
+                                }
+                                else if (result == K4A_RESULT_SUCCEEDED)
+                                {
+                                    // Re-sychronize the timestamps with the capture timestamp
+                                    body_index_map_frame->header.stamp = capture_time;
+                                    body_index_map_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
+
+                                    body_index_map_publisher_.publish(body_index_map_frame);
+                                }
                             }
                         }
                     }

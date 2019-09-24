@@ -65,6 +65,10 @@ class K4AROSDevice
 
 #if defined(K4A_BODY_TRACKING)
     k4a_result_t getBodyMarker(const k4abt_body_t& body, visualization_msgs::MarkerPtr marker_msg, int jointType, ros::Time capture_time);
+
+    k4a_result_t getBodyIndexMap(const k4abt::frame& body_frame, sensor_msgs::ImagePtr body_index_map_image);
+
+    k4a_result_t renderBodyIndexMapToROS(sensor_msgs::ImagePtr body_index_map_image, k4a::image& k4a_body_index_map, const k4abt::frame& body_frame);
 #endif
 
   private:
@@ -111,6 +115,8 @@ class K4AROSDevice
 
 #if defined(K4A_BODY_TRACKING)
     ros::Publisher body_marker_publisher_;
+
+    image_transport::Publisher body_index_map_publisher_;
 #endif
 
     // Parameters
