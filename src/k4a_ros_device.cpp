@@ -821,7 +821,7 @@ k4a_result_t K4AROSDevice::renderBodyIndexMapToROS(sensor_msgs::ImagePtr body_in
 {
     // Access the ir image as an array of uint16 pixels
     BodyIndexMapPixel* body_index_map_frame_buffer = k4a_body_index_map.get_buffer();
-    auto body_index_map_pixel_count = k4a_body_index_map.get_size() / sizeof(BodyIndexMapPixel));
+    auto body_index_map_pixel_count = k4a_body_index_map.get_size() / sizeof(BodyIndexMapPixel);
 
     // Build the ROS message
     body_index_map_image->height = k4a_body_index_map.get_height_pixels();
