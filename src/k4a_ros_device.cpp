@@ -819,44 +819,32 @@ k4a_result_t K4AROSDevice::getBodyIndexMap(const k4abt::frame& body_frame, senso
 
 k4a_result_t K4AROSDevice::renderBodyIndexMapToROS(sensor_msgs::ImagePtr body_index_map_image, k4a::image& k4a_body_index_map, const k4abt::frame& body_frame)
 {
-    // Compute the expected size of the frame and compare to the actual frame size in bytes
-    size_t body_index_map_size = static_cast<size_t>(k4a_body_index_map.get_width_pixels() * k4a_body_index_map.get_height_pixels()) * sizeof(BodyIndexMapPixel);
-
     // Access the ir image as an array of uint16 pixels
     BodyIndexMapPixel* body_index_map_frame_buffer = k4a_body_index_map.get_buffer();
-    size_t body_index_map_pixel_count = body_index_map_size / sizeof(BodyIndexMapPixel);
+    auto body_index_map_pixel_count = k4a_body_index_map.get_size() / sizeof(BodyIndexMapPixel));
 
     // Build the ROS message
     body_index_map_image->height = k4a_body_index_map.get_height_pixels();
     body_index_map_image->width = k4a_body_index_map.get_width_pixels();
-    body_index_map_image->encoding = sensor_msgs::image_encodings::RGB8;
+    body_index_map_image->encoding = sensor_msgs::image_encodings::MONO8;
     body_index_map_image->is_bigendian = false;
-    body_index_map_image->step = k4a_body_index_map.get_width_pixels() * 3 * sizeof(BodyIndexMapPixel);
+    body_index_map_image->step = k4a_body_index_map.get_width_pixels() * sizeof(BodyIndexMapPixel);
 
     // Enlarge the data buffer in the ROS message to hold the frame
     body_index_map_image->data.resize(body_index_map_image->height * body_index_map_image->step);
-    
-    BodyIndexMapPixel* body_index_map_image_data = reinterpret_cast<BodyIndexMapPixel*>(&body_index_map_image->data[0]);
 
-    // Copy the depth pixels into the ROS message, transforming them to floats at the same time
     // TODO: can this be done faster?
     for (size_t i = 0; i < body_index_map_pixel_count; ++i)
     {
         BodyIndexMapPixel val = body_index_map_frame_buffer[i];
         if (val == K4ABT_BODY_INDEX_MAP_BACKGROUND)
         {
-            body_index_map_image->data[i * 3 + 0] = 220;
-            body_index_map_image->data[i * 3 + 1] = 220;
-            body_index_map_image->data[i * 3 + 2] = 220;
+            body_index_map_image->data[i] = K4ABT_BODY_INDEX_MAP_BACKGROUND;
         }
         else
         {
-            auto body_index = k4abt_frame_get_body_id(body_frame.handle(), val);
-            Color color = BODY_COLOR_PALETTE[body_index % BODY_COLOR_PALETTE.size()];
-
-            body_index_map_image->data[i * 3 + 0] = 255 * color.r;
-            body_index_map_image->data[i * 3 + 1] = 255 * color.g;
-            body_index_map_image->data[i * 3 + 2] = 255 * color.b;
+            auto body_id = k4abt_frame_get_body_id(body_frame.handle(), val);
+            body_index_map_image->data[i] = body_id % K4ABT_BODY_INDEX_MAP_BACKGROUND;
         }
     }
 
