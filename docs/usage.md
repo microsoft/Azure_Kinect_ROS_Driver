@@ -23,6 +23,7 @@ The node accepts the following parameters:
 - `recording_file` (string) : No default value. If this parameter contains a valid absolute path to a k4arecording file, the node will use the playback api with this file instead of opening a device.
 - `recording_loop_enabled` (bool) : Defaults to `false`. If this parameter is set to `true`, the node will rewind the recording file to the beginning after reaching the last frame. Otherwise the node will stop working after reaching the end of the recording file.
 - `body_tracking_enabled` (bool) : Defaults to `false`. If this parameter is set to `true`, the node will generate visualization_msgs::MarkerArray messages for the body tracking data. This requires that the `depth_enabled` parameter is set to `true` and an installed azure kinect body tracking sdk.
+- `body_tracking_smoothing_factor` (float) : Defaults to `0.0`. Controls the temporal smoothing across frames. Set between `0` for no smoothing and `1` for full smoothing. Less smoothing will increase the responsiveness of the detected skeletons but will cause more positional and oriantational jitters.
 
 #### Parameter Restrictions
 
