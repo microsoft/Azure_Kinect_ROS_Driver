@@ -820,7 +820,7 @@ k4a_result_t K4AROSDevice::getBodyIndexMap(const k4abt::frame& body_frame, senso
 
 k4a_result_t K4AROSDevice::renderBodyIndexMapToROS(sensor_msgs::ImagePtr body_index_map_image, k4a::image& k4a_body_index_map, const k4abt::frame& body_frame)
 {
-    // Access the ir image as an array of uint16 pixels
+    // Access the body index map as an array of uint8 pixels
     BodyIndexMapPixel* body_index_map_frame_buffer = k4a_body_index_map.get_buffer();
     auto body_index_map_pixel_count = k4a_body_index_map.get_size() / sizeof(BodyIndexMapPixel);
 
@@ -834,7 +834,10 @@ k4a_result_t K4AROSDevice::renderBodyIndexMapToROS(sensor_msgs::ImagePtr body_in
     // Enlarge the data buffer in the ROS message to hold the frame
     body_index_map_image->data.resize(body_index_map_image->height * body_index_map_image->step);
 
-    // TODO: can this be done faster?
+    // If the pixel doesn't belong to a detected body the pixels value will be 255 (K4ABT_BODY_INDEX_MAP_BACKGROUND).
+    // If the pixel belongs to a detected body the value is calculated by body id mod 255.
+    // This means that up to body id 254 the value is equals the body id.
+    // Afterwards it will lose the relation to the body id and is only a information for the segmentation of the image.
     for (size_t i = 0; i < body_index_map_pixel_count; ++i)
     {
         BodyIndexMapPixel val = body_index_map_frame_buffer[i];
