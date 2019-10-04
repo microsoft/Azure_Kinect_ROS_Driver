@@ -90,8 +90,9 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
         {
             if (params_.color_format == "jpeg" && record_config.color_format != K4A_IMAGE_FORMAT_COLOR_MJPG)
             {
-                ROS_WARN("Converting color images to K4A_IMAGE_FORMAT_COLOR_MJPG is not supported.");
-                params_.color_format = "bgra";
+                ROS_FATAL("Converting color images to K4A_IMAGE_FORMAT_COLOR_MJPG is not supported.");
+                ros::requestShutdown();
+                return;
             }
             if (params_.color_format == "bgra" && record_config.color_format != K4A_IMAGE_FORMAT_COLOR_BGRA32)
             {
