@@ -32,6 +32,7 @@
     LIST_ENTRY(depth_enabled, "True if depth camera should be enabled", bool, true) \
     LIST_ENTRY(depth_mode, "The mode of the depth camera. Options are: NFOV_2X2BINNED, NFOV_UNBINNED, WFOV_2X2BINNED, WFOV_UNBINNED, PASSIVE_IR", std::string, std::string("NFOV_UNBINNED")) \
     LIST_ENTRY(color_enabled, "True if color camera should be enabled", bool, false) \
+    LIST_ENTRY(color_format, "The format of RGB camera. Options are: bgra, jpeg", std::string, std::string("bgra")) \
     LIST_ENTRY(color_resolution, "The resolution of the color camera. Options are: 720P, 1080P, 1440P, 1536P, 2160P, 3072P", std::string, std::string("720P")) \
     LIST_ENTRY(fps, "The FPS of the RGB and Depth cameras. Options are: 5, 15, 30", int, 5) \
     LIST_ENTRY(point_cloud, "A PointCloud2 based on depth data. Requires depth_enabled=true, and cannot be used with depth_mode=PASSIVE_IR", bool, true) \

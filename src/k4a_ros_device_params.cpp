@@ -17,8 +17,6 @@
 
 k4a_result_t K4AROSDeviceParams::GetDeviceConfig(k4a_device_configuration_t *configuration)
 {
-    configuration->color_format = K4A_IMAGE_FORMAT_COLOR_BGRA32;
-
     configuration->depth_delay_off_color_usec = 0;
     configuration->wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
     configuration->subordinate_delay_off_master_usec = 0;
@@ -32,6 +30,22 @@ k4a_result_t K4AROSDeviceParams::GetDeviceConfig(k4a_device_configuration_t *con
     }
     else
     {
+        ROS_INFO_STREAM("Setting RGB Camera Format: " << color_format);
+
+        if (color_format == "jpeg")
+        {
+            configuration->color_format = K4A_IMAGE_FORMAT_COLOR_MJPG;
+        }
+        else if (color_format == "bgra")
+        {
+            configuration->color_format = K4A_IMAGE_FORMAT_COLOR_BGRA32;
+        }
+        else
+        {
+            ROS_ERROR_STREAM("Invalid RGB Camera Format: " << color_format);
+            return K4A_RESULT_FAILED;
+        }
+
         ROS_INFO_STREAM("Setting RGB Camera Resolution: " << color_resolution);
 
         if (color_resolution == "720P")
@@ -150,6 +164,13 @@ k4a_result_t K4AROSDeviceParams::GetDeviceConfig(k4a_device_configuration_t *con
     if (rgb_point_cloud && !color_enabled)
     {
         ROS_ERROR_STREAM("Incompatible options: cannot generate RGB point cloud if color camera is not enabled.");
+        return K4A_RESULT_FAILED;
+    }
+
+    // Ensure that color image contains RGB pixels instead of compressed JPEG data.
+    if (rgb_point_cloud && color_format == "jpeg")
+    {
+        ROS_ERROR_STREAM("Incompatible options: cannot generate RGB point cloud if color format is JPEG.");
         return K4A_RESULT_FAILED;
     }
 

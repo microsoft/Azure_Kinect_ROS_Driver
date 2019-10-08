@@ -86,9 +86,18 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
             params_.rgb_point_cloud = false;
         }
         // This is necessary because at the moment there are only checks in place which use BgraPixel size
-        else if (params_.color_enabled && record_config.color_track_enabled && record_config.color_format != K4A_IMAGE_FORMAT_COLOR_BGRA32)
+        else if (params_.color_enabled && record_config.color_track_enabled)
         {
-            k4a_playback_handle_.set_color_conversion(K4A_IMAGE_FORMAT_COLOR_BGRA32);
+            if (params_.color_format == "jpeg" && record_config.color_format != K4A_IMAGE_FORMAT_COLOR_MJPG)
+            {
+                ROS_FATAL("Converting color images to K4A_IMAGE_FORMAT_COLOR_MJPG is not supported.");
+                ros::requestShutdown();
+                return;
+            }
+            if (params_.color_format == "bgra" && record_config.color_format != K4A_IMAGE_FORMAT_COLOR_BGRA32)
+            {
+                k4a_playback_handle_.set_color_conversion(K4A_IMAGE_FORMAT_COLOR_BGRA32);
+            }
         }
 
         // Disable depth if the recording has neither ir track nor depth track
@@ -205,7 +214,17 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
     }
     
     // Register our topics
-    rgb_raw_publisher_ = image_transport_.advertise("rgb/image_raw", 1);
+    if (params_.color_format == "jpeg")
+    {
+        // JPEG images are directly published on 'rgb/image_raw/compressed' so that
+        // others can subscribe to 'rgb/image_raw' with compressed_image_transport.
+        // This technique is described in: http://wiki.ros.org/compressed_image_transport#Publishing_compressed_images_directly
+        rgb_jpeg_publisher_ = node_.advertise<CompressedImage>(node_.resolveName("rgb/image_raw") + "/compressed", 1);
+    }
+    else if (params_.color_format == "bgra")
+    {
+        rgb_raw_publisher_ = image_transport_.advertise("rgb/image_raw", 1);
+    }
     rgb_raw_camerainfo_publisher_ = node_.advertise<CameraInfo>("rgb/camera_info", 1);
 
     depth_raw_publisher_ = image_transport_.advertise("depth/image_raw", 1);
@@ -456,6 +475,23 @@ k4a_result_t K4AROSDevice::renderIrToROS(sensor_msgs::ImagePtr ir_image, k4a::im
 
     memcpy(ir_image_data, k4a_ir_frame.get_buffer(), ir_image->height * ir_image->step);
 
+    return K4A_RESULT_SUCCEEDED;
+}
+
+
+k4a_result_t K4AROSDevice::getJpegRgbFrame(const k4a::capture &capture, sensor_msgs::CompressedImagePtr jpeg_image)
+{
+    k4a::image k4a_jpeg_frame = capture.get_color_image();
+
+    if (!k4a_jpeg_frame)
+    {
+        ROS_ERROR("Cannot render Jpeg frame: no frame");
+        return K4A_RESULT_FAILED;
+    }
+
+    const uint8_t *jpeg_frame_buffer = k4a_jpeg_frame.get_buffer();
+    jpeg_image->format = "jpeg";
+    jpeg_image->data.assign(jpeg_frame_buffer, jpeg_frame_buffer + k4a_jpeg_frame.get_size());
     return K4A_RESULT_SUCCEEDED;
 }
 
@@ -915,6 +951,7 @@ void K4AROSDevice::framePublisherThread()
             last_capture_time_usec_ = getCaptureTimestamp(capture).count();
         }
 
+        CompressedImagePtr rgb_jpeg_frame(new CompressedImage);
         ImagePtr rgb_raw_frame(new Image);
         ImagePtr rgb_rect_frame(new Image);
         ImagePtr depth_raw_frame(new Image);
@@ -1087,58 +1124,87 @@ void K4AROSDevice::framePublisherThread()
         {   
             // Only create rgb frame when we are using a device or we have a color image.
             // Recordings may not have synchronized captures. For unsynchronized captures without color image skip rgb frame.
-            if ((rgb_raw_publisher_.getNumSubscribers() > 0 || rgb_raw_camerainfo_publisher_.getNumSubscribers() > 0) &&
-                (k4a_device_ || capture.get_color_image() != nullptr))
+            if (params_.color_format == "jpeg")
             {
-                result = getRbgFrame(capture, rgb_raw_frame);
-
-                if (result != K4A_RESULT_SUCCEEDED)
+                if ((rgb_jpeg_publisher_.getNumSubscribers() > 0 || rgb_raw_camerainfo_publisher_.getNumSubscribers() > 0) &&
+                    (k4a_device_ || capture.get_color_image() != nullptr))
                 {
-                    ROS_ERROR_STREAM("Failed to get RGB frame");
-                    ros::shutdown();
-                    return;
+                    result = getJpegRgbFrame(capture, rgb_jpeg_frame);
+
+                    if (result != K4A_RESULT_SUCCEEDED)
+                    {
+                        ROS_ERROR_STREAM("Failed to get Jpeg frame");
+                        ros::shutdown();
+                        return;
+                    }
+
+                    capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
+                    printTimestampDebugMessage("Color image", capture_time);
+
+                    rgb_jpeg_frame->header.stamp =  capture_time;
+                    rgb_jpeg_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
+                    rgb_jpeg_publisher_.publish(rgb_jpeg_frame);
+
+                    // Re-synchronize the header timestamps since we cache the camera calibration message
+                    rgb_raw_camera_info.header.stamp = capture_time;
+                    rgb_raw_camerainfo_publisher_.publish(rgb_raw_camera_info);
                 }
-
-                capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
-                printTimestampDebugMessage("Color image", capture_time);
-
-                rgb_raw_frame->header.stamp =  capture_time;
-                rgb_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
-                rgb_raw_publisher_.publish(rgb_raw_frame);
-
-                // Re-synchronize the header timestamps since we cache the camera calibration message
-                rgb_raw_camera_info.header.stamp = capture_time;
-                rgb_raw_camerainfo_publisher_.publish(rgb_raw_camera_info);
             }
-
-            // We can only rectify the color into the depth co-ordinates if the depth camera is 
-            // enabled and processing depth data
-            // Only create rgb rect frame when we are using a device or we have a synchronized image.
-            // Recordings may not have synchronized captures. For unsynchronized captures image skip rgb rect frame.
-            if (params_.depth_enabled && 
-                (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR) && 
-                (rgb_rect_publisher_.getNumSubscribers() > 0 || rgb_rect_camerainfo_publisher_.getNumSubscribers() > 0) &&
-                (k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr)))
+            else if (params_.color_format == "bgra")
             {
-                result = getRbgFrame(capture, rgb_rect_frame, true /* rectified */);
-            
-                if (result != K4A_RESULT_SUCCEEDED)
+                if ((rgb_raw_publisher_.getNumSubscribers() > 0 || rgb_raw_camerainfo_publisher_.getNumSubscribers() > 0) &&
+                    (k4a_device_ || capture.get_color_image() != nullptr))
                 {
-                    ROS_ERROR_STREAM("Failed to get rectifed depth frame");
-                    ros::shutdown();
-                    return;
+                    result = getRbgFrame(capture, rgb_raw_frame);
+
+                    if (result != K4A_RESULT_SUCCEEDED)
+                    {
+                        ROS_ERROR_STREAM("Failed to get RGB frame");
+                        ros::shutdown();
+                        return;
+                    }
+
+                    capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
+                    printTimestampDebugMessage("Color image", capture_time);
+
+                    rgb_raw_frame->header.stamp =  capture_time;
+                    rgb_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
+                    rgb_raw_publisher_.publish(rgb_raw_frame);
+
+                    // Re-synchronize the header timestamps since we cache the camera calibration message
+                    rgb_raw_camera_info.header.stamp = capture_time;
+                    rgb_raw_camerainfo_publisher_.publish(rgb_raw_camera_info);
                 }
 
-                capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
-                printTimestampDebugMessage("Color image", capture_time);
+                // We can only rectify the color into the depth co-ordinates if the depth camera is
+                // enabled and processing depth data
+                // Only create rgb rect frame when we are using a device or we have a synchronized image.
+                // Recordings may not have synchronized captures. For unsynchronized captures image skip rgb rect frame.
+                if (params_.depth_enabled &&
+                    (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR) &&
+                    (rgb_rect_publisher_.getNumSubscribers() > 0 || rgb_rect_camerainfo_publisher_.getNumSubscribers() > 0) &&
+                    (k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr)))
+                {
+                    result = getRbgFrame(capture, rgb_rect_frame, true /* rectified */);
 
-                rgb_rect_frame->header.stamp = capture_time;
-                rgb_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
-                rgb_rect_publisher_.publish(rgb_rect_frame);
+                    if (result != K4A_RESULT_SUCCEEDED)
+                    {
+                        ROS_ERROR_STREAM("Failed to get rectifed depth frame");
+                        ros::shutdown();
+                        return;
+                    }
 
-                // Re-synchronize the header timestamps since we cache the camera calibration message
-                rgb_rect_camera_info.header.stamp = capture_time;
-                rgb_rect_camerainfo_publisher_.publish(rgb_rect_camera_info);
+                    capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
+                    printTimestampDebugMessage("Color image", capture_time);
+
+                    rgb_rect_frame->header.stamp = capture_time;
+                    rgb_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
+                    rgb_rect_publisher_.publish(rgb_rect_frame);
+
+                    // Re-synchronize the header timestamps since we cache the camera calibration message
+                    rgb_rect_camera_info.header.stamp = capture_time;
+                    rgb_rect_camerainfo_publisher_.publish(rgb_rect_camera_info);
+                }
             }
         }
 
