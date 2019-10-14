@@ -406,48 +406,8 @@ k4a_result_t K4AROSDevice::renderDepthToROS(sensor_msgs::ImagePtr& depth_image, 
     depth_frame_buffer_mat.convertTo(new_image, CV_32FC1, 1.0/1000.0f);
 
     depth_image = cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::TYPE_32FC1, new_image).toImageMsg();
-    //depth_image->encoding = sensor_msgs::image_encodings::TYPE_32FC1;
-
 
     return K4A_RESULT_SUCCEEDED;
-    /*
-
-    // Compute the expected size of the frame and compare to the actual frame size in bytes
-    size_t depth_source_size = static_cast<size_t>(k4a_depth_frame.get_width_pixels() * k4a_depth_frame.get_height_pixels()) * sizeof(DepthPixel);
-
-    // Access the depth image as an array of uint16 pixels
-    DepthPixel* depth_frame_buffer = reinterpret_cast<DepthPixel *>(k4a_depth_frame.get_buffer());
-    size_t depth_pixel_count = depth_source_size / sizeof(DepthPixel);
-
-    // Build the ROS message
-    depth_image->height = k4a_depth_frame.get_height_pixels();
-    depth_image->width = k4a_depth_frame.get_width_pixels();
-    depth_image->encoding = sensor_msgs::image_encodings::TYPE_32FC1;
-    depth_image->is_bigendian = false;
-    depth_image->step = k4a_depth_frame.get_width_pixels() * sizeof(float);
-
-    // Enlarge the data buffer in the ROS message to hold the frame
-    depth_image->data.resize(depth_image->height * depth_image->step);
-
-    float* depth_image_data = reinterpret_cast<float*>(&depth_image->data[0]);
-
-    // Copy the depth pixels into the ROS message, transforming them to floats at the same time
-    // TODO: can this be done faster?
-    for (size_t i = 0; i < depth_pixel_count; i++)
-    {
-        depth_image_data[i] = static_cast<float>(depth_frame_buffer[i]);
-
-        if (depth_image_data[i] <= 0.f)
-        {
-            depth_image_data[i] = std::numeric_limits<float>::quiet_NaN();
-        }
-        else
-        {
-            depth_image_data[i] /= 1000.0f;
-        }
-    }
-
-    return K4A_RESULT_SUCCEEDED; */
 }
 
 
@@ -467,26 +427,9 @@ k4a_result_t K4AROSDevice::getIrFrame(const k4a::capture &capture, sensor_msgs::
 
 k4a_result_t K4AROSDevice::renderIrToROS(sensor_msgs::ImagePtr& ir_image, k4a::image& k4a_ir_frame)
 {
-    // Compute the expected size of the frame and compare to the actual frame size in bytes
-    size_t ir_source_size = static_cast<size_t>(k4a_ir_frame.get_width_pixels() * k4a_ir_frame.get_height_pixels()) * sizeof(IrPixel);
+    cv::Mat ir_buffer_mat(k4a_ir_frame.get_height_pixels(), k4a_ir_frame.get_width_pixels(), CV_16UC1, k4a_ir_frame.get_buffer());
 
-    // Access the ir image as an array of uint16 pixels
-    IrPixel* ir_frame_buffer = reinterpret_cast<IrPixel *>(k4a_ir_frame.get_buffer());
-    size_t ir_pixel_count = ir_source_size / sizeof(IrPixel);
-
-    // Build the ROS message
-    ir_image->height = k4a_ir_frame.get_height_pixels();
-    ir_image->width = k4a_ir_frame.get_width_pixels();
-    ir_image->encoding = sensor_msgs::image_encodings::MONO16;
-    ir_image->is_bigendian = false;
-    ir_image->step = k4a_ir_frame.get_width_pixels() * sizeof(IrPixel);
-
-    // Enlarge the data buffer in the ROS message to hold the frame
-    ir_image->data.resize(ir_image->height * ir_image->step);
-
-    IrPixel* ir_image_data = reinterpret_cast<IrPixel*>(&ir_image->data[0]);
-
-    memcpy(ir_image_data, k4a_ir_frame.get_buffer(), ir_image->height * ir_image->step);
+    ir_image = cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::MONO16, ir_buffer_mat).toImageMsg();
 
     return K4A_RESULT_SUCCEEDED;
 }
@@ -547,25 +490,9 @@ k4a_result_t K4AROSDevice::getRbgFrame(const k4a::capture &capture, sensor_msgs:
 // during debugging of image processing functions
 k4a_result_t K4AROSDevice::renderBGRA32ToROS(sensor_msgs::ImagePtr& rgb_image, k4a::image& k4a_bgra_frame)
 {
-    size_t color_image_size = static_cast<size_t>(k4a_bgra_frame.get_width_pixels() * k4a_bgra_frame.get_height_pixels()) * sizeof(BgraPixel);
+    cv::Mat rgb_buffer_mat(k4a_bgra_frame.get_height_pixels(), k4a_bgra_frame.get_width_pixels(), CV_8UC4, k4a_bgra_frame.get_buffer());
 
-    // Build the ROS message
-    rgb_image->height = k4a_bgra_frame.get_height_pixels();
-    rgb_image->width = k4a_bgra_frame.get_width_pixels();
-    rgb_image->encoding = sensor_msgs::image_encodings::BGRA8;
-    rgb_image->is_bigendian = false;
-    rgb_image->step = k4a_bgra_frame.get_width_pixels() * sizeof(BgraPixel);
-
-    // Enlarge the data buffer in the ROS message to hold the frame
-    rgb_image->data.resize(rgb_image->height * rgb_image->step);
-
-    ROS_ASSERT_MSG(color_image_size == rgb_image->height * rgb_image->step, "Pixel buffer and ROS message buffer sizes are different");
-
-    uint8_t *rgb_image_data = reinterpret_cast<uint8_t *>(&rgb_image->data[0]);
-    uint8_t *bgra_frame_buffer = k4a_bgra_frame.get_buffer();
-
-    // Copy memory from the Azure Kinect buffer into the ROS buffer
-    memcpy(rgb_image_data, bgra_frame_buffer, rgb_image->height * rgb_image->step);
+    rgb_image = cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::BGRA8, rgb_buffer_mat).toImageMsg();
 
     return K4A_RESULT_SUCCEEDED;
 }
