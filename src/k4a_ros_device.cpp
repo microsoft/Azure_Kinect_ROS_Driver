@@ -73,7 +73,7 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
             case K4A_FRAMES_PER_SECOND_30:
                 params_.fps = 30;
                 break;
-            
+
             default:
                 break;
         };
@@ -212,7 +212,7 @@ K4AROSDevice::K4AROSDevice(const NodeHandle &n, const NodeHandle &p) : k4a_devic
             version_info.depth_sensor.minor,
             version_info.depth_sensor.iteration);
     }
-    
+
     // Register our topics
     if (params_.color_format == "jpeg")
     {
@@ -286,7 +286,7 @@ k4a_result_t K4AROSDevice::startCameras()
 {
     k4a_device_configuration_t k4a_configuration = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
     k4a_result_t result = params_.GetDeviceConfig(&k4a_configuration);
-    
+
     if (k4a_device_)
     {
         if (result != K4A_RESULT_SUCCEEDED)
@@ -295,7 +295,7 @@ k4a_result_t K4AROSDevice::startCameras()
             return result;
         }
 
-        // Now that we have a proposed camera configuration, we can 
+        // Now that we have a proposed camera configuration, we can
         // initialize the class which will take care of device calibration information
         calibration_data_.initialize(k4a_device_, k4a_configuration.depth_mode, k4a_configuration.color_resolution, params_);
     }
@@ -305,8 +305,8 @@ k4a_result_t K4AROSDevice::startCameras()
         calibration_data_.initialize(k4a_playback_handle_, params_);
     }
 
-    
-    
+
+
 #if defined(K4A_BODY_TRACKING)
     // When calibration is initialized the body tracker can be created with the device calibration
     if (params_.body_tracking_enabled)
@@ -322,9 +322,9 @@ k4a_result_t K4AROSDevice::startCameras()
         k4a_device_.start_cameras(&k4a_configuration);
     }
 
-    // Cannot assume the device timestamp begins increasing upon starting the cameras. 
-    // If we set the time base here, depending on the machine performance, the new timestamp 
-    // would lag the value of ros::Time::now() by at least 0.5 secs which is much larger than 
+    // Cannot assume the device timestamp begins increasing upon starting the cameras.
+    // If we set the time base here, depending on the machine performance, the new timestamp
+    // would lag the value of ros::Time::now() by at least 0.5 secs which is much larger than
     // the real transmission delay as can be observed using the rqt_plot tool.
     // start_time_ = ros::Time::now();
 
@@ -383,7 +383,7 @@ k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture &capture, sensor_msg
         ROS_ERROR("Cannot render depth frame: no frame");
         return K4A_RESULT_FAILED;
     }
-     
+
     if(rectified)
     {
         calibration_data_.k4a_transformation_.depth_image_to_color_camera(
@@ -470,7 +470,7 @@ k4a_result_t K4AROSDevice::renderIrToROS(sensor_msgs::ImagePtr ir_image, k4a::im
 
     // Enlarge the data buffer in the ROS message to hold the frame
     ir_image->data.resize(ir_image->height * ir_image->step);
-    
+
     IrPixel* ir_image_data = reinterpret_cast<IrPixel*>(&ir_image->data[0]);
 
     memcpy(ir_image_data, k4a_ir_frame.get_buffer(), ir_image->height * ir_image->step);
@@ -524,7 +524,7 @@ k4a_result_t K4AROSDevice::getRbgFrame(const k4a::capture &capture, sensor_msgs:
             &calibration_data_.transformed_rgb_image_);
 
         return renderBGRA32ToROS(rgb_image, calibration_data_.transformed_rgb_image_);
-    }   
+    }
 
     return renderBGRA32ToROS(rgb_image, k4a_bgra_frame);
 }
@@ -550,7 +550,7 @@ k4a_result_t K4AROSDevice::renderBGRA32ToROS(sensor_msgs::ImagePtr rgb_image, k4
 
     uint8_t *rgb_image_data = reinterpret_cast<uint8_t *>(&rgb_image->data[0]);
     uint8_t *bgra_frame_buffer = k4a_bgra_frame.get_buffer();
-    
+
     // Copy memory from the Azure Kinect buffer into the ROS buffer
     memcpy(rgb_image_data, bgra_frame_buffer, rgb_image->height * rgb_image->step);
 
@@ -643,7 +643,7 @@ k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_
         else
         {
             depth_point_3d.xyz.x = float(point_cloud_buffer[3 * i + 0]);
-            depth_point_3d.xyz.y = float(-1 * point_cloud_buffer[3 * i + 1]);
+            depth_point_3d.xyz.y = float(point_cloud_buffer[3 * i + 1]);
 
             // Points from the camera are measured in milimeters. ROS expects the floats to be in meters.
             // Divide all points by 1000 to convert from mm to m
@@ -652,23 +652,8 @@ k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_
                 f /= 1000.0f;
             }
 
-            // K4A Depth co-ordinates:
-            //  x+ = "right"
-            //  y+ = "up"
-            //  z+ = "forward"
-            //
-            // ROS Standard Camera co-ordinates:
-            //  x+ = "right"
-            //  y+ = "down"
-            //  z+ = "forward"
-            //
-            // Remap K4A to ROS co-ordinate system:
-            // ROS_X+ = K4A_Z+
-            // ROS_Y+ = K4A_X-
-            // ROS_Z+ = K4A_Y+
-
             *iter_x = 1.0 * depth_point_3d.xyz.x;
-            *iter_y = -1.0 * depth_point_3d.xyz.y;
+            *iter_y = 1.0 * depth_point_3d.xyz.y;
             *iter_z = 1.0 * depth_point_3d.xyz.z;
 
             *iter_r = color_pixel.Red;
@@ -734,7 +719,7 @@ k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture &capture, sensor_msg
         else
         {
             depth_point_3d.xyz.x = float(point_cloud_buffer[3 * i]);
-            depth_point_3d.xyz.y = float(-1 * point_cloud_buffer[3 * i + 1]);
+            depth_point_3d.xyz.y = float(point_cloud_buffer[3 * i + 1]);
 
             // Points from the camera are measured in milimeters. ROS expects the floats to be in meters.
             // Divide all points by 1000 to convert from mm to m
@@ -743,23 +728,8 @@ k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture &capture, sensor_msg
                 f /= 1000.0f;
             }
 
-            // K4A Depth co-ordinates:
-            //  x+ = "right"
-            //  y+ = "up"
-            //  z+ = "forward"
-            //
-            // ROS Standard Camera co-ordinates:
-            //  x+ = "right"
-            //  y+ = "down"
-            //  z+ = "forward"
-            //
-            // Remap K4A to ROS co-ordinate system:
-            // ROS_X+ = K4A_Z+
-            // ROS_Y+ = K4A_X-
-            // ROS_Z+ = K4A_Y+
-
             *iter_x =  1.0 * depth_point_3d.xyz.x;
-            *iter_y = -1.0 * depth_point_3d.xyz.y;
+            *iter_y =  1.0 * depth_point_3d.xyz.y;
             *iter_z =  1.0 * depth_point_3d.xyz.z;
         }
     }
@@ -774,29 +744,16 @@ k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_ms
     imu_msg->header.stamp = timestampToROS(sample.acc_timestamp_usec);
     printTimestampDebugMessage("IMU", imu_msg->header.stamp);
 
-    // K4A IMU Co-ordinates
-    //  x+ = "backwards"
-    //  y+ = "left"
-    //  z+ = "down"
-    //
-    // ROS Standard co-ordinates:
-    //  x+ = "forward"
-    //  y+ = "left"
-    //  z+ = "up"
-    //
-    // Remap K4A IMU to ROS co-ordinate system:
-    // ROS_X+ = K4A_X-
-    // ROS_Y+ = K4A_Y+
-    // ROS_Z+ = K4A_Z-
 
-    // The K4A and ROS IMU frames don't agree. Fix that here
-    imu_msg->angular_velocity.x = -1.0 * sample.gyro_sample.xyz.x;
-    imu_msg->angular_velocity.y =  1.0 * sample.gyro_sample.xyz.y;
-    imu_msg->angular_velocity.z = -1.0 * sample.gyro_sample.xyz.z;
+    // The correct convention in ROS is to publish the raw sensor data, in the
+    // sensor coordinate frame. Do that here.
+    imu_msg->angular_velocity.x = sample.gyro_sample.xyz.x;
+    imu_msg->angular_velocity.y = sample.gyro_sample.xyz.y;
+    imu_msg->angular_velocity.z = sample.gyro_sample.xyz.z;
 
-    imu_msg->linear_acceleration.x = -1.0 * sample.acc_sample.xyz.x;
-    imu_msg->linear_acceleration.y =  1.0 * sample.acc_sample.xyz.y;
-    imu_msg->linear_acceleration.z = -1.0 * sample.acc_sample.xyz.z;
+    imu_msg->linear_acceleration.x = sample.acc_sample.xyz.x;
+    imu_msg->linear_acceleration.y = sample.acc_sample.xyz.y;
+    imu_msg->linear_acceleration.z = sample.acc_sample.xyz.z;
 
     // Disable the orientation component of the IMU message since it's invalid
     imu_msg->orientation_covariance[0] = -1.0;
@@ -969,7 +926,7 @@ void K4AROSDevice::framePublisherThread()
             {
                 // IR images are available in all depth modes
                 result = getIrFrame(capture, ir_raw_frame);
-                
+
                 if (result != K4A_RESULT_SUCCEEDED)
                 {
                     ROS_ERROR_STREAM("Failed to get raw IR frame");
@@ -1000,7 +957,7 @@ void K4AROSDevice::framePublisherThread()
                     (k4a_device_ || capture.get_depth_image() != nullptr))
                 {
                     result = getDepthFrame(capture, depth_raw_frame);
-            
+
                     if (result != K4A_RESULT_SUCCEEDED)
                     {
                         ROS_ERROR_STREAM("Failed to get raw depth frame");
@@ -1021,7 +978,7 @@ void K4AROSDevice::framePublisherThread()
                         depth_raw_camerainfo_publisher_.publish(depth_raw_camera_info);
                     }
                 }
-                
+
                 // We can only rectify the depth into the color co-ordinates if the color camera is enabled!
                 // Only create rect depth frame when we are using a device or we have an depth image.
                 // Recordings may not have synchronized captures. For unsynchronized captures without depth image skip rect depth frame.
@@ -1029,7 +986,7 @@ void K4AROSDevice::framePublisherThread()
                     (k4a_device_ || capture.get_depth_image() != nullptr))
                 {
                     result = getDepthFrame(capture, depth_rect_frame, true /* rectified */);
-                
+
                     if (result != K4A_RESULT_SUCCEEDED)
                     {
                         ROS_ERROR_STREAM("Failed to get rectifed depth frame");
@@ -1091,7 +1048,7 @@ void K4AROSDevice::framePublisherThread()
                                 }
                                 body_marker_publisher_.publish(markerArrayPtr);
                             }
-                            
+
                             if (body_index_map_publisher_.getNumSubscribers() > 0)
                             {
                                 // Body index map
@@ -1117,11 +1074,11 @@ void K4AROSDevice::framePublisherThread()
                     }
                 }
 #endif
-            }            
+            }
         }
 
         if (params_.color_enabled)
-        {   
+        {
             // Only create rgb frame when we are using a device or we have a color image.
             // Recordings may not have synchronized captures. For unsynchronized captures without color image skip rgb frame.
             if (params_.color_format == "jpeg")
@@ -1210,7 +1167,7 @@ void K4AROSDevice::framePublisherThread()
 
         // Only create pointcloud when we are using a device or we have a synchronized image.
         // Recordings may not have synchronized captures. In unsynchronized captures skip point cloud.
-        if (pointcloud_publisher_.getNumSubscribers() > 0 && 
+        if (pointcloud_publisher_.getNumSubscribers() > 0 &&
             (k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr)))
         {
             if (params_.rgb_point_cloud)
@@ -1227,7 +1184,7 @@ void K4AROSDevice::framePublisherThread()
             else if (params_.point_cloud)
             {
                 result = getPointCloud(capture, point_cloud);
-                
+
                 if (result != K4A_RESULT_SUCCEEDED)
                 {
                     ROS_ERROR_STREAM("Failed to get Point Cloud");
@@ -1244,12 +1201,12 @@ void K4AROSDevice::framePublisherThread()
 
         if (loop_rate.cycleTime() > loop_rate.expectedCycleTime())
         {
-            ROS_WARN_STREAM_THROTTLE(10, 
-                "Image processing thread is running behind." << std::endl << 
-                "Expected max loop time: " << loop_rate.expectedCycleTime() << std::endl << 
+            ROS_WARN_STREAM_THROTTLE(10,
+                "Image processing thread is running behind." << std::endl <<
+                "Expected max loop time: " << loop_rate.expectedCycleTime() << std::endl <<
                 "Actual loop time: " << loop_rate.cycleTime() << std::endl);
         }
-        
+
         ros::spinOnce();
         loop_rate.sleep();
     }
@@ -1273,7 +1230,7 @@ void K4AROSDevice::imuPublisherThread()
             do
             {
                 read = k4a_device_.get_imu_sample(&sample, std::chrono::milliseconds(0));
-                
+
                 if (read)
                 {
                     ImuPtr imu_msg(new Imu);
@@ -1340,7 +1297,7 @@ std::chrono::microseconds K4AROSDevice::getCaptureTimestamp(const k4a::capture &
 }
 
 // Converts a k4a_image_t timestamp to a ros::Time object
-ros::Time K4AROSDevice::timestampToROS(const std::chrono::microseconds & k4a_timestamp_us) 
+ros::Time K4AROSDevice::timestampToROS(const std::chrono::microseconds & k4a_timestamp_us)
 {
     ros::Duration duration_since_device_startup(std::chrono::duration<double>(k4a_timestamp_us).count());
 
@@ -1350,14 +1307,14 @@ ros::Time K4AROSDevice::timestampToROS(const std::chrono::microseconds & k4a_tim
         const ros::Duration transmission_delay(0.11);
         ROS_WARN_STREAM("Setting the time base using a k4a_image_t timestamp. This will result in a "
             "larger uncertainty than setting the time base using the timestamp of a k4a_imu_sample_t sample. "
-            "Assuming the transmission delay to be " << transmission_delay.toSec() * 1000.0  << " ms."); 
+            "Assuming the transmission delay to be " << transmission_delay.toSec() * 1000.0  << " ms.");
         start_time_ = ros::Time::now() - duration_since_device_startup - transmission_delay;
     }
     return start_time_ + duration_since_device_startup;
 }
 
 // Converts a k4a_imu_sample_t timestamp to a ros::Time object
-ros::Time K4AROSDevice::timestampToROS(const uint64_t & k4a_timestamp_us) 
+ros::Time K4AROSDevice::timestampToROS(const uint64_t & k4a_timestamp_us)
 {
       ros::Duration duration_since_device_startup(k4a_timestamp_us / 1e6);
 
@@ -1366,7 +1323,7 @@ ros::Time K4AROSDevice::timestampToROS(const uint64_t & k4a_timestamp_us)
       {
         const ros::Duration transmission_delay(0.005);
         ROS_INFO_STREAM("Setting the time base using a k4a_imu_sample_t sample. "
-          "Assuming the transmission delay to be " << transmission_delay.toSec() * 1000.0 << " ms."); 
+          "Assuming the transmission delay to be " << transmission_delay.toSec() * 1000.0 << " ms.");
         start_time_ = ros::Time::now() - duration_since_device_startup - transmission_delay;
       }
       return start_time_ + duration_since_device_startup;
@@ -1391,8 +1348,8 @@ void printTimestampDebugMessage(const std::string name, const ros::Time & timest
         if (lag > max_lag)
             max_lag = lag;
     }
-    
-    ROS_DEBUG_STREAM(name << " timestamp lags ros::Time::now() by\n" 
+
+    ROS_DEBUG_STREAM(name << " timestamp lags ros::Time::now() by\n"
         << std::setw(23) << lag.toSec() * 1000.0 << " ms. "
         << "The lag ranges from " << it->second.first.toSec() * 1000.0 << "ms"
         <<" to " << it->second.second.toSec() * 1000.0 << "ms.");
