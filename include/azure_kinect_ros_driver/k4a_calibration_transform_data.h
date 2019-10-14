@@ -57,14 +57,12 @@ private:
     void printCameraCalibration(k4a_calibration_camera_t& calibration);
     void printExtrinsics(k4a_calibration_extrinsics_t& extrinsics);
 
-    void publishRgbToBaseTf();
-    void publishImuToBaseTf();
+    void publishRgbToDepthTf();
+    void publishImuToDepthTf();
     void publishDepthToBaseTf();
 
     tf2::Quaternion getDepthToBaseRotationCorrection();
     tf2::Vector3    getDepthToBaseTranslationCorrection();
-    tf2::Quaternion getImuToDepthRotationCorrection();
-    tf2::Quaternion getColorToDepthRotationCorrection();
 
     tf2_ros::StaticTransformBroadcaster static_broadcaster_;
 };
