@@ -17,6 +17,7 @@
 #include <angles/angles.h>
 #include <k4a/k4a.h>
 #include <k4a/k4a.hpp>
+#include <cv_bridge/cv_bridge.h>
 
 // Project headers
 //
@@ -374,7 +375,7 @@ void K4AROSDevice::stopImu()
 }
 
 
-k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture &capture, sensor_msgs::ImagePtr depth_image, bool rectified = false)
+k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture &capture, sensor_msgs::ImagePtr& depth_image, bool rectified = false)
 {
     k4a::image k4a_depth_frame = capture.get_depth_image();
 
@@ -397,8 +398,20 @@ k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture &capture, sensor_msg
 }
 
 
-k4a_result_t K4AROSDevice::renderDepthToROS(sensor_msgs::ImagePtr depth_image, k4a::image& k4a_depth_frame)
+k4a_result_t K4AROSDevice::renderDepthToROS(sensor_msgs::ImagePtr& depth_image, k4a::image& k4a_depth_frame)
 {
+    cv::Mat depth_frame_buffer_mat(k4a_depth_frame.get_height_pixels(), k4a_depth_frame.get_width_pixels(), CV_16UC1, k4a_depth_frame.get_buffer());
+    cv::Mat new_image(k4a_depth_frame.get_height_pixels(), k4a_depth_frame.get_width_pixels(), CV_32FC1);
+
+    depth_frame_buffer_mat.convertTo(new_image, CV_32FC1, 1.0/1000.0f);
+
+    depth_image = cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::TYPE_32FC1, new_image).toImageMsg();
+    //depth_image->encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+
+
+    return K4A_RESULT_SUCCEEDED;
+    /*
+
     // Compute the expected size of the frame and compare to the actual frame size in bytes
     size_t depth_source_size = static_cast<size_t>(k4a_depth_frame.get_width_pixels() * k4a_depth_frame.get_height_pixels()) * sizeof(DepthPixel);
 
@@ -434,11 +447,11 @@ k4a_result_t K4AROSDevice::renderDepthToROS(sensor_msgs::ImagePtr depth_image, k
         }
     }
 
-    return K4A_RESULT_SUCCEEDED;
+    return K4A_RESULT_SUCCEEDED; */
 }
 
 
-k4a_result_t K4AROSDevice::getIrFrame(const k4a::capture &capture, sensor_msgs::ImagePtr ir_image)
+k4a_result_t K4AROSDevice::getIrFrame(const k4a::capture &capture, sensor_msgs::ImagePtr& ir_image)
 {
     k4a::image k4a_ir_frame = capture.get_ir_image();
 
@@ -452,7 +465,7 @@ k4a_result_t K4AROSDevice::getIrFrame(const k4a::capture &capture, sensor_msgs::
 }
 
 
-k4a_result_t K4AROSDevice::renderIrToROS(sensor_msgs::ImagePtr ir_image, k4a::image& k4a_ir_frame)
+k4a_result_t K4AROSDevice::renderIrToROS(sensor_msgs::ImagePtr& ir_image, k4a::image& k4a_ir_frame)
 {
     // Compute the expected size of the frame and compare to the actual frame size in bytes
     size_t ir_source_size = static_cast<size_t>(k4a_ir_frame.get_width_pixels() * k4a_ir_frame.get_height_pixels()) * sizeof(IrPixel);
@@ -479,7 +492,7 @@ k4a_result_t K4AROSDevice::renderIrToROS(sensor_msgs::ImagePtr ir_image, k4a::im
 }
 
 
-k4a_result_t K4AROSDevice::getJpegRgbFrame(const k4a::capture &capture, sensor_msgs::CompressedImagePtr jpeg_image)
+k4a_result_t K4AROSDevice::getJpegRgbFrame(const k4a::capture &capture, sensor_msgs::CompressedImagePtr& jpeg_image)
 {
     k4a::image k4a_jpeg_frame = capture.get_color_image();
 
@@ -496,7 +509,7 @@ k4a_result_t K4AROSDevice::getJpegRgbFrame(const k4a::capture &capture, sensor_m
 }
 
 
-k4a_result_t K4AROSDevice::getRbgFrame(const k4a::capture &capture, sensor_msgs::ImagePtr rgb_image, bool rectified = false)
+k4a_result_t K4AROSDevice::getRbgFrame(const k4a::capture &capture, sensor_msgs::ImagePtr& rgb_image, bool rectified = false)
 {
     k4a::image k4a_bgra_frame = capture.get_color_image();
 
@@ -532,7 +545,7 @@ k4a_result_t K4AROSDevice::getRbgFrame(const k4a::capture &capture, sensor_msgs:
 
 // Helper function that renders any BGRA K4A frame to a ROS ImagePtr. Useful for rendering intermediary frames
 // during debugging of image processing functions
-k4a_result_t K4AROSDevice::renderBGRA32ToROS(sensor_msgs::ImagePtr rgb_image, k4a::image& k4a_bgra_frame)
+k4a_result_t K4AROSDevice::renderBGRA32ToROS(sensor_msgs::ImagePtr& rgb_image, k4a::image& k4a_bgra_frame)
 {
     size_t color_image_size = static_cast<size_t>(k4a_bgra_frame.get_width_pixels() * k4a_bgra_frame.get_height_pixels()) * sizeof(BgraPixel);
 
@@ -558,7 +571,7 @@ k4a_result_t K4AROSDevice::renderBGRA32ToROS(sensor_msgs::ImagePtr rgb_image, k4
 }
 
 
-k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr point_cloud)
+k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr& point_cloud)
 {
     k4a::image k4a_depth_frame = capture.get_depth_image();
 
@@ -666,7 +679,7 @@ k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_
 }
 
 
-k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr point_cloud)
+k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr& point_cloud)
 {
     k4a::image k4a_depth_frame = capture.get_depth_image();
 
@@ -738,7 +751,7 @@ k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture &capture, sensor_msg
 }
 
 
-k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_msgs::ImuPtr imu_msg)
+k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_msgs::ImuPtr& imu_msg)
 {
     imu_msg->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.imu_frame_;
     imu_msg->header.stamp = timestampToROS(sample.acc_timestamp_usec);
@@ -1328,7 +1341,7 @@ ros::Time K4AROSDevice::timestampToROS(const uint64_t & k4a_timestamp_us)
     return start_time_ + duration_since_device_startup;
 }
 
-void printTimestampDebugMessage(const std::string name, const ros::Time & timestamp)
+void printTimestampDebugMessage(const std::string& name, const ros::Time & timestamp)
 {
     ros::Duration lag = ros::Time::now() - timestamp;
     static std::map<const std::string, std::pair<ros::Duration, ros::Duration>> map_min_max;
