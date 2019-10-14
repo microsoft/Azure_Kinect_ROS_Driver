@@ -1,4 +1,4 @@
-<!-- 
+<!--
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 -->
@@ -28,14 +28,14 @@ Licensed under the MIT License.
   <arg name="body_tracking_smoothing_factor"  default="0.0" />    <!-- Set between 0 for no smoothing and 1 for full smoothing -->
 
   <node pkg="azure_kinect_ros_driver" type="node" name="node" output="screen" required="$(arg required)">
-    <param name="depth_enabled"     type="bool"   value="$(arg depth_enabled)" /> 
-    <param name="depth_mode"        type="string" value="$(arg depth_mode)" /> 
-    <param name="color_enabled"     type="bool"   value="$(arg color_enabled)" /> 
+    <param name="depth_enabled"     type="bool"   value="$(arg depth_enabled)" />
+    <param name="depth_mode"        type="string" value="$(arg depth_mode)" />
+    <param name="color_enabled"     type="bool"   value="$(arg color_enabled)" />
     <param name="color_format"      type="string" value="$(arg color_format)" />
-    <param name="color_resolution"  type="string" value="$(arg color_resolution)" /> 
-    <param name="fps"               type="int"    value="$(arg fps)" /> 
-    <param name="point_cloud"       type="bool"   value="$(arg point_cloud)" /> 
-    <param name="rgb_point_cloud"   type="bool"   value="$(arg rgb_point_cloud)" /> 
+    <param name="color_resolution"  type="string" value="$(arg color_resolution)" />
+    <param name="fps"               type="int"    value="$(arg fps)" />
+    <param name="point_cloud"       type="bool"   value="$(arg point_cloud)" />
+    <param name="rgb_point_cloud"   type="bool"   value="$(arg rgb_point_cloud)" />
     <param name="sensor_sn"         type="string" value="$(arg sensor_sn)" />
     <param name="tf_prefix"         type="string" value="$(arg tf_prefix)" />
     <param name="recording_file"          type="string" value="$(arg recording_file)" />

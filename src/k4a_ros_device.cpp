@@ -744,7 +744,6 @@ k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_ms
     imu_msg->header.stamp = timestampToROS(sample.acc_timestamp_usec);
     printTimestampDebugMessage("IMU", imu_msg->header.stamp);
 
-
     // The correct convention in ROS is to publish the raw sensor data, in the
     // sensor coordinate frame. Do that here.
     imu_msg->angular_velocity.x = sample.gyro_sample.xyz.x;
@@ -1316,18 +1315,18 @@ ros::Time K4AROSDevice::timestampToROS(const std::chrono::microseconds & k4a_tim
 // Converts a k4a_imu_sample_t timestamp to a ros::Time object
 ros::Time K4AROSDevice::timestampToROS(const uint64_t & k4a_timestamp_us)
 {
-      ros::Duration duration_since_device_startup(k4a_timestamp_us / 1e6);
+    ros::Duration duration_since_device_startup(k4a_timestamp_us / 1e6);
 
-      // Set the time base if it is not set yet.
-      if (start_time_.isZero())
-      {
-        const ros::Duration transmission_delay(0.005);
-        ROS_INFO_STREAM("Setting the time base using a k4a_imu_sample_t sample. "
-          "Assuming the transmission delay to be " << transmission_delay.toSec() * 1000.0 << " ms.");
-        start_time_ = ros::Time::now() - duration_since_device_startup - transmission_delay;
-      }
-      return start_time_ + duration_since_device_startup;
+    // Set the time base if it is not set yet.
+    if (start_time_.isZero())
+    {
+      const ros::Duration transmission_delay(0.005);
+      ROS_INFO_STREAM("Setting the time base using a k4a_imu_sample_t sample. "
+        "Assuming the transmission delay to be " << transmission_delay.toSec() * 1000.0 << " ms.");
+      start_time_ = ros::Time::now() - duration_since_device_startup - transmission_delay;
     }
+    return start_time_ + duration_since_device_startup;
+}
 
 void printTimestampDebugMessage(const std::string name, const ros::Time & timestamp)
 {
