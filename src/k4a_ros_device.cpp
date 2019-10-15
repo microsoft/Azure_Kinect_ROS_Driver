@@ -429,7 +429,16 @@ k4a_result_t K4AROSDevice::renderIrToROS(sensor_msgs::ImagePtr& ir_image, k4a::i
 {
     cv::Mat ir_buffer_mat(k4a_ir_frame.get_height_pixels(), k4a_ir_frame.get_width_pixels(), CV_16UC1, k4a_ir_frame.get_buffer());
 
-    ir_image = cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::MONO16, ir_buffer_mat).toImageMsg();
+    // Rescale the image to mono8 for visualization and usage for visual(-inertial) odometry.
+    if (params_.rescale_ir_to_mono8) {
+      cv::Mat new_image(k4a_ir_frame.get_height_pixels(), k4a_ir_frame.get_width_pixels(), CV_8UC1);
+      // Use a scaling factor to re-scale the image. If using the illuminators, a value of 1 is appropriate.
+      // If using PASSIVE_IR, then a value of 10 is more appropriate; k4aviewer does a similar conversion.
+      ir_buffer_mat.convertTo(new_image, CV_8UC1, params_.ir_mono8_scaling_factor);
+      ir_image = cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::MONO8, new_image).toImageMsg();
+    } else {
+      ir_image = cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::MONO16, ir_buffer_mat).toImageMsg();
+    }
 
     return K4A_RESULT_SUCCEEDED;
 }

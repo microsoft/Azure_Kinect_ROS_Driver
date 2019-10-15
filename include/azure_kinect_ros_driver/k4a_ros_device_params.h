@@ -42,7 +42,8 @@
     LIST_ENTRY(recording_loop_enabled, "True if the recording should be rewound at EOF", bool, false) \
     LIST_ENTRY(body_tracking_enabled, "True if body joints should be published as a marker array message", bool, false) \
     LIST_ENTRY(body_tracking_smoothing_factor, "Controls the temporal smoothing of joints across frames. Set between 0 for no smoothing and 1 for full smoothing.", float, 0.0f) \
-
+    LIST_ENTRY(rescale_ir_to_mono8, "Whether to rescale the IR image to an 8-bit monochrome image for visualization and further processing. Scaling depends on depth more.", bool, false) \
+    LIST_ENTRY(ir_mono8_scaling_factor, "Scaling factor to apply when converting IR to mono8 (see rescale_ir_to_mono8). If using illumination, use the value 1. If using passive IR, use 10.", float, 1.0f)
 class K4AROSDeviceParams
 {
 public:
