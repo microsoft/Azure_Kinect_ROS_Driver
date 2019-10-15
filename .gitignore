@@ -1,5 +1,8 @@
 # External SDK Folder
-ext/sdk/*
+ext/**
+
+# VS Code folders
+.vscode/
 
 # Prerequisites
 *.d

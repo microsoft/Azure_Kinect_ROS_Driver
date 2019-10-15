@@ -20,6 +20,10 @@ The node accepts the following parameters:
 - `fps` (int) : Defaults to `5`. This parameter controls the FPS of the color and depth cameras. The cameras cannot operate at different frame rates. Valid options are `5`, `15`, `30`. Note that some FPS values are not compatible with high color camera resolutions or depth camera resolutions. For more information, see the [Azure Kinect Sensor SDK documentation](https://docs.microsoft.com/en-us/azure/Kinect-dk/hardware-specification#depth-camera-supported-operating-modes).
 - `point_cloud` (bool) : Defaults to `true`. If this parameter is set to `true`, the node will generate a sensor_msgs::PointCloud2 message from the depth camera data. This requires that the `depth_enabled` parameter be `true`.
 - `rgb_point_cloud` (bool) : Defaults to `false`. If this parameter is set to `true`, the node will generate a sensor_msgs::PointCloud2 message from the depth camera data and colorize it using the color camera data. This requires that the `point_cloud` parameter be `true`, and the `color_enabled` parameter be `true`.
+- `recording_file` (string) : No default value. If this parameter contains a valid absolute path to a k4arecording file, the node will use the playback api with this file instead of opening a device.
+- `recording_loop_enabled` (bool) : Defaults to `false`. If this parameter is set to `true`, the node will rewind the recording file to the beginning after reaching the last frame. Otherwise the node will stop working after reaching the end of the recording file.
+- `body_tracking_enabled` (bool) : Defaults to `false`. If this parameter is set to `true`, the node will generate visualization_msgs::MarkerArray messages for the body tracking data. This requires that the `depth_enabled` parameter is set to `true` and an installed azure kinect body tracking sdk.
+- `body_tracking_smoothing_factor` (float) : Defaults to `0.0`. Controls the temporal smoothing across frames. Set between `0` for no smoothing and `1` for full smoothing. Less smoothing will increase the responsiveness of the detected skeletons but will cause more positional and oriantational jitters.
 
 #### Parameter Restrictions
 
@@ -29,6 +33,7 @@ Some example incompatibilities are provided here:
 - The `rgb_point_cloud` parameter requires that both the depth and color camera be enabled. This means that `depth_enabled` and `color_enabled` must both be `true`, `depth_mode`, `color_resolution`, and `fps` must be valid.
 - Some combinations of depth mode / color resolution / FPS are incompatible. The Azure Kinect Sensor SDK will generate an exception and print a log message when this situation is detected. The ROS node will then exit.
 - Enabling `rgb_point_cloud` will restrict the resolution of the emitted point cloud to the overlapping region between the depth and color cameras. This region is significantly smaller than the normal field-of-view of the depth camera.
+- `recording_file` parameter accepts only absolute filepaths. Moreover color gets disabled if the color format is not BGRA32.
 
 ## Topics
 
@@ -46,6 +51,9 @@ The node emits a variety of topics into its namespace.
 - `ir/image_raw` (`sensor_msgs::Image`) : The raw infrared image from the depth camera sensor. In most depth modes, this image will be illuminated by the infrared illuminator built into the Azure Kinect DK. In `PASSIVE_IR` mode, this image will not be illuminated by the Azure Kinect DK.
 - `ir/camera_info` (`sensor_msgs::CameraInfo`) : Calibration information for the infrared camera, converted from the Azure Kinect Sensor SDK format. Since the depth camera and infrared camera are physically the same camera, this `camera_info` is a copy of the camera info published for the depth camera.
 - `imu` (`sensor_msgs::Imu`) : The intrinsics-corrected IMU sensor stream, provided by the Azure Kinect Sensor SDK. The sensor SDK automatically corrects for IMU intrinsics before sensor data is emitted.
+- `body_tracking_data` (`visualization_msgs::MarkerArray`) : Topic for receiving body tracking data. Each message contains all joints for all bodies for the most recent depth image. The markers are grouped by the [body id](https://microsoft.github.io/Azure-Kinect-Body-Tracking/release/0.9.x/structk4abt__body__t.html#a38fed6c7125f92b41165ffe2e1da9dd4) and the joints are in the same order as in the [joint enum of body tracking sdk](https://microsoft.github.io/Azure-Kinect-Body-Tracking/release/0.9.x/group__btenums.html#ga5fe6fa921525a37dec7175c91c473781). The id field of a marker is calculated by: `body_id * 100 + joint_index` where body_id is the corresponding body id from the body tracking sdk and the joint index is analogue to enum value for joints in the body tracking sdk. Subscribers can calculate the body.id by `floor(marker.id / 100)` and the joint_index by `marker.id % 100`.
+- `body_index_map/image_raw` (`sensor_msgs::Image`) : The [body index map](https://docs.microsoft.com/de-de/azure/Kinect-dk/body-index-map) represented as mono8 image with a background value of 255.
+Up until body id 254 the pixel values of detected bodies will be equal to their corresponding body id. Afterwards the pixel value of detected bodies will be calculated as `body_id % 255` and therefore can only be used for segmentation without a relation to the body id.
 
 ## Azure Kinect Developer Kit Calibration
 

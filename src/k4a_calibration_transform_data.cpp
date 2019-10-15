@@ -7,12 +7,15 @@
 
 // System headers
 //
+#include <stdexcept>
 
 // Library headers
 //
 #include <angles/angles.h>
 #include <sensor_msgs/distortion_models.h>
 #include <tf2/convert.h>
+#include <tf2/LinearMath/Transform.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 // Project headers
 //
@@ -24,7 +27,20 @@ void K4ACalibrationTransformData::initialize(const k4a::device &device,
                                              const K4AROSDeviceParams params)
 {
     k4a_calibration_ = device.get_calibration(depth_mode, resolution);
+    initialize(params);
+}
+
+void K4ACalibrationTransformData::initialize(const k4a::playback &k4a_playback_handle,
+                                             const K4AROSDeviceParams params)
+{
+    k4a_calibration_ = k4a_playback_handle.get_calibration();
+    initialize(params);
+}
+
+void K4ACalibrationTransformData::initialize(const K4AROSDeviceParams params)
+{
     k4a_transformation_ = k4a::transformation(k4a_calibration_);
+    tf_prefix_ = params.tf_prefix;
 
     print();
 
@@ -66,18 +82,13 @@ void K4ACalibrationTransformData::initialize(const k4a::device &device,
             getColorWidth() * (int)sizeof(DepthPixel));
     }
 
-    // Publish various transforms needed by ROS
-    publishImuToBaseTf();
-
-    if (depthEnabled)
-    {
-        publishDepthToBaseTf();
-    }
-
-    if (colorEnabled)
-    {
-        publishRgbToBaseTf();
-    }
+    // Publish various transforms needed by ROS.
+    // We publish all TFs all the time, even if the respective sensor data
+    // output is off. This allows us to just use the SDK calibrations, and one
+    // cosmetic TF output between the depth and the base.
+    publishDepthToBaseTf();
+    publishImuToDepthTf();
+    publishRgbToDepthTf();
 }
 
 int K4ACalibrationTransformData::getDepthWidth()
@@ -162,115 +173,54 @@ void K4ACalibrationTransformData::printExtrinsics(k4a_calibration_extrinsics_t& 
     ROS_INFO_STREAM("\t\t\t Rotation[2]: " << extrinsics.rotation[6] << ", " << extrinsics.rotation[7] << ", " << extrinsics.rotation[8]);
 }
 
-void K4ACalibrationTransformData::publishRgbToBaseTf()
+void K4ACalibrationTransformData::publishRgbToDepthTf()
 {
-    k4a_float3_t origin = {0.0f, 0.0f, 0.0f};
-    k4a_float3_t target = {0.0f, 0.0f, 0.0f};
-
-    // Compute the offset of the RGB camera assembly from the depth camera origin
-    target = k4a_calibration_.convert_3d_to_3d(
-        origin, 
-        K4A_CALIBRATION_TYPE_DEPTH, 
-        K4A_CALIBRATION_TYPE_COLOR);
-
-    ROS_INFO_STREAM("Depth -> RGB offset: ( " << target.xyz.x << ", " << target.xyz.y << ", " << target.xyz.z << " )");
+    k4a_calibration_extrinsics_t* rgb_extrinsics = &k4a_calibration_.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR];
+    tf2::Vector3 depth_to_rgb_translation(rgb_extrinsics->translation[0] / 1000.0f, rgb_extrinsics->translation[1] / 1000.0f,
+                                         rgb_extrinsics->translation[2] / 1000.0f);
+    tf2::Matrix3x3 depth_to_rgb_rotation(rgb_extrinsics->rotation[0], rgb_extrinsics->rotation[1], rgb_extrinsics->rotation[2],
+                                rgb_extrinsics->rotation[3], rgb_extrinsics->rotation[4], rgb_extrinsics->rotation[5],
+                                rgb_extrinsics->rotation[6], rgb_extrinsics->rotation[7], rgb_extrinsics->rotation[8]);
+    tf2::Transform depth_to_rgb_transform(depth_to_rgb_rotation, depth_to_rgb_translation);
 
     geometry_msgs::TransformStamped static_transform;
+    static_transform.transform = tf2::toMsg(depth_to_rgb_transform.inverse());
 
     static_transform.header.stamp = ros::Time::now();
-    static_transform.header.frame_id = camera_base_frame_;
-    static_transform.child_frame_id = rgb_camera_frame_;
-
-    tf2::Vector3 extrinsic_translation((target.xyz.z / -1000.0f), (target.xyz.x / 1000.0f), (target.xyz.y / 1000.0f));
-    extrinsic_translation += getDepthToBaseTranslationCorrection();
-
-    static_transform.transform.translation.x = extrinsic_translation.x();
-    static_transform.transform.translation.y = extrinsic_translation.y();
-    static_transform.transform.translation.z = extrinsic_translation.z();
-
-    k4a_calibration_extrinsics_t* color_extrinsics = &k4a_calibration_.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR];
-
-    tf2::Matrix3x3 color_matrix(color_extrinsics->rotation[0], color_extrinsics->rotation[1], color_extrinsics->rotation[2], 
-                                color_extrinsics->rotation[3], color_extrinsics->rotation[4], color_extrinsics->rotation[5], 
-                                color_extrinsics->rotation[6], color_extrinsics->rotation[7], color_extrinsics->rotation[8]);
-
-    double yaw, pitch, roll; 
-    color_matrix.getEulerYPR(yaw, pitch, roll);
-    ROS_INFO_STREAM("Color Roll Extrinsics (YPR): " << angles::to_degrees(yaw) << ", " << angles::to_degrees(pitch) << ", " << angles::to_degrees(roll));
-
-    tf2::Quaternion color_rotation;
-    color_rotation.setRPY(
-        yaw,
-        roll,
-        pitch);
-    
-    color_rotation *= getColorToDepthRotationCorrection();
-
-    static_transform.transform.rotation.x = color_rotation.x();
-    static_transform.transform.rotation.y = color_rotation.y();
-    static_transform.transform.rotation.z = color_rotation.z();
-    static_transform.transform.rotation.w = color_rotation.w();
+    static_transform.header.frame_id = tf_prefix_ + depth_camera_frame_;
+    static_transform.child_frame_id = tf_prefix_ + rgb_camera_frame_;
 
     static_broadcaster_.sendTransform(static_transform);
 }
 
-void K4ACalibrationTransformData::publishImuToBaseTf()
+void K4ACalibrationTransformData::publishImuToDepthTf()
 {
-    k4a_float3_t origin = {0.0f, 0.0f, 0.0f};
-    k4a_float3_t target = {0.0f, 0.0f, 0.0f};
-
-    target = k4a_calibration_.convert_3d_to_3d(
-        origin, 
-        K4A_CALIBRATION_TYPE_DEPTH, 
-        K4A_CALIBRATION_TYPE_ACCEL);
-
-    ROS_INFO_STREAM("Depth -> IMU offset: ( " << target.xyz.x << ", " << target.xyz.y << ", " << target.xyz.z << " )");
-
-    geometry_msgs::TransformStamped static_transform;
-
-    static_transform.header.stamp = ros::Time::now();
-    static_transform.header.frame_id = camera_base_frame_;
-    static_transform.child_frame_id = imu_frame_;
-
-    tf2::Vector3 extrinsic_translation((target.xyz.x / 1000.0f), (target.xyz.y / -1000.0f), (target.xyz.z / -1000.0f));
-    extrinsic_translation += getDepthToBaseTranslationCorrection();
-
-    static_transform.transform.translation.x = extrinsic_translation.x();
-    static_transform.transform.translation.y = extrinsic_translation.y();
-    static_transform.transform.translation.z = extrinsic_translation.z();
-
     k4a_calibration_extrinsics_t* imu_extrinsics = &k4a_calibration_.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_ACCEL];
-
-    tf2::Matrix3x3 imu_matrix(imu_extrinsics->rotation[0], imu_extrinsics->rotation[1], imu_extrinsics->rotation[2],
+    tf2::Vector3 depth_to_imu_translation(imu_extrinsics->translation[0] / 1000.0f, imu_extrinsics->translation[1] / 1000.0f,
+                                         imu_extrinsics->translation[2] / 1000.0f);
+    tf2::Matrix3x3 depth_to_imu_rotation(imu_extrinsics->rotation[0], imu_extrinsics->rotation[1], imu_extrinsics->rotation[2],
                                 imu_extrinsics->rotation[3], imu_extrinsics->rotation[4], imu_extrinsics->rotation[5],
                                 imu_extrinsics->rotation[6], imu_extrinsics->rotation[7], imu_extrinsics->rotation[8]);
+    tf2::Transform depth_to_imu_transform(depth_to_imu_rotation, depth_to_imu_translation);
 
-    double yaw, pitch, roll; 
-    imu_matrix.getEulerYPR(yaw, pitch, roll);
-    ROS_INFO_STREAM("IMU Roll Extrinsics (YPR): " << angles::to_degrees(yaw) << ", " << angles::to_degrees(pitch) << ", " << angles::to_degrees(roll));
-    ROS_INFO_STREAM("IMU Roll Extrinsics Corrected (YPR): " << angles::to_degrees(yaw) + 90 << ", " << angles::to_degrees(pitch) << ", " << angles::to_degrees(roll) - 84);
-    
-    tf2::Quaternion imu_rotation;
-    imu_rotation.setRPY(
-        yaw + angles::from_degrees(90),
-        roll + angles::from_degrees(-84),   // Rotation around the Y axis must include a 6 degree correction for a static offset collected during calibration
-        pitch + angles::from_degrees(0));
-    
-    static_transform.transform.rotation.x = imu_rotation.x();
-    static_transform.transform.rotation.y = imu_rotation.y();
-    static_transform.transform.rotation.z = imu_rotation.z();
-    static_transform.transform.rotation.w = imu_rotation.w();
+    geometry_msgs::TransformStamped static_transform;
+    static_transform.transform = tf2::toMsg(depth_to_imu_transform.inverse());
+
+    static_transform.header.stamp = ros::Time::now();
+    static_transform.header.frame_id = tf_prefix_ + depth_camera_frame_;
+    static_transform.child_frame_id = tf_prefix_ + imu_frame_;
 
     static_broadcaster_.sendTransform(static_transform);
 }
 
 void K4ACalibrationTransformData::publishDepthToBaseTf()
 {
+    // This is a purely cosmetic transform to make the base model of the URDF look good.
     geometry_msgs::TransformStamped static_transform;
 
     static_transform.header.stamp = ros::Time::now();
-    static_transform.header.frame_id = camera_base_frame_;
-    static_transform.child_frame_id = depth_camera_frame_;
+    static_transform.header.frame_id = tf_prefix_ + camera_base_frame_;
+    static_transform.child_frame_id = tf_prefix_ + depth_camera_frame_;
 
     tf2::Vector3 depth_translation = getDepthToBaseTranslationCorrection();
     static_transform.transform.translation.x = depth_translation.x();
@@ -296,63 +246,25 @@ void K4ACalibrationTransformData::publishDepthToBaseTf()
 
 tf2::Vector3 K4ACalibrationTransformData::getDepthToBaseTranslationCorrection()
 {
+    // These are purely cosmetic tranformations for the URDF drawing!!
     return tf2::Vector3(DEPTH_CAMERA_OFFSET_MM_X / 1000.0f, DEPTH_CAMERA_OFFSET_MM_Y / 1000.0f, DEPTH_CAMERA_OFFSET_MM_Z / 1000.0f);
 }
 
 tf2::Quaternion K4ACalibrationTransformData::getDepthToBaseRotationCorrection()
 {
+    // These are purely cosmetic tranformations for the URDF drawing!!
     tf2::Quaternion ros_camera_rotation; // ROS camera co-ordinate system requires rotating the entire camera relative to camera_base
-    tf2::Quaternion depth_rotation;      // K4A depth camera has different declinations based on the operating mode (NFOV or WFOV)
+    tf2::Quaternion depth_rotation;      // K4A has one physical camera that is about 6 degrees downward facing.
 
-    // WFOV modes are rotated down by 7.3 degrees
-    if (k4a_calibration_.depth_mode == K4A_DEPTH_MODE_WFOV_UNBINNED || k4a_calibration_.depth_mode == K4A_DEPTH_MODE_WFOV_2X2BINNED)
-    {
-        depth_rotation.setEuler(0, angles::from_degrees(-7.3), 0);
-    }
-    // NFOV modes are rotated down by 6 degrees
-    else if (k4a_calibration_.depth_mode == K4A_DEPTH_MODE_NFOV_UNBINNED || k4a_calibration_.depth_mode == K4A_DEPTH_MODE_NFOV_2X2BINNED)
-    {
-        depth_rotation.setEuler(0, angles::from_degrees(-6.0), 0);
-    }
-    // Passive IR mode doesn't have a rotation?
-    // TODO: verify that passive IR really doesn't have a rotation
-    else if (k4a_calibration_.depth_mode == K4A_DEPTH_MODE_PASSIVE_IR)
-    {
-        depth_rotation.setEuler(0, 0, 0);
-    }
-    else
-    {
-        ROS_ERROR_STREAM("Could not determine depth camera mode for rotation correction");
-        depth_rotation.setEuler(0, 0, 0);
-    }
-
+    depth_rotation.setEuler(0, angles::from_degrees(-6.0), 0);
     ros_camera_rotation.setEuler(M_PI / -2.0f, M_PI, (M_PI / 2.0f));
 
     return ros_camera_rotation * depth_rotation;
 }
 
-tf2::Quaternion K4ACalibrationTransformData::getImuToDepthRotationCorrection()
-{
-    tf2::Quaternion ros_imu_rotation;   // ROS IMU co-ordinate system requires rotating the entire IMU relative to camera_base
-    tf2::Quaternion imu_rotation;       // K4A extrinsics all contain a 6 degree offset due to being captured in NFOV mode
-
-    return ros_imu_rotation * imu_rotation;
-}
-
-tf2::Quaternion K4ACalibrationTransformData::getColorToDepthRotationCorrection()
-{
-    tf2::Quaternion ros_camera_rotation; // ROS camera co-ordinate system requires rotating the entire camera relative to camera_base
-    tf2::Quaternion color_rotation;      // K4A extrinsics all contain a 6 degree offset due to being captured in NFOV mode
-
-    color_rotation.setEuler(0, angles::from_degrees(-6.0), 0);
-    ros_camera_rotation.setEuler(M_PI / -2.0f, M_PI, (M_PI / 2.0f));
-
-    return ros_camera_rotation * color_rotation;
-}
-
 void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo &camera_info)
 {
-    camera_info.header.frame_id = depth_camera_frame_;
+    camera_info.header.frame_id = tf_prefix_ + depth_camera_frame_;
     camera_info.width = getDepthWidth();
     camera_info.height = getDepthHeight();
     camera_info.distortion_model = sensor_msgs::distortion_models::RATIONAL_POLYNOMIAL;
@@ -360,7 +272,7 @@ void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo &ca
     k4a_calibration_intrinsic_parameters_t* parameters = &k4a_calibration_.depth_camera_calibration.intrinsics.parameters;
 
     // The distortion parameters, size depending on the distortion model.
-    // For "rational_polynomial", the 5 parameters are: (k1, k2, p1, p2, k3, k4, k5, k6).
+    // For "rational_polynomial", the 8 parameters are: (k1, k2, p1, p2, k3, k4, k5, k6).
     camera_info.D = {parameters->param.k1, parameters->param.k2, parameters->param.p1, parameters->param.p2, parameters->param.k3, parameters->param.k4, parameters->param.k5, parameters->param.k6};
 
     // Intrinsic camera matrix for the raw (distorted) images.
@@ -370,8 +282,8 @@ void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo &ca
     // Projects 3D points in the camera coordinate frame to 2D pixel
     // coordinates using the focal lengths (fx, fy) and principal point
     // (cx, cy).
-    camera_info.K = {parameters->param.fx,  0.0f,                   parameters->param.cx, 
-                     0.0f,                  parameters->param.fy,   parameters->param.cy, 
+    camera_info.K = {parameters->param.fx,  0.0f,                   parameters->param.cx,
+                     0.0f,                  parameters->param.fy,   parameters->param.cy,
                      0.0f,                  0.0,                    1.0f};
 
     // Projection/camera matrix
@@ -394,14 +306,14 @@ void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo &ca
     // A rotation matrix aligning the camera coordinate system to the ideal
     // stereo image plane so that epipolar lines in both stereo images are
     // parallel.
-    camera_info.R = {1.0f, 0.0f, 0.0f, 
-                     0.0f, 1.0f, 0.0f, 
+    camera_info.R = {1.0f, 0.0f, 0.0f,
+                     0.0f, 1.0f, 0.0f,
                      0.0f, 0.0f, 1.0f};
 }
 
 void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo &camera_info)
 {
-    camera_info.header.frame_id = rgb_camera_frame_;
+    camera_info.header.frame_id = tf_prefix_ + rgb_camera_frame_;
     camera_info.width = getColorWidth();
     camera_info.height = getColorHeight();
     camera_info.distortion_model = sensor_msgs::distortion_models::RATIONAL_POLYNOMIAL;
@@ -409,7 +321,7 @@ void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo &came
     k4a_calibration_intrinsic_parameters_t* parameters = &k4a_calibration_.color_camera_calibration.intrinsics.parameters;
 
     // The distortion parameters, size depending on the distortion model.
-    // For "rational_polynomial", the 5 parameters are: (k1, k2, p1, p2, k3, k4, k5, k6).
+    // For "rational_polynomial", the 8 parameters are: (k1, k2, p1, p2, k3, k4, k5, k6).
     camera_info.D = {parameters->param.k1, parameters->param.k2, parameters->param.p1, parameters->param.p2, parameters->param.k3, parameters->param.k4, parameters->param.k5, parameters->param.k6};
 
     // Intrinsic camera matrix for the raw (distorted) images.
@@ -419,8 +331,8 @@ void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo &came
     // Projects 3D points in the camera coordinate frame to 2D pixel
     // coordinates using the focal lengths (fx, fy) and principal point
     // (cx, cy).
-    camera_info.K = {parameters->param.fx,  0.0f,                   parameters->param.cx, 
-                     0.0f,                  parameters->param.fy,   parameters->param.cy, 
+    camera_info.K = {parameters->param.fx,  0.0f,                   parameters->param.cx,
+                     0.0f,                  parameters->param.fy,   parameters->param.cy,
                      0.0f,                  0.0,                    1.0f};
 
     // Projection/camera matrix
@@ -443,7 +355,7 @@ void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo &came
     // A rotation matrix aligning the camera coordinate system to the ideal
     // stereo image plane so that epipolar lines in both stereo images are
     // parallel.
-    camera_info.R = {1.0f, 0.0f, 0.0f, 
-                     0.0f, 1.0f, 0.0f, 
+    camera_info.R = {1.0f, 0.0f, 0.0f,
+                     0.0f, 1.0f, 0.0f,
                      0.0f, 0.0f, 1.0f};
 }
