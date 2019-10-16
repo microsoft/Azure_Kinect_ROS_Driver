@@ -1219,6 +1219,10 @@ void K4AROSDevice::imuPublisherThread()
     k4a_result_t result;
     k4a_imu_sample_t sample;
 
+    // For IMU throttling
+    unsigned int count = 0;
+    unsigned int target_count = IMU_MAX_RATE / params_.imu_rate_target;
+
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
         if (k4a_device_)
@@ -1229,15 +1233,20 @@ void K4AROSDevice::imuPublisherThread()
             do
             {
                 read = k4a_device_.get_imu_sample(&sample, std::chrono::milliseconds(0));
+                count++;
 
                 if (read)
                 {
-                    ImuPtr imu_msg(new Imu);
+                    if(count % target_count == 0)
+                    {
+                        ImuPtr imu_msg(new Imu);
 
-                    result = getImuFrame(sample, imu_msg);
-                    ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
+                        result = getImuFrame(sample, imu_msg);
+                        ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
 
-                    imu_orientation_publisher_.publish(imu_msg);
+                        imu_orientation_publisher_.publish(imu_msg);
+                        count = 0;
+                    }
                 }
 
             } while (read);
