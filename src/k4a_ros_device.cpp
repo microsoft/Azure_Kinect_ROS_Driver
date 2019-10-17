@@ -1211,7 +1211,6 @@ void K4AROSDevice::framePublisherThread()
     }
 }
 
-
 void K4AROSDevice::imuPublisherThread()
 {
     ros::Rate loop_rate(300);
@@ -1254,6 +1253,13 @@ void K4AROSDevice::imuPublisherThread()
                             // Compute mean sample
                             // Using double-precision version of imu sample struct to avoid overflow
                             k4a_imu_sample_double_t mean_sample;
+                            mean_sample.temperature = 0.0;
+                            mean_sample.acc_sample.xyz.x = 0.0;
+                            mean_sample.acc_sample.xyz.y = 0.0;
+                            mean_sample.acc_sample.xyz.z = 0.0;
+                            mean_sample.gyro_sample.xyz.x = 0.0;
+                            mean_sample.gyro_sample.xyz.y = 0.0;
+                            mean_sample.gyro_sample.xyz.z = 0.0;
                             for(auto imu_sample : accumulated_samples)
                             {
                                 mean_sample.temperature += imu_sample.temperature;    
