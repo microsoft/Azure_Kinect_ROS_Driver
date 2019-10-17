@@ -1222,6 +1222,9 @@ void K4AROSDevice::imuPublisherThread()
     // For IMU throttling
     unsigned int count = 0;
     unsigned int target_count = IMU_MAX_RATE / params_.imu_rate_target;
+    std::vector<k4a_imu_sample_t> accumulated_samples;
+    accumulated_samples.reserve(target_count);
+    bool throttling = target_count > 1;
 
     while (running_ && ros::ok() && !ros::isShuttingDown())
     {
@@ -1233,19 +1236,71 @@ void K4AROSDevice::imuPublisherThread()
             do
             {
                 read = k4a_device_.get_imu_sample(&sample, std::chrono::milliseconds(0));
-                count++;
 
                 if (read)
                 {
+                    if(throttling)
+                    {
+                        accumulated_samples.push_back(sample);
+                        count++;
+                    }
+
                     if(count % target_count == 0)
                     {
                         ImuPtr imu_msg(new Imu);
 
-                        result = getImuFrame(sample, imu_msg);
+                        if(throttling)
+                        {
+                            // Compute mean sample
+                            // Using double-precision version of imu sample struct to avoid overflow
+                            k4a_imu_sample_double_t mean_sample;
+                            for(auto imu_sample : accumulated_samples)
+                            {
+                                mean_sample.temperature += imu_sample.temperature;    
+                                mean_sample.acc_sample.xyz.x += imu_sample.acc_sample.xyz.x;    
+                                mean_sample.acc_sample.xyz.y += imu_sample.acc_sample.xyz.y;    
+                                mean_sample.acc_sample.xyz.z += imu_sample.acc_sample.xyz.z;    
+                                mean_sample.gyro_sample.xyz.x += imu_sample.gyro_sample.xyz.x;    
+                                mean_sample.gyro_sample.xyz.y += imu_sample.gyro_sample.xyz.y;    
+                                mean_sample.gyro_sample.xyz.z += imu_sample.gyro_sample.xyz.z;    
+                            }
+                            // Use most timestamp of most recent sample
+                            mean_sample.acc_timestamp_usec = accumulated_samples.back().acc_timestamp_usec;    
+                            mean_sample.gyro_timestamp_usec = accumulated_samples.back().gyro_timestamp_usec;    
+                            float num_samples = accumulated_samples.size();
+                            mean_sample.temperature /= num_samples;
+                            mean_sample.acc_sample.xyz.x /= num_samples;
+                            mean_sample.acc_sample.xyz.y /= num_samples;
+                            mean_sample.acc_sample.xyz.z /= num_samples;
+                            mean_sample.gyro_sample.xyz.x /= num_samples;
+                            mean_sample.gyro_sample.xyz.y /= num_samples;
+                            mean_sample.gyro_sample.xyz.z /= num_samples;
+
+                            accumulated_samples.clear();
+
+                            // Convert to floating point 
+                            k4a_imu_sample_t mean_sample_float;
+                            mean_sample_float.temperature = static_cast<float>(mean_sample.temperature);
+                            mean_sample_float.acc_sample.xyz.x = static_cast<float>(mean_sample.acc_sample.xyz.x);
+                            mean_sample_float.acc_sample.xyz.y = static_cast<float>(mean_sample.acc_sample.xyz.y);
+                            mean_sample_float.acc_sample.xyz.z = static_cast<float>(mean_sample.acc_sample.xyz.z);
+                            mean_sample_float.gyro_sample.xyz.x = static_cast<float>(mean_sample.gyro_sample.xyz.x);
+                            mean_sample_float.gyro_sample.xyz.y = static_cast<float>(mean_sample.gyro_sample.xyz.y);
+                            mean_sample_float.gyro_sample.xyz.z = static_cast<float>(mean_sample.gyro_sample.xyz.z);
+                            mean_sample_float.acc_timestamp_usec = mean_sample.acc_timestamp_usec;
+                            mean_sample_float.gyro_timestamp_usec = mean_sample.gyro_timestamp_usec;
+
+                            result = getImuFrame(mean_sample_float, imu_msg);
+                            count = 0;
+                        }
+                        else
+                        {
+                            result = getImuFrame(sample, imu_msg);
+                        }
+
                         ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
 
                         imu_orientation_publisher_.publish(imu_msg);
-                        count = 0;
                     }
                 }
 

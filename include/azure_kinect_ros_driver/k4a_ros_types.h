@@ -37,4 +37,41 @@ static const ColorPalette BODY_COLOR_PALETTE{{
 }};
 #endif
 
+/** Three dimensional double precision floating point vector.
+ *
+ * \xmlonly
+ * <requirements>
+ *   <requirement name="Header">k4atypes.h (include k4a/k4a.h)</requirement>
+ * </requirements>
+ * \endxmlonly
+ */
+typedef union
+{
+    /** XYZ or array representation of vector. */
+    struct _xyz
+    {
+        double x; /**< X component of a vector. */
+        double y; /**< Y component of a vector. */
+        double z; /**< Z component of a vector. */
+    } xyz;       /**< X, Y, Z representation of a vector. */
+    double v[3];  /**< Array representation of a vector. */
+} k4a_double3_t;
+
+/** IMU sample in double precision.
+ *
+ * \xmlonly
+ * <requirements>
+ *   <requirement name="Header">k4atypes.h (include k4a/k4a.h)</requirement>
+ * </requirements>
+ * \endxmlonly
+ */
+typedef struct _k4a_imu_sample_double_t
+{
+    double temperature;            /**< Temperature reading of this sample (Celsius). */
+    k4a_double3_t acc_sample;      /**< Accelerometer sample in meters per second squared. */
+    uint64_t acc_timestamp_usec;  /**< Timestamp of the accelerometer in microseconds. */
+    k4a_double3_t gyro_sample;     /**< Gyro sample in radians per second. */
+    uint64_t gyro_timestamp_usec; /**< Timestamp of the gyroscope in microseconds */
+} k4a_imu_sample_double_t;
+
 #endif // K4A_ROS_TYPES_H
