@@ -507,7 +507,7 @@ k4a_result_t K4AROSDevice::renderBGRA32ToROS(sensor_msgs::ImagePtr& rgb_image, k
 }
 
 
-k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr& point_cloud)
+k4a_result_t K4AROSDevice::getRgbPointCloudInDepthFrame(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr& point_cloud)
 {
     k4a::image k4a_depth_frame = capture.get_depth_image();
 
@@ -525,36 +525,40 @@ k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_
         return K4A_RESULT_FAILED;
     }
 
-    point_cloud->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
+    // Transform color image into the depth camera frame:
+    calibration_data_.k4a_transformation_.color_image_to_depth_camera(
+        k4a_depth_frame,
+        k4a_bgra_frame,
+        &calibration_data_.transformed_rgb_image_);
+
+    // Tranform depth image to point cloud
+    calibration_data_.k4a_transformation_.depth_image_to_point_cloud(
+        k4a_depth_frame,
+        K4A_CALIBRATION_TYPE_DEPTH,
+        &calibration_data_.point_cloud_image_);
+
+    point_cloud->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
     point_cloud->header.stamp = timestampToROS(k4a_depth_frame.get_device_timestamp());
     printTimestampDebugMessage("RGB point cloud", point_cloud->header.stamp);
-    point_cloud->height = k4a_bgra_frame.get_height_pixels();
-    point_cloud->width = k4a_bgra_frame.get_width_pixels();
-    point_cloud->is_dense = false;
-    point_cloud->is_bigendian = false;
 
-    sensor_msgs::PointCloud2Modifier pcd_modifier(*point_cloud);
-    pcd_modifier.setPointCloud2FieldsByString(2, "xyz", "rgb");
+    return fillColorPointCloud(calibration_data_.point_cloud_image_, k4a_bgra_frame, point_cloud);
+}
 
-    sensor_msgs::PointCloud2Iterator<float> iter_x(*point_cloud, "x");
-    sensor_msgs::PointCloud2Iterator<float> iter_y(*point_cloud, "y");
-    sensor_msgs::PointCloud2Iterator<float> iter_z(*point_cloud, "z");
+k4a_result_t K4AROSDevice::getRgbPointCloudInRgbFrame(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr& point_cloud)
+{
+    k4a::image k4a_depth_frame = capture.get_depth_image();
 
-    sensor_msgs::PointCloud2Iterator<uint8_t> iter_r(*point_cloud, "r");
-    sensor_msgs::PointCloud2Iterator<uint8_t> iter_g(*point_cloud, "g");
-    sensor_msgs::PointCloud2Iterator<uint8_t> iter_b(*point_cloud, "b");
-
-    const size_t point_count = k4a_bgra_frame.get_size() / sizeof(BgraPixel);
-    if (point_count != (point_cloud->height * point_cloud->width))
+    if (!k4a_depth_frame)
     {
-        ROS_WARN("point_count does not match point cloud resolution!");
+        ROS_ERROR("Cannot render RGB point cloud: no depth frame");
         return K4A_RESULT_FAILED;
     }
 
-    const size_t pixel_count = k4a_bgra_frame.get_size() / sizeof(BgraPixel);
-    if (pixel_count != (k4a_bgra_frame.get_height_pixels() * k4a_bgra_frame.get_width_pixels()))
+    k4a::image k4a_bgra_frame = capture.get_color_image();
+
+    if (!k4a_bgra_frame)
     {
-        ROS_WARN("pixel_count does not match RGB image resolution!");
+        ROS_ERROR("Cannot render RGB point cloud: no BGRA frame");
         return K4A_RESULT_FAILED;
     }
 
@@ -569,49 +573,11 @@ k4a_result_t K4AROSDevice::getRgbPointCloud(const k4a::capture &capture, sensor_
         K4A_CALIBRATION_TYPE_COLOR,
         &calibration_data_.point_cloud_image_);
 
-    int16_t *point_cloud_buffer = reinterpret_cast<int16_t *>(calibration_data_.point_cloud_image_.get_buffer());
-    uint8_t *rgb_image_buffer = k4a_bgra_frame.get_buffer();
+    point_cloud->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
+    point_cloud->header.stamp = timestampToROS(k4a_depth_frame.get_device_timestamp());
+    printTimestampDebugMessage("RGB point cloud", point_cloud->header.stamp);
 
-    for (size_t i = 0; i < point_count; i++, ++iter_x, ++iter_y, ++iter_z, ++iter_r, ++iter_g, ++iter_b)
-    {
-        k4a_float3_t depth_point_3d;
-        depth_point_3d.xyz.z = static_cast<float>(point_cloud_buffer[3 * i + 2]);
-
-        // Get RGB values from the transformed image buffer
-        BgraPixel color_pixel = {rgb_image_buffer[4 * i + 0],
-                                 rgb_image_buffer[4 * i + 1],
-                                 rgb_image_buffer[4 * i + 2],
-                                 rgb_image_buffer[4 * i + 3]};
-
-        if ((depth_point_3d.xyz.z <= 0.f) ||
-            ((color_pixel.Red == 0) && (color_pixel.Green == 0) && (color_pixel.Blue == 0)))
-        {
-            *iter_x = *iter_y = *iter_z = std::numeric_limits<float>::quiet_NaN();
-            *iter_r = *iter_g = *iter_b = 0;
-        }
-        else
-        {
-            depth_point_3d.xyz.x = float(point_cloud_buffer[3 * i + 0]);
-            depth_point_3d.xyz.y = float(point_cloud_buffer[3 * i + 1]);
-
-            // Points from the camera are measured in milimeters. ROS expects the floats to be in meters.
-            // Divide all points by 1000 to convert from mm to m
-            for (float &f : depth_point_3d.v)
-            {
-                f /= 1000.0f;
-            }
-
-            *iter_x = 1.0 * depth_point_3d.xyz.x;
-            *iter_y = 1.0 * depth_point_3d.xyz.y;
-            *iter_z = 1.0 * depth_point_3d.xyz.z;
-
-            *iter_r = color_pixel.Red;
-            *iter_g = color_pixel.Green;
-            *iter_b = color_pixel.Blue;
-        }
-    }
-
-    return K4A_RESULT_SUCCEEDED;
+    return fillColorPointCloud(calibration_data_.point_cloud_image_, k4a_bgra_frame, point_cloud);
 }
 
 
@@ -629,63 +595,119 @@ k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture &capture, sensor_msg
     point_cloud->header.stamp = timestampToROS(k4a_depth_frame.get_device_timestamp());
     printTimestampDebugMessage("Point cloud", point_cloud->header.stamp);
 
-    point_cloud->height = k4a_depth_frame.get_height_pixels();
-    point_cloud->width = k4a_depth_frame.get_width_pixels();
-    point_cloud->is_dense = false;
-    point_cloud->is_bigendian = false;
-
-    sensor_msgs::PointCloud2Modifier pcd_modifier(*point_cloud);
-    pcd_modifier.setPointCloud2FieldsByString(1, "xyz");
-
-    sensor_msgs::PointCloud2Iterator<float> iter_x(*point_cloud, "x");
-    sensor_msgs::PointCloud2Iterator<float> iter_y(*point_cloud, "y");
-    sensor_msgs::PointCloud2Iterator<float> iter_z(*point_cloud, "z");
-
-    const size_t point_count = k4a_depth_frame.get_size() / sizeof(DepthPixel);
-
-    if (point_count != (point_cloud->height * point_cloud->width))
-    {
-        ROS_WARN("point_count does not match point cloud resolution!");
-    }
-
     // Tranform depth image to point cloud
     calibration_data_.k4a_transformation_.depth_image_to_point_cloud(
         k4a_depth_frame,
         K4A_CALIBRATION_TYPE_DEPTH,
         &calibration_data_.point_cloud_image_);
 
-    int16_t *point_cloud_buffer = reinterpret_cast<int16_t *>(calibration_data_.point_cloud_image_.get_buffer());
-
-    for (size_t i = 0; i < point_count; i++, ++iter_x, ++iter_y, ++iter_z)
-    {
-        k4a_float3_t depth_point_3d;
-        depth_point_3d.xyz.z = static_cast<float>(point_cloud_buffer[3 * i + 2]);
-
-        if (depth_point_3d.xyz.z <= 0.f)
-        {
-            *iter_x = *iter_y = *iter_z = std::numeric_limits<float>::quiet_NaN();
-        }
-        else
-        {
-            depth_point_3d.xyz.x = float(point_cloud_buffer[3 * i]);
-            depth_point_3d.xyz.y = float(point_cloud_buffer[3 * i + 1]);
-
-            // Points from the camera are measured in milimeters. ROS expects the floats to be in meters.
-            // Divide all points by 1000 to convert from mm to m
-            for (float &f : depth_point_3d.v)
-            {
-                f /= 1000.0f;
-            }
-
-            *iter_x =  1.0 * depth_point_3d.xyz.x;
-            *iter_y =  1.0 * depth_point_3d.xyz.y;
-            *iter_z =  1.0 * depth_point_3d.xyz.z;
-        }
-    }
-
-    return K4A_RESULT_SUCCEEDED;
+    return fillPointCloud(calibration_data_.point_cloud_image_, point_cloud);
 }
 
+k4a_result_t K4AROSDevice::fillColorPointCloud(const k4a::image& pointcloud_image, const k4a::image& color_image,
+                                               sensor_msgs::PointCloud2Ptr& point_cloud)
+{
+  point_cloud->height = pointcloud_image.get_height_pixels();
+  point_cloud->width = pointcloud_image.get_width_pixels();
+  point_cloud->is_dense = false;
+  point_cloud->is_bigendian = false;
+
+  const size_t point_count = pointcloud_image.get_height_pixels() * pointcloud_image.get_width_pixels();
+  const size_t pixel_count = color_image.get_size() / sizeof(BgraPixel);
+  if (point_count != pixel_count)
+  {
+    ROS_WARN("Color and depth image sizes do not match!");
+    return K4A_RESULT_FAILED;
+  }
+
+  sensor_msgs::PointCloud2Modifier pcd_modifier(*point_cloud);
+  pcd_modifier.setPointCloud2FieldsByString(2, "xyz", "rgb");
+
+  sensor_msgs::PointCloud2Iterator<float> iter_x(*point_cloud, "x");
+  sensor_msgs::PointCloud2Iterator<float> iter_y(*point_cloud, "y");
+  sensor_msgs::PointCloud2Iterator<float> iter_z(*point_cloud, "z");
+
+  sensor_msgs::PointCloud2Iterator<uint8_t> iter_r(*point_cloud, "r");
+  sensor_msgs::PointCloud2Iterator<uint8_t> iter_g(*point_cloud, "g");
+  sensor_msgs::PointCloud2Iterator<uint8_t> iter_b(*point_cloud, "b");
+
+  pcd_modifier.resize(point_count);
+
+  ros::Time start_time = ros::Time::now();
+
+  const int16_t* point_cloud_buffer = reinterpret_cast<const int16_t*>(pointcloud_image.get_buffer());
+  const uint8_t* color_buffer = color_image.get_buffer();
+
+  for (size_t i = 0; i < point_count; i++, ++iter_x, ++iter_y, ++iter_z, ++iter_r, ++iter_g, ++iter_b)
+  {
+    float z = static_cast<float>(point_cloud_buffer[3 * i + 2]);
+
+    if (z <= 0.0f)
+    {
+      *iter_x = *iter_y = *iter_z = std::numeric_limits<float>::quiet_NaN();
+      *iter_r = *iter_g = *iter_b = 0;
+    }
+    else
+    {
+      constexpr float kMillimeterToMeter = 1.0 / 1000.0f;
+      *iter_x = kMillimeterToMeter * static_cast<float>(point_cloud_buffer[3 * i + 0]);
+      *iter_y = kMillimeterToMeter * static_cast<float>(point_cloud_buffer[3 * i + 1]);
+      *iter_z = kMillimeterToMeter * z;
+
+      *iter_r = color_buffer[4 * i + 0];
+      *iter_g = color_buffer[4 * i + 1];
+      *iter_b = color_buffer[4 * i + 2];
+    }
+  }
+
+  ROS_INFO_STREAM("Total pointcloud processing time: " << ros::Time::now() - start_time);
+
+  return K4A_RESULT_SUCCEEDED;
+}
+
+k4a_result_t K4AROSDevice::fillPointCloud(const k4a::image& pointcloud_image, sensor_msgs::PointCloud2Ptr& point_cloud)
+{
+  point_cloud->height = pointcloud_image.get_height_pixels();
+  point_cloud->width = pointcloud_image.get_width_pixels();
+  point_cloud->is_dense = false;
+  point_cloud->is_bigendian = false;
+
+  const size_t point_count = pointcloud_image.get_height_pixels() * pointcloud_image.get_width_pixels();
+
+  sensor_msgs::PointCloud2Modifier pcd_modifier(*point_cloud);
+  pcd_modifier.setPointCloud2FieldsByString(1, "xyz");
+
+  sensor_msgs::PointCloud2Iterator<float> iter_x(*point_cloud, "x");
+  sensor_msgs::PointCloud2Iterator<float> iter_y(*point_cloud, "y");
+  sensor_msgs::PointCloud2Iterator<float> iter_z(*point_cloud, "z");
+
+  pcd_modifier.resize(point_count);
+
+  ros::Time start_time = ros::Time::now();
+
+  const int16_t* point_cloud_buffer = reinterpret_cast<const int16_t*>(pointcloud_image.get_buffer());
+
+  for (size_t i = 0; i < point_count; i++, ++iter_x, ++iter_y, ++iter_z)
+  {
+    float z = static_cast<float>(point_cloud_buffer[3 * i + 2]);
+
+    if (z <= 0.0f)
+    {
+      *iter_x = *iter_y = *iter_z = std::numeric_limits<float>::quiet_NaN();
+    }
+    else
+    {
+      constexpr float kMillimeterToMeter = 1.0 / 1000.0f;
+      *iter_x = kMillimeterToMeter * static_cast<float>(point_cloud_buffer[3 * i + 0]);
+      *iter_y = kMillimeterToMeter * static_cast<float>(point_cloud_buffer[3 * i + 1]);
+      *iter_z = kMillimeterToMeter * z;
+    }
+  }
+
+  ROS_INFO_STREAM("Total pointcloud processing time: " << ros::Time::now() - start_time);
+
+  return K4A_RESULT_SUCCEEDED;
+}
 
 k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_msgs::ImuPtr& imu_msg)
 {
@@ -1120,7 +1142,7 @@ void K4AROSDevice::framePublisherThread()
         {
             if (params_.rgb_point_cloud)
             {
-                result = getRgbPointCloud(capture, point_cloud);
+                result = getRgbPointCloudInRgbFrame(capture, point_cloud);
 
                 if (result != K4A_RESULT_SUCCEEDED)
                 {
