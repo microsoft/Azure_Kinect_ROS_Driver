@@ -1121,7 +1121,6 @@ void K4AROSDevice::framePublisherThread()
         if (pointcloud_publisher_.getNumSubscribers() > 0 &&
             (k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr)))
         {
-            ros::Time start_time = ros::Time::now();
             if (params_.rgb_point_cloud)
             {
               if (params_.point_cloud_in_depth_frame)
@@ -1151,8 +1150,6 @@ void K4AROSDevice::framePublisherThread()
                     return;
                 }
             }
-            ROS_INFO_STREAM("Total pointcloud processing time: " << ros::Time::now() - start_time);
-
 
             if (params_.point_cloud || params_.rgb_point_cloud)
             {
