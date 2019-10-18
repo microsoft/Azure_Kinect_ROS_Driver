@@ -37,6 +37,7 @@
     LIST_ENTRY(fps, "The FPS of the RGB and Depth cameras. Options are: 5, 15, 30", int, 5) \
     LIST_ENTRY(point_cloud, "A PointCloud2 based on depth data. Requires depth_enabled=true, and cannot be used with depth_mode=PASSIVE_IR", bool, true) \
     LIST_ENTRY(rgb_point_cloud, "Add RGB camera data to the point cloud. Requires point_cloud=true and color_enabled=true", bool, false) \
+    LIST_ENTRY(point_cloud_in_depth_frame, "Whether the RGB pointcloud is rendered in the depth frame (true) or RGB frame (false). Will either match the resolution of the depth camera (true) or the RGB camera (false)", bool, true) \
     LIST_ENTRY(tf_prefix, "The prefix prepended to tf frame ID's", std::string, std::string()) \
     LIST_ENTRY(recording_file, "Path to a recording file to open instead of opening a device", std::string, std::string("")) \
     LIST_ENTRY(recording_loop_enabled, "True if the recording should be rewound at EOF", bool, false) \
