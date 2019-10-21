@@ -49,21 +49,21 @@ class K4AROSDevice
 
     // Get camera calibration information for the depth camera
     void getDepthCameraInfo(sensor_msgs::CameraInfo &camera_info);
-    
+
     void getRgbCameraInfo(sensor_msgs::CameraInfo &camera_info);
 
-    k4a_result_t getDepthFrame(const k4a::capture &capture, sensor_msgs::ImagePtr depth_frame, bool rectified);
+    k4a_result_t getDepthFrame(const k4a::capture &capture, sensor_msgs::ImagePtr& depth_frame, bool rectified);
 
-    k4a_result_t getPointCloud(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr point_cloud);
+    k4a_result_t getPointCloud(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr& point_cloud);
 
-    k4a_result_t getRgbPointCloud(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr point_cloud);
+    k4a_result_t getRgbPointCloud(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr& point_cloud);
 
-    k4a_result_t getImuFrame(const k4a_imu_sample_t &capture, sensor_msgs::ImuPtr imu_frame);
+    k4a_result_t getImuFrame(const k4a_imu_sample_t &capture, sensor_msgs::ImuPtr& imu_frame);
 
-    k4a_result_t getRbgFrame(const k4a::capture &capture, sensor_msgs::ImagePtr rgb_frame, bool rectified);
-    k4a_result_t getJpegRgbFrame(const k4a::capture &capture, sensor_msgs::CompressedImagePtr jpeg_image);
+    k4a_result_t getRbgFrame(const k4a::capture &capture, sensor_msgs::ImagePtr& rgb_frame, bool rectified);
+    k4a_result_t getJpegRgbFrame(const k4a::capture &capture, sensor_msgs::CompressedImagePtr& jpeg_image);
 
-    k4a_result_t getIrFrame(const k4a::capture &capture, sensor_msgs::ImagePtr ir_image);
+    k4a_result_t getIrFrame(const k4a::capture &capture, sensor_msgs::ImagePtr& ir_image);
 
 #if defined(K4A_BODY_TRACKING)
     k4a_result_t getBodyMarker(const k4abt_body_t& body, visualization_msgs::MarkerPtr marker_msg, int jointType, ros::Time capture_time);
@@ -74,9 +74,9 @@ class K4AROSDevice
 #endif
 
   private:
-    k4a_result_t renderBGRA32ToROS(sensor_msgs::ImagePtr rgb_frame, k4a::image& k4a_bgra_frame);
-    k4a_result_t renderDepthToROS(sensor_msgs::ImagePtr depth_image, k4a::image& k4a_depth_frame);
-    k4a_result_t renderIrToROS(sensor_msgs::ImagePtr ir_image, k4a::image& k4a_ir_frame);
+    k4a_result_t renderBGRA32ToROS(sensor_msgs::ImagePtr& rgb_frame, k4a::image& k4a_bgra_frame);
+    k4a_result_t renderDepthToROS(sensor_msgs::ImagePtr& depth_image, k4a::image& k4a_depth_frame);
+    k4a_result_t renderIrToROS(sensor_msgs::ImagePtr& ir_image, k4a::image& k4a_ir_frame);
 
     void framePublisherThread();
     void imuPublisherThread();
@@ -132,7 +132,7 @@ class K4AROSDevice
     // K4A Recording
     k4a::playback k4a_playback_handle_;
     std::mutex k4a_playback_handle_mutex_;
-    
+
 #if defined(K4A_BODY_TRACKING)
     // Body tracker
     k4abt::tracker k4abt_tracker_;
@@ -155,6 +155,6 @@ class K4AROSDevice
     std::thread imu_publisher_thread_;
 };
 
-void printTimestampDebugMessage(const std::string name, const ros::Time & timestamp);
+void printTimestampDebugMessage(const std::string& name, const ros::Time & timestamp);
 
 #endif // K4A_ROS_DEVICE_H

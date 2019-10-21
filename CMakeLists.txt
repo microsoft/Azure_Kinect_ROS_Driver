@@ -20,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_geometry_msgs
   geometry_msgs
   nodelet
+  cv_bridge
 )
 
 ###################################
@@ -46,7 +47,7 @@ catkin_package(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_node 
+add_executable(${PROJECT_NAME}_node
   src/k4a_ros_bridge_node.cpp
   src/k4a_ros_device.cpp
   src/k4a_ros_device_params.cpp
@@ -77,7 +78,7 @@ set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX ""
 message("Finding K4A SDK binaries")
 
 # Disable cached locations for K4A SDK binaries.
-# Do this to force the search logic to happen correctly. 
+# Do this to force the search logic to happen correctly.
 # If we don't disable these cached directories, we
 # won't be able to tell the difference between the ext/sdk location
 # and the system installed version on linux. Since we have to treat these
@@ -100,7 +101,7 @@ else()
   message("!!! Body Tracking SDK not found: body tracking features will not be available !!!")
 endif()
 
-# This reads the K4A_LIBS and K4A_INSTALL_REQUIRED variables and decides how to install 
+# This reads the K4A_LIBS and K4A_INSTALL_REQUIRED variables and decides how to install
 # the various shared objects / DLLs
 include(Installk4a)
 
@@ -139,7 +140,7 @@ install(TARGETS ${PROJECT_NAME}_node ${PROJECT_NAME}_nodelet
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 install(
-  DIRECTORY 
+  DIRECTORY
   launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
