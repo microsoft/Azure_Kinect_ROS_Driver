@@ -641,9 +641,9 @@ k4a_result_t K4AROSDevice::fillColorPointCloud(const k4a::image& pointcloud_imag
       *iter_y = kMillimeterToMeter * static_cast<float>(point_cloud_buffer[3 * i + 1]);
       *iter_z = kMillimeterToMeter * z;
 
-      *iter_r = color_buffer[4 * i + 0];
+      *iter_r = color_buffer[4 * i + 2];
       *iter_g = color_buffer[4 * i + 1];
-      *iter_b = color_buffer[4 * i + 2];
+      *iter_b = color_buffer[4 * i + 0];
     }
   }
 
