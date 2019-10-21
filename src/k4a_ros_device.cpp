@@ -1201,49 +1201,22 @@ void K4AROSDevice::imuPublisherThread()
                         {
                             // Compute mean sample
                             // Using double-precision version of imu sample struct to avoid overflow
-                            k4a_imu_sample_double_t mean_sample;
-                            mean_sample.temperature = 0.0;
-                            mean_sample.acc_sample.xyz.x = 0.0;
-                            mean_sample.acc_sample.xyz.y = 0.0;
-                            mean_sample.acc_sample.xyz.z = 0.0;
-                            mean_sample.gyro_sample.xyz.x = 0.0;
-                            mean_sample.gyro_sample.xyz.y = 0.0;
-                            mean_sample.gyro_sample.xyz.z = 0.0;
+                            k4a_imu_accumulator_t mean_sample;
                             for(auto imu_sample : accumulated_samples)
                             {
-                                mean_sample.temperature += imu_sample.temperature;    
-                                mean_sample.acc_sample.xyz.x += imu_sample.acc_sample.xyz.x;    
-                                mean_sample.acc_sample.xyz.y += imu_sample.acc_sample.xyz.y;    
-                                mean_sample.acc_sample.xyz.z += imu_sample.acc_sample.xyz.z;    
-                                mean_sample.gyro_sample.xyz.x += imu_sample.gyro_sample.xyz.x;    
-                                mean_sample.gyro_sample.xyz.y += imu_sample.gyro_sample.xyz.y;    
-                                mean_sample.gyro_sample.xyz.z += imu_sample.gyro_sample.xyz.z;    
+                                mean_sample += imu_sample;
                             }
-                            // Use most timestamp of most recent sample
-                            mean_sample.acc_timestamp_usec = accumulated_samples.back().acc_timestamp_usec;    
-                            mean_sample.gyro_timestamp_usec = accumulated_samples.back().gyro_timestamp_usec;    
                             float num_samples = accumulated_samples.size();
-                            mean_sample.temperature /= num_samples;
-                            mean_sample.acc_sample.xyz.x /= num_samples;
-                            mean_sample.acc_sample.xyz.y /= num_samples;
-                            mean_sample.acc_sample.xyz.z /= num_samples;
-                            mean_sample.gyro_sample.xyz.x /= num_samples;
-                            mean_sample.gyro_sample.xyz.y /= num_samples;
-                            mean_sample.gyro_sample.xyz.z /= num_samples;
-
-                            accumulated_samples.clear();
+                            mean_sample /= num_samples;
 
                             // Convert to floating point 
                             k4a_imu_sample_t mean_sample_float;
-                            mean_sample_float.temperature = static_cast<float>(mean_sample.temperature);
-                            mean_sample_float.acc_sample.xyz.x = static_cast<float>(mean_sample.acc_sample.xyz.x);
-                            mean_sample_float.acc_sample.xyz.y = static_cast<float>(mean_sample.acc_sample.xyz.y);
-                            mean_sample_float.acc_sample.xyz.z = static_cast<float>(mean_sample.acc_sample.xyz.z);
-                            mean_sample_float.gyro_sample.xyz.x = static_cast<float>(mean_sample.gyro_sample.xyz.x);
-                            mean_sample_float.gyro_sample.xyz.y = static_cast<float>(mean_sample.gyro_sample.xyz.y);
-                            mean_sample_float.gyro_sample.xyz.z = static_cast<float>(mean_sample.gyro_sample.xyz.z);
-                            mean_sample_float.acc_timestamp_usec = mean_sample.acc_timestamp_usec;
-                            mean_sample_float.gyro_timestamp_usec = mean_sample.gyro_timestamp_usec;
+                            mean_sample.to_float(mean_sample_float);
+                            // Use most timestamp of most recent sample
+                            mean_sample_float.acc_timestamp_usec = accumulated_samples.back().acc_timestamp_usec;
+                            mean_sample_float.gyro_timestamp_usec = accumulated_samples.back().gyro_timestamp_usec;
+
+                            accumulated_samples.clear();
 
                             result = getImuFrame(mean_sample_float, imu_msg);
                             count = 0;

@@ -4,6 +4,8 @@
 #ifndef K4A_ROS_TYPES_H
 #define K4A_ROS_TYPES_H
 
+#include <k4a/k4atypes.h>
+
 using DepthPixel = uint16_t;
 using IrPixel = uint16_t;
 
@@ -45,16 +47,11 @@ static const ColorPalette BODY_COLOR_PALETTE{{
  * </requirements>
  * \endxmlonly
  */
-typedef union
+typedef struct _k4a_double3_t
 {
-    /** XYZ or array representation of vector. */
-    struct _xyz
-    {
-        double x; /**< X component of a vector. */
-        double y; /**< Y component of a vector. */
-        double z; /**< Z component of a vector. */
-    } xyz;       /**< X, Y, Z representation of a vector. */
-    double v[3];  /**< Array representation of a vector. */
+    double x = 0.0; /**< X component of a vector. */
+    double y = 0.0; /**< Y component of a vector. */
+    double z = 0.0; /**< Z component of a vector. */
 } k4a_double3_t;
 
 /** IMU sample in double precision.
@@ -65,13 +62,46 @@ typedef union
  * </requirements>
  * \endxmlonly
  */
-typedef struct _k4a_imu_sample_double_t
+typedef struct _k4a_imu_accumulator_t
 {
-    double temperature;            /**< Temperature reading of this sample (Celsius). */
+    double temperature = 0.0;            /**< Temperature reading of this sample (Celsius). */
     k4a_double3_t acc_sample;      /**< Accelerometer sample in meters per second squared. */
-    uint64_t acc_timestamp_usec;  /**< Timestamp of the accelerometer in microseconds. */
     k4a_double3_t gyro_sample;     /**< Gyro sample in radians per second. */
-    uint64_t gyro_timestamp_usec; /**< Timestamp of the gyroscope in microseconds */
-} k4a_imu_sample_double_t;
+
+    _k4a_imu_accumulator_t& operator+=(const k4a_imu_sample_t& a)
+    {
+        temperature += a.temperature;
+        acc_sample.x += a.acc_sample.xyz.x;
+        acc_sample.y += a.acc_sample.xyz.y;
+        acc_sample.z += a.acc_sample.xyz.z;
+        gyro_sample.x += a.gyro_sample.xyz.x;
+        gyro_sample.y += a.gyro_sample.xyz.y;
+        gyro_sample.z += a.gyro_sample.xyz.z;
+        return *this;
+    }
+
+    _k4a_imu_accumulator_t& operator/=(float div)
+    {
+        temperature /= div;
+        acc_sample.x /= div; 
+        acc_sample.y /= div;
+        acc_sample.z /= div;
+        gyro_sample.x /= div;
+        gyro_sample.y /= div;
+        gyro_sample.z /= div;
+        return *this;
+    }
+
+    void to_float(k4a_imu_sample_t& sample)
+    {
+        sample.temperature = static_cast<float>(temperature);
+        sample.acc_sample.xyz.x = static_cast<float>(acc_sample.x);
+        sample.acc_sample.xyz.y = static_cast<float>(acc_sample.y);
+        sample.acc_sample.xyz.z = static_cast<float>(acc_sample.z);
+        sample.gyro_sample.xyz.x = static_cast<float>(gyro_sample.x);
+        sample.gyro_sample.xyz.y = static_cast<float>(gyro_sample.y);
+        sample.gyro_sample.xyz.z = static_cast<float>(gyro_sample.z);
+    }
+} k4a_imu_accumulator_t;
 
 #endif // K4A_ROS_TYPES_H
