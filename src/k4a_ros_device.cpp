@@ -1160,6 +1160,28 @@ void K4AROSDevice::framePublisherThread()
     }
 }
 
+k4a_imu_sample_t K4AROSDevice::computeMeanIMUSample(const std::vector<k4a_imu_sample_t>& samples)
+{
+    // Compute mean sample
+    // Using double-precision version of imu sample struct to avoid overflow
+    k4a_imu_accumulator_t mean;
+    for(auto imu_sample : samples)
+    {
+        mean += imu_sample;
+    }
+    float num_samples = samples.size();
+    mean /= num_samples;
+
+    // Convert to floating point 
+    k4a_imu_sample_t mean_float;
+    mean.to_float(mean_float);
+    // Use most timestamp of most recent sample
+    mean_float.acc_timestamp_usec = samples.back().acc_timestamp_usec;
+    mean_float.gyro_timestamp_usec = samples.back().gyro_timestamp_usec;
+
+    return mean_float;
+}
+
 void K4AROSDevice::imuPublisherThread()
 {
     ros::Rate loop_rate(300);
@@ -1199,26 +1221,9 @@ void K4AROSDevice::imuPublisherThread()
 
                         if(throttling)
                         {
-                            // Compute mean sample
-                            // Using double-precision version of imu sample struct to avoid overflow
-                            k4a_imu_accumulator_t mean_sample;
-                            for(auto imu_sample : accumulated_samples)
-                            {
-                                mean_sample += imu_sample;
-                            }
-                            float num_samples = accumulated_samples.size();
-                            mean_sample /= num_samples;
-
-                            // Convert to floating point 
-                            k4a_imu_sample_t mean_sample_float;
-                            mean_sample.to_float(mean_sample_float);
-                            // Use most timestamp of most recent sample
-                            mean_sample_float.acc_timestamp_usec = accumulated_samples.back().acc_timestamp_usec;
-                            mean_sample_float.gyro_timestamp_usec = accumulated_samples.back().gyro_timestamp_usec;
-
-                            accumulated_samples.clear();
-
+                            k4a_imu_sample_t mean_sample_float = computeMeanIMUSample(accumulated_samples);
                             result = getImuFrame(mean_sample_float, imu_msg);
+                            accumulated_samples.clear();
                             count = 0;
                         }
                         else
@@ -1247,13 +1252,34 @@ void K4AROSDevice::imuPublisherThread()
                 }
                 else
                 {
-                    ImuPtr imu_msg(new Imu);
-                    result = getImuFrame(sample, imu_msg);
-                    ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
+                    if(throttling)
+                    {
+                        accumulated_samples.push_back(sample);
+                        count++;
+                    }
 
-                    imu_orientation_publisher_.publish(imu_msg);
+                    if(count % target_count == 0)
+                    {
+                        ImuPtr imu_msg(new Imu);
 
-                    last_imu_time_usec_ = sample.acc_timestamp_usec;
+                        if(throttling)
+                        {
+                            k4a_imu_sample_t mean_sample_float = computeMeanIMUSample(accumulated_samples);
+                            result = getImuFrame(mean_sample_float, imu_msg);
+                            accumulated_samples.clear();
+                            count = 0;
+                        }
+                        else
+                        {
+                            result = getImuFrame(sample, imu_msg);
+                        }
+
+                        ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
+
+                        imu_orientation_publisher_.publish(imu_msg);
+
+                        last_imu_time_usec_ = sample.acc_timestamp_usec;
+                    }
                 }
             }
         }
