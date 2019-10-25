@@ -11,13 +11,13 @@
 
 // Library headers
 //
-#include <sensor_msgs/image_encodings.h>
-#include <sensor_msgs/distortion_models.h>
-#include <sensor_msgs/point_cloud2_iterator.h>
 #include <angles/angles.h>
-#include <k4a/k4a.h>
-#include <k4a/k4a.hpp>
 #include <cv_bridge/cv_bridge.h>
+#include <k4a/k4a.h>
+#include <sensor_msgs/distortion_models.h>
+#include <sensor_msgs/image_encodings.h>
+#include <sensor_msgs/point_cloud2_iterator.h>
+#include <k4a/k4a.hpp>
 
 // Project headers
 //
@@ -33,22 +33,22 @@ using namespace visualization_msgs;
 #endif
 
 K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
-  : k4a_device_(nullptr)
-  , k4a_playback_handle_(nullptr)
-  ,
+  : k4a_device_(nullptr),
+    k4a_playback_handle_(nullptr),
+// clang-format off
 #if defined(K4A_BODY_TRACKING)
-  k4abt_tracker_(nullptr)
-  ,
+    k4abt_tracker_(nullptr),
 #endif
-  node_(n)
-  , private_node_(p)
-  , image_transport_(n)
-  , last_capture_time_usec_(0)
-  , last_imu_time_usec_(0)
-  , imu_stream_end_of_file_(false)
+    // clang-format on
+    node_(n),
+    private_node_(p),
+    image_transport_(n),
+    last_capture_time_usec_(0),
+    last_imu_time_usec_(0),
+    imu_stream_end_of_file_(false)
 {
   // Collect ROS parameters from the param server or from the command line
-#define LIST_ENTRY(param_variable, param_help_string, param_type, param_default_val)                                   \
+#define LIST_ENTRY(param_variable, param_help_string, param_type, param_default_val) \
   private_node_.param(#param_variable, params_.param_variable, param_default_val);
   ROS_PARAM_LIST
 #undef LIST_ENTRY
@@ -79,7 +79,6 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
       case K4A_FRAMES_PER_SECOND_30:
         params_.fps = 30;
         break;
-
       default:
         break;
     };
@@ -986,7 +985,7 @@ void K4AROSDevice::framePublisherThread()
                 for (size_t i = 0; i < num_bodies; ++i)
                 {
                   k4abt_body_t body = body_frame.get_body(i);
-                  for (int j = 0; j < (int)K4ABT_JOINT_COUNT; ++j)
+                  for (int j = 0; j < (int) K4ABT_JOINT_COUNT; ++j)
                   {
                     MarkerPtr markerPtr(new Marker);
                     getBodyMarker(body, markerPtr, j, capture_time);
@@ -1081,10 +1080,9 @@ void K4AROSDevice::framePublisherThread()
           rgb_raw_camerainfo_publisher_.publish(rgb_raw_camera_info);
         }
 
-        // We can only rectify the color into the depth co-ordinates if the depth camera is
-        // enabled and processing depth data
-        // Only create rgb rect frame when we are using a device or we have a synchronized image.
-        // Recordings may not have synchronized captures. For unsynchronized captures image skip rgb rect frame.
+        // We can only rectify the color into the depth co-ordinates if the depth camera is enabled and processing depth
+        // data Only create rgb rect frame when we are using a device or we have a synchronized image. Recordings may
+        // not have synchronized captures. For unsynchronized captures image skip rgb rect frame.
         if (params_.depth_enabled && (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR) &&
             (rgb_rect_publisher_.getNumSubscribers() > 0 || rgb_rect_camerainfo_publisher_.getNumSubscribers() > 0) &&
             (k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr)))
@@ -1328,10 +1326,11 @@ ros::Time K4AROSDevice::timestampToROS(const std::chrono::microseconds& k4a_time
   if (start_time_.isZero())
   {
     const ros::Duration transmission_delay(0.11);
-    ROS_WARN_STREAM("Setting the time base using a k4a_image_t timestamp. This will result in a "
-                    "larger uncertainty than setting the time base using the timestamp of a k4a_imu_sample_t sample. "
-                    "Assuming the transmission delay to be "
-                    << transmission_delay.toSec() * 1000.0 << " ms.");
+    ROS_WARN_STREAM(
+        "Setting the time base using a k4a_image_t timestamp. This will result in a "
+        "larger uncertainty than setting the time base using the timestamp of a k4a_imu_sample_t sample. "
+        "Assuming the transmission delay to be "
+        << transmission_delay.toSec() * 1000.0 << " ms.");
     start_time_ = ros::Time::now() - duration_since_device_startup - transmission_delay;
   }
   return start_time_ + duration_since_device_startup;
@@ -1346,9 +1345,10 @@ ros::Time K4AROSDevice::timestampToROS(const uint64_t& k4a_timestamp_us)
   if (start_time_.isZero())
   {
     const ros::Duration transmission_delay(0.005);
-    ROS_INFO_STREAM("Setting the time base using a k4a_imu_sample_t sample. "
-                    "Assuming the transmission delay to be "
-                    << transmission_delay.toSec() * 1000.0 << " ms.");
+    ROS_INFO_STREAM(
+        "Setting the time base using a k4a_imu_sample_t sample. "
+        "Assuming the transmission delay to be "
+        << transmission_delay.toSec() * 1000.0 << " ms.");
     start_time_ = ros::Time::now() - duration_since_device_startup - transmission_delay;
   }
   return start_time_ + duration_since_device_startup;
@@ -1368,10 +1368,8 @@ void printTimestampDebugMessage(const std::string& name, const ros::Time& timest
   {
     auto& min_lag = it->second.first;
     auto& max_lag = it->second.second;
-    if (lag < min_lag)
-      min_lag = lag;
-    if (lag > max_lag)
-      max_lag = lag;
+    if (lag < min_lag) min_lag = lag;
+    if (lag > max_lag) max_lag = lag;
   }
 
   ROS_DEBUG_STREAM(name << " timestamp lags ros::Time::now() by\n"
