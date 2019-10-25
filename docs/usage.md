@@ -26,6 +26,7 @@ The node accepts the following parameters:
 - `body_tracking_smoothing_factor` (float) : Defaults to `0.0`. Controls the temporal smoothing across frames. Set between `0` for no smoothing and `1` for full smoothing. Less smoothing will increase the responsiveness of the detected skeletons but will cause more positional and oriantational jitters.
 - `rescale_ir_to_mono8` (bool) : Defaults to `false`. Whether to rescale the IR image to an 8-bit monochrome image for visualization and further processing. A scaling factor (`ir_mono8_scaling_factor`) is applied.
 - `ir_mono8_scaling_factor` (float) : Defaults to `1.0`. Scaling factor to apply when converting IR to mono8 (see rescale_ir_to_mono8). If using illumination, use the value 0.5-1. If using passive IR, use 10.
+- `imu_rate_target` (int) : Defaults to `0`. Controls the desired IMU message rate, which is rounded to the closest allowable value.  IMU samples from the device are integrated and a mean sample is published at this rate. A value of `0` is interpreted to mean a request for the maximum rate from the sensor (approx. 1.6 kHz).  
 
 #### Parameter Restrictions
 
