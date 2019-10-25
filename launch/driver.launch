@@ -29,6 +29,7 @@ Licensed under the MIT License.
   <arg name="body_tracking_smoothing_factor"  default="0.0" />    <!-- Set between 0 for no smoothing and 1 for full smoothing -->
   <arg name="rescale_ir_to_mono8"  default="false" />    <!-- Whether to rescale the IR image to an 8-bit monochrome image for visualization and further processing. A scaling factor (ir_mono8_scaling_factor) is applied. -->
   <arg name="ir_mono8_scaling_factor"  default="1.0" />    <!-- Scaling factor to apply when converting IR to mono8 (see rescale_ir_to_mono8). If using illumination, use the value 0.5-1. If using passive IR, use 10. -->
+  <arg name="imu_rate_target" default="0"/>                       <!-- Desired output rate of IMU messages. Set to 0 (default) for full rate (1.6 kHz). --> 
 
   <node pkg="azure_kinect_ros_driver" type="node" name="azure_kinect_ros_driver" output="screen" required="$(arg required)">
     <param name="depth_enabled"     type="bool"   value="$(arg depth_enabled)" />
@@ -48,5 +49,6 @@ Licensed under the MIT License.
     <param name="body_tracking_smoothing_factor"  type="double" value="$(arg body_tracking_smoothing_factor)" />
     <param name="rescale_ir_to_mono8" type="bool" value="$(arg rescale_ir_to_mono8)" />
     <param name="ir_mono8_scaling_factor" type="double" value="$(arg ir_mono8_scaling_factor)" />
+    <param name="imu_rate_target" type="int" value="$(arg imu_rate_target)"/>
   </node>
 </launch>

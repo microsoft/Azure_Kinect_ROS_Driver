@@ -174,6 +174,27 @@ k4a_result_t K4AROSDeviceParams::GetDeviceConfig(k4a_device_configuration_t *con
         return K4A_RESULT_FAILED;
     }
 
+    // Ensure that target IMU rate is feasible 
+    if(imu_rate_target == 0)
+    {
+        imu_rate_target = IMU_MAX_RATE;  
+        ROS_INFO_STREAM("Using default IMU rate. Setting to maximum: " << IMU_MAX_RATE << " Hz.");
+    }
+    
+    if(imu_rate_target < 0 || imu_rate_target > IMU_MAX_RATE)
+    {
+        ROS_ERROR_STREAM("Incompatible options: desired IMU rate of " << imu_rate_target << "is not supported.");
+        return K4A_RESULT_FAILED;
+    }
+
+    int div = IMU_MAX_RATE/imu_rate_target;
+    float imu_rate_rounded = IMU_MAX_RATE/div; 
+    // Since we will throttle the IMU by averaging div samples together, this is the
+    // achievable rate when rouded to the nearest whole number div.
+
+    ROS_INFO_STREAM("Setting Target IMU rate to " << imu_rate_rounded << " (desired: " << imu_rate_target << ")");
+
+
     return K4A_RESULT_SUCCEEDED;
 }
 

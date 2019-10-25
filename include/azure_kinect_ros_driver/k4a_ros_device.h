@@ -95,6 +95,9 @@ class K4AROSDevice
     // Converts a k4a_imu_sample_t timestamp to a ros::Time object
     ros::Time timestampToROS(const uint64_t & k4a_timestamp_us);
 
+    // When using IMU throttling, computes a mean measurement from a set of IMU samples
+    k4a_imu_sample_t computeMeanIMUSample(const std::vector<k4a_imu_sample_t>& samples);
+
     // ROS Node variables
     ros::NodeHandle node_;
     ros::NodeHandle private_node_;
