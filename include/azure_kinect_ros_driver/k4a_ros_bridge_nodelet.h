@@ -18,19 +18,17 @@
 
 namespace Azure_Kinect_ROS_Driver
 {
-    class K4AROSBridgeNodelet : public nodelet::Nodelet
-    {
-    public:
+class K4AROSBridgeNodelet : public nodelet::Nodelet
+{
+public:
+  K4AROSBridgeNodelet();
+  ~K4AROSBridgeNodelet();
 
-        K4AROSBridgeNodelet();
-        ~K4AROSBridgeNodelet();
+  virtual void onInit();
 
-        virtual void onInit();
+private:
+  std::unique_ptr<K4AROSDevice> k4a_device;
+};
+}  // namespace Azure_Kinect_ROS_Driver
 
-    private:
-
-        std::unique_ptr<K4AROSDevice> k4a_device;
-    };
-}
-
-#endif // K4A_ROS_BRIDGE_NODELET_H
+#endif  // K4A_ROS_BRIDGE_NODELET_H
