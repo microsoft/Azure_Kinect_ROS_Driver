@@ -56,7 +56,8 @@ class K4AROSDevice
 
     k4a_result_t getPointCloud(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr& point_cloud);
 
-    k4a_result_t getRgbPointCloud(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr& point_cloud);
+    k4a_result_t getRgbPointCloudInRgbFrame(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr& point_cloud);
+    k4a_result_t getRgbPointCloudInDepthFrame(const k4a::capture &capture, sensor_msgs::PointCloud2Ptr& point_cloud);
 
     k4a_result_t getImuFrame(const k4a_imu_sample_t &capture, sensor_msgs::ImuPtr& imu_frame);
 
@@ -77,6 +78,10 @@ class K4AROSDevice
     k4a_result_t renderBGRA32ToROS(sensor_msgs::ImagePtr& rgb_frame, k4a::image& k4a_bgra_frame);
     k4a_result_t renderDepthToROS(sensor_msgs::ImagePtr& depth_image, k4a::image& k4a_depth_frame);
     k4a_result_t renderIrToROS(sensor_msgs::ImagePtr& ir_image, k4a::image& k4a_ir_frame);
+
+    k4a_result_t fillPointCloud(const k4a::image& pointcloud_image, sensor_msgs::PointCloud2Ptr& point_cloud);
+    k4a_result_t fillColorPointCloud(const k4a::image& pointcloud_image, const k4a::image& color_image,
+                                     sensor_msgs::PointCloud2Ptr& point_cloud);
 
     void framePublisherThread();
     void imuPublisherThread();

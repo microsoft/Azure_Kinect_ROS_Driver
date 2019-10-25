@@ -48,7 +48,7 @@ void K4ACalibrationTransformData::initialize(const K4AROSDeviceParams params)
     bool colorEnabled = (getColorWidth() * getColorHeight() > 0);
 
     // Create a buffer to store the point cloud
-    if (params.point_cloud && !params.rgb_point_cloud)
+    if (params.point_cloud && (!params.rgb_point_cloud || params.point_cloud_in_depth_frame))
     {
         point_cloud_image_ = k4a::image::create(
             K4A_IMAGE_FORMAT_DEPTH16,
