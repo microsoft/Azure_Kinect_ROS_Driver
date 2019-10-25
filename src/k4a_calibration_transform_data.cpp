@@ -13,8 +13,8 @@
 //
 #include <angles/angles.h>
 #include <sensor_msgs/distortion_models.h>
-#include <tf2/convert.h>
 #include <tf2/LinearMath/Transform.h>
+#include <tf2/convert.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 // Project headers
@@ -48,23 +48,23 @@ void K4ACalibrationTransformData::initialize(const K4AROSDeviceParams params)
   if (params.point_cloud && (!params.rgb_point_cloud || params.point_cloud_in_depth_frame))
   {
     point_cloud_image_ = k4a::image::create(K4A_IMAGE_FORMAT_DEPTH16, getDepthWidth(), getDepthHeight(),
-                                            getDepthWidth() * 3 * (int)sizeof(DepthPixel));
+                                            getDepthWidth() * 3 * (int) sizeof(DepthPixel));
   }
   else if (params.point_cloud && params.rgb_point_cloud)
   {
     point_cloud_image_ = k4a::image::create(K4A_IMAGE_FORMAT_DEPTH16, getColorWidth(), getColorHeight(),
-                                            getColorWidth() * 3 * (int)sizeof(DepthPixel));
+                                            getColorWidth() * 3 * (int) sizeof(DepthPixel));
   }
 
   if (depthEnabled && colorEnabled)
   {
     // Create a buffer to store RGB images that are transformed into the depth camera geometry
     transformed_rgb_image_ = k4a::image::create(K4A_IMAGE_FORMAT_COLOR_BGRA32, getDepthWidth(), getDepthHeight(),
-                                                getDepthWidth() * (int)sizeof(BgraPixel));
+                                                getDepthWidth() * (int) sizeof(BgraPixel));
 
     // Create a buffer to store depth images that are transformed into the RGB camera geometry
     transformed_depth_image_ = k4a::image::create(K4A_IMAGE_FORMAT_DEPTH16, getColorWidth(), getColorHeight(),
-                                                  getColorWidth() * (int)sizeof(DepthPixel));
+                                                  getColorWidth() * (int) sizeof(DepthPixel));
   }
 
   // Publish various transforms needed by ROS.
@@ -76,20 +76,14 @@ void K4ACalibrationTransformData::initialize(const K4AROSDeviceParams params)
   publishRgbToDepthTf();
 }
 
-int K4ACalibrationTransformData::getDepthWidth()
-{
-  return k4a_calibration_.depth_camera_calibration.resolution_width;
-}
+int K4ACalibrationTransformData::getDepthWidth() { return k4a_calibration_.depth_camera_calibration.resolution_width; }
 
 int K4ACalibrationTransformData::getDepthHeight()
 {
   return k4a_calibration_.depth_camera_calibration.resolution_height;
 }
 
-int K4ACalibrationTransformData::getColorWidth()
-{
-  return k4a_calibration_.color_camera_calibration.resolution_width;
-}
+int K4ACalibrationTransformData::getColorWidth() { return k4a_calibration_.color_camera_calibration.resolution_width; }
 
 int K4ACalibrationTransformData::getColorHeight()
 {
@@ -270,9 +264,10 @@ void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo& ca
 
   // The distortion parameters, size depending on the distortion model.
   // For "rational_polynomial", the 8 parameters are: (k1, k2, p1, p2, k3, k4, k5, k6).
-  camera_info.D = { parameters->param.k1, parameters->param.k2, parameters->param.p1, parameters->param.p2,
-                    parameters->param.k3, parameters->param.k4, parameters->param.k5, parameters->param.k6 };
+  camera_info.D = {parameters->param.k1, parameters->param.k2, parameters->param.p1, parameters->param.p2,
+                   parameters->param.k3, parameters->param.k4, parameters->param.k5, parameters->param.k6};
 
+  // clang-format off
   // Intrinsic camera matrix for the raw (distorted) images.
   //     [fx  0 cx]
   // K = [ 0 fy cy]
@@ -280,9 +275,9 @@ void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo& ca
   // Projects 3D points in the camera coordinate frame to 2D pixel
   // coordinates using the focal lengths (fx, fy) and principal point
   // (cx, cy).
-  camera_info.K = {
-    parameters->param.fx, 0.0f, parameters->param.cx, 0.0f, parameters->param.fy, parameters->param.cy, 0.0f, 0.0, 1.0f
-  };
+  camera_info.K = {parameters->param.fx,  0.0f,                   parameters->param.cx,
+                   0.0f,                  parameters->param.fy,   parameters->param.cy,
+                   0.0f,                  0.0,                    1.0f};
 
   // Projection/camera matrix
   //     [fx'  0  cx' Tx]
@@ -296,24 +291,18 @@ void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo& ca
   //  (cx', cy') - these may differ from the values in K.
   // For monocular cameras, Tx = Ty = 0. Normally, monocular cameras will
   //  also have R = the identity and P[1:3,1:3] = K.
-  camera_info.P = { parameters->param.fx,
-                    0.0f,
-                    parameters->param.cx,
-                    0.0f,
-                    0.0f,
-                    parameters->param.fy,
-                    parameters->param.cy,
-                    0.0f,
-                    0.0f,
-                    0.0,
-                    1.0f,
-                    0.0f };
+  camera_info.P = {parameters->param.fx,  0.0f,                   parameters->param.cx,   0.0f,
+                   0.0f,                  parameters->param.fy,   parameters->param.cy,   0.0f,
+                   0.0f,                  0.0,                    1.0f,                   0.0f};
 
   // Rectification matrix (stereo cameras only)
   // A rotation matrix aligning the camera coordinate system to the ideal
   // stereo image plane so that epipolar lines in both stereo images are
   // parallel.
-  camera_info.R = { 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f };
+  camera_info.R = {1.0f, 0.0f, 0.0f,
+                   0.0f, 1.0f, 0.0f,
+                   0.0f, 0.0f, 1.0f};
+  // clang-format on
 }
 
 void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo& camera_info)
@@ -327,9 +316,10 @@ void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo& came
 
   // The distortion parameters, size depending on the distortion model.
   // For "rational_polynomial", the 8 parameters are: (k1, k2, p1, p2, k3, k4, k5, k6).
-  camera_info.D = { parameters->param.k1, parameters->param.k2, parameters->param.p1, parameters->param.p2,
-                    parameters->param.k3, parameters->param.k4, parameters->param.k5, parameters->param.k6 };
+  camera_info.D = {parameters->param.k1, parameters->param.k2, parameters->param.p1, parameters->param.p2,
+                   parameters->param.k3, parameters->param.k4, parameters->param.k5, parameters->param.k6};
 
+  // clang-format off
   // Intrinsic camera matrix for the raw (distorted) images.
   //     [fx  0 cx]
   // K = [ 0 fy cy]
@@ -337,9 +327,9 @@ void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo& came
   // Projects 3D points in the camera coordinate frame to 2D pixel
   // coordinates using the focal lengths (fx, fy) and principal point
   // (cx, cy).
-  camera_info.K = {
-    parameters->param.fx, 0.0f, parameters->param.cx, 0.0f, parameters->param.fy, parameters->param.cy, 0.0f, 0.0, 1.0f
-  };
+  camera_info.K = {parameters->param.fx,  0.0f,                   parameters->param.cx,
+                   0.0f,                  parameters->param.fy,   parameters->param.cy,
+                   0.0f,                  0.0,                    1.0f};
 
   // Projection/camera matrix
   //     [fx'  0  cx' Tx]
@@ -353,22 +343,16 @@ void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo& came
   //  (cx', cy') - these may differ from the values in K.
   // For monocular cameras, Tx = Ty = 0. Normally, monocular cameras will
   //  also have R = the identity and P[1:3,1:3] = K.
-  camera_info.P = { parameters->param.fx,
-                    0.0f,
-                    parameters->param.cx,
-                    0.0f,
-                    0.0f,
-                    parameters->param.fy,
-                    parameters->param.cy,
-                    0.0f,
-                    0.0f,
-                    0.0,
-                    1.0f,
-                    0.0f };
+  camera_info.P = {parameters->param.fx,  0.0f,                   parameters->param.cx,   0.0f,
+                   0.0f,                  parameters->param.fy,   parameters->param.cy,   0.0f,
+                   0.0f,                  0.0,                    1.0f,                   0.0f};
 
   // Rectification matrix (stereo cameras only)
   // A rotation matrix aligning the camera coordinate system to the ideal
   // stereo image plane so that epipolar lines in both stereo images are
   // parallel.
-  camera_info.R = { 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f };
+  camera_info.R = {1.0f, 0.0f, 0.0f,
+                   0.0f, 1.0f, 0.0f,
+                   0.0f, 0.0f, 1.0f};
+  // clang-format on
 }
