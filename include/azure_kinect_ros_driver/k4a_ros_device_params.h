@@ -23,8 +23,10 @@
 // LIST_ENTRY(param_variable, param_help_string, param_type, param_default_val)
 //
 // param_variable: the variable name which will be created in the k4a_ros_device class to hold the contents of the
-// parameter param_help_string: a string containing help information for the parameter param_type: the type of the
-// parameter param_default_val: the default value of the parameter
+//    parameter
+// param_help_string: a string containing help information for the parameter
+// param_type: the type of the parameter
+// param_default_val: the default value of the parameter
 //
 // Example:
 // LIST_ENTRY(sensor_sn, "The serial number of the sensor this node should connect with", std::string, std::string(""))

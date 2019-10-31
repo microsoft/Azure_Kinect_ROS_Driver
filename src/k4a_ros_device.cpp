@@ -1368,8 +1368,14 @@ void printTimestampDebugMessage(const std::string& name, const ros::Time& timest
   {
     auto& min_lag = it->second.first;
     auto& max_lag = it->second.second;
-    if (lag < min_lag) min_lag = lag;
-    if (lag > max_lag) max_lag = lag;
+    if (lag < min_lag)
+    {
+      min_lag = lag;
+    }
+    if (lag > max_lag)
+    {
+      max_lag = lag;
+    }
   }
 
   ROS_DEBUG_STREAM(name << " timestamp lags ros::Time::now() by\n"
