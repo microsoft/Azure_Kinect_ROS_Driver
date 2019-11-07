@@ -1,7 +1,7 @@
 # Contributing to the Azure Kinect ROS Driver
 
 The Azure Kinect ROS Driver team welcomes community feedback and contributions. This repo
-is relatively new and team members are actively defining and refining the process. Feel free to point out any 
+is relatively new and team members are actively defining and refining the process. Feel free to point out any
 discrepancies between documented process and the actual process.
 
 ## Reporting issues and suggesting new features
@@ -10,7 +10,7 @@ If the Azure Kinect ROS Driver is not working the way you expect it to, then ple
 
 ### Filing a bug
 
-Please review the list of open Issues to see if one is already open. Please review all categories, Bugs and 
+Please review the list of open Issues to see if one is already open. Please review all categories, Bugs and
 Enhancements. Also check for closed Issues before opening a new one.
 
 When opening a new issue be sure to document:
@@ -24,32 +24,32 @@ When opening a new issue be sure to document:
 
 ### Requesting new features
 
-Please review the list of open Issues to see if one is already open. Please review all categories, Bugs and 
+Please review the list of open Issues to see if one is already open. Please review all categories, Bugs and
 Enhancements. Also check for Closed Issues before opening a new one.
 
 ## Finding issues you can help with
 
-Looking for something to work on? Issues marked [``Good First Issue``](https://github.com/microsoft/Azure_Kinect_ROS_Driver/labels/good%20first%20issue) 
+Looking for something to work on? Issues marked [``Good First Issue``](https://github.com/microsoft/Azure_Kinect_ROS_Driver/labels/good%20first%20issue)
 are a good place to start.
 
-You can also check the [``Help Wanted``](https://github.com/microsoft/Azure_Kinect_ROS_Driver/labels/help%20wanted) tag to 
-find other issues to help with. If you're interested in working on a fix, leave a comment to let everyone know and to help 
+You can also check the [``Help Wanted``](https://github.com/microsoft/Azure_Kinect_ROS_Driver/labels/help%20wanted) tag to
+find other issues to help with. If you're interested in working on a fix, leave a comment to let everyone know and to help
 avoid duplicated effort from others.
 
 Once you are committed to fixing an issue, assign it to yourself so others know the issue has an owner.
 
 ## Contributing code changes
 
-We welcome your contributions, especially to fix bugs and to make improvements which address the top Issues. Some general 
+We welcome your contributions, especially to fix bugs and to make improvements which address the top Issues. Some general
 guidelines:
 
 * **DO** create one pull request per Issue, and ensure that the Issue is linked in the pull request.
 * **DO** follow the [ROS style guide](http://wiki.ros.org/CppStyleGuide) guidelines, and keep code changes as small as possible.
 * **DO** check for additional occurrences of the same problem in other parts of the codebase before submitting your PR.
 * **DO** [link the Issue](https://github.com/blog/957-introducing-issue-mentions) you are addressing in the pull request.
-* **DO** write a good description for your pull request. More detail is better. Describe why the change is being made and 
+* **DO** write a good description for your pull request. More detail is better. Describe why the change is being made and
 why you have chosen a particular solution. Describe any manual testing you performed to validate your change.
-* **DO NOT** submit a PR unless it is linked to an Issue marked Triage Approved. This enables us to have a discussion on 
+* **DO NOT** submit a PR unless it is linked to an Issue marked Triage Approved. This enables us to have a discussion on
 the idea before anyone invests time in an implementation.
 * **DO NOT** merge multiple changes into one PR unless they have the same root cause.
 
@@ -62,6 +62,7 @@ Check out how to set up your environment and do a build [here](docs/building.md)
 
 ## Style Guidelines
 The node and nodelet are written in C++, and follow the [ROS style guide](http://wiki.ros.org/CppStyleGuide). Any changes should also follow the ROS style guide to maintain consistency with other ROS software and with the existing Azure Kinect ROS Driver codebase.
+Please run clang-format with the [ROS style file](https://github.com/davetcoleman/roscpp_code_format) on your code to ensure formatting and whitespace is correct (which is also included in the package).
 
 ## Workflow for Submitting a Change
 
@@ -93,7 +94,7 @@ participate in the review, but at least one member of the team will ultimately a
 the request.
 
 Often, multiple iterations will be needed to respond to feedback from reviewers. Try looking at
-[past pull requests](https://github.com/Microsoft/Azure_Kinect_ROS_Driver/pulls?q=is%3Apr+is%3Aclosed) to see what the 
+[past pull requests](https://github.com/Microsoft/Azure_Kinect_ROS_Driver/pulls?q=is%3Apr+is%3Aclosed) to see what the
 experience might be like.
 
 After at least one member of the Azure Kinect team has approved your request, it will be merged by a member of the Azure
@@ -112,6 +113,6 @@ you need to provide a CLA and decorate the PR appropriately (e.g., label,
 comment). Simply follow the instructions provided by the bot. You will only
 need to do this once across all repositories using our CLA.
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). 
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact 
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
+For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact
 [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
