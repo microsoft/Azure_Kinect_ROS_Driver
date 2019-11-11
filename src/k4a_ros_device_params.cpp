@@ -18,7 +18,6 @@
 k4a_result_t K4AROSDeviceParams::GetDeviceConfig(k4a_device_configuration_t* configuration)
 {
   configuration->depth_delay_off_color_usec = 0;
-  configuration->subordinate_delay_off_master_usec = 0;
   configuration->disable_streaming_indicator = false;
 
   ROS_INFO_STREAM("Setting wired sync mode: " << wired_sync_mode);
@@ -39,6 +38,10 @@ k4a_result_t K4AROSDeviceParams::GetDeviceConfig(k4a_device_configuration_t* con
       ROS_ERROR_STREAM("Invalid wired sync mode: " << wired_sync_mode);
       return K4A_RESULT_FAILED;
   }
+
+  
+  ROS_INFO_STREAM("Setting subordinate delay: " << subordinate_delay_off_master_usec);
+  configuration->subordinate_delay_off_master_usec = subordinate_delay_off_master_usec;
 
   if (!color_enabled)
   {

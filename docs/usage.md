@@ -28,7 +28,8 @@ The node accepts the following parameters:
 - `rescale_ir_to_mono8` (bool) : Defaults to `false`. Whether to rescale the IR image to an 8-bit monochrome image for visualization and further processing. A scaling factor (`ir_mono8_scaling_factor`) is applied.
 - `ir_mono8_scaling_factor` (float) : Defaults to `1.0`. Scaling factor to apply when converting IR to mono8 (see rescale_ir_to_mono8). If using illumination, use the value 0.5-1. If using passive IR, use 10.
 - `imu_rate_target` (int) : Defaults to `0`. Controls the desired IMU message rate, which is rounded to the closest allowable value.  IMU samples from the device are integrated and a mean sample is published at this rate. A value of `0` is interpreted to mean a request for the maximum rate from the sensor (approx. 1.6 kHz).  
-
+- `wired_sync_mode` (int) : Defaults to `0`. Sets the external wired synchronization mode. The modes are: `0: OFF (STANDALONE)`, `1: MASTER`, `2: SUBORDINATE`.
+- `subordinate_delay_off_master_usec` (int) : Defaults to `0`. Delay subordinate camera off master camera by specified amount in usec. Recommended minimum value is 160.
 #### Parameter Restrictions
 
 Some parameters are incompatible with each other. The ROS node attempts to detect incompatible parameters and provide a runtime error to roserr: however, not all potential incompatibilities have been accounted for. In these instances, the Azure Kinect Sensor SDK may throw an exception.
