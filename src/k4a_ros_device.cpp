@@ -730,10 +730,10 @@ k4a_result_t K4AROSDevice::getBodyMarker(const k4abt_body_t& body, MarkerPtr mar
   marker_msg->pose.position.x = position.v[0] / 1000.0f;
   marker_msg->pose.position.y = position.v[1] / 1000.0f;
   marker_msg->pose.position.z = position.v[2] / 1000.0f;
-  marker_msg->pose.orientation.x = orientation.v[0];
-  marker_msg->pose.orientation.y = orientation.v[1];
-  marker_msg->pose.orientation.z = orientation.v[2];
-  marker_msg->pose.orientation.w = orientation.v[3];
+  marker_msg->pose.orientation.w = orientation.wxyz.w;
+  marker_msg->pose.orientation.x = orientation.wxyz.x;
+  marker_msg->pose.orientation.y = orientation.wxyz.y;
+  marker_msg->pose.orientation.z = orientation.wxyz.z;
 
   return K4A_RESULT_SUCCEEDED;
 }
