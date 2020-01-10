@@ -71,7 +71,13 @@
   LIST_ENTRY(ir_mono8_scaling_factor,                                                                                  \
              "Scaling factor to apply when converting IR to mono8 (see rescale_ir_to_mono8). If using illumination, "  \
              "use the value 0.5-1. If using passive IR, use 10.",                                                      \
-             float, 1.0f)
+             float, 1.0f)                                                                                              \
+  LIST_ENTRY(wired_sync_mode,                                                                                          \
+              "Wired sync mode (0: OFF, 1: MASTER, 2: SUBORDINATE.",                                                   \
+              int, 0)                                                                                                  \
+  LIST_ENTRY(subordinate_delay_off_master_usec,                                                                        \
+              "Delay subordinate camera off master camera by specified amount in usec.",                               \
+              int, 0)
 
 class K4AROSDeviceParams
 {
