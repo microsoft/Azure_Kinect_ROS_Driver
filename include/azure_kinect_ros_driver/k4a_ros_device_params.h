@@ -77,7 +77,11 @@
               int, 0)                                                                                                  \
   LIST_ENTRY(subordinate_delay_off_master_usec,                                                                        \
               "Delay subordinate camera off master camera by specified amount in usec.",                               \
-              int, 0)
+              int, 0)                                                                                                  \
+  LIST_ENTRY(usb_tramission_delay_sec,                                                                                 \
+              "Estimated USB transmission delay (i.e., between exposure and arrival at the USB bus) in seconds."       \
+              "Applied to image and IMU timestamps.",                                                                  \
+              float, 0.0f)
 
 class K4AROSDeviceParams
 {

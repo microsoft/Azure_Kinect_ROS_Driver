@@ -39,7 +39,7 @@ k4a_result_t K4AROSDeviceParams::GetDeviceConfig(k4a_device_configuration_t* con
       return K4A_RESULT_FAILED;
   }
 
-  
+
   ROS_INFO_STREAM("Setting subordinate delay: " << subordinate_delay_off_master_usec);
   configuration->subordinate_delay_off_master_usec = subordinate_delay_off_master_usec;
 

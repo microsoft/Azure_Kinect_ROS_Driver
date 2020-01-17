@@ -1320,20 +1320,7 @@ std::chrono::microseconds K4AROSDevice::getCaptureTimestamp(const k4a::capture& 
 // Converts a k4a_image_t timestamp to a ros::Time object
 ros::Time K4AROSDevice::timestampToROS(const std::chrono::microseconds& k4a_timestamp_us)
 {
-  ros::Duration duration_since_device_startup(std::chrono::duration<double>(k4a_timestamp_us).count());
-
-  // Set the time base if it is not set yet. Possible race condition should cause no harm.
-  if (start_time_.isZero())
-  {
-    const ros::Duration transmission_delay(0.11);
-    ROS_WARN_STREAM(
-        "Setting the time base using a k4a_image_t timestamp. This will result in a "
-        "larger uncertainty than setting the time base using the timestamp of a k4a_imu_sample_t sample. "
-        "Assuming the transmission delay to be "
-        << transmission_delay.toSec() * 1000.0 << " ms.");
-    start_time_ = ros::Time::now() - duration_since_device_startup - transmission_delay;
-  }
-  return start_time_ + duration_since_device_startup;
+  return timestampToROS(k4a_timestamp_us.count());
 }
 
 // Converts a k4a_imu_sample_t timestamp to a ros::Time object
@@ -1344,7 +1331,7 @@ ros::Time K4AROSDevice::timestampToROS(const uint64_t& k4a_timestamp_us)
   // Set the time base if it is not set yet.
   if (start_time_.isZero())
   {
-    const ros::Duration transmission_delay(0.005);
+    const ros::Duration transmission_delay(params_.usb_tramission_delay_sec);
     ROS_INFO_STREAM(
         "Setting the time base using a k4a_imu_sample_t sample. "
         "Assuming the transmission delay to be "
