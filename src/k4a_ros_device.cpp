@@ -824,6 +824,21 @@ void K4AROSDevice::framePublisherThread()
         ros::requestShutdown();
         return;
       }
+      else
+      {
+        if (params_.depth_enabled)
+        {
+          // Update the timestamp offset based on the difference between the system timestamp (i.e., arrival at USB bus)
+          // and device timestamp (i.e., hardware clock at exposure start).
+          updateTimestampOffset(capture.get_ir_image().get_device_timestamp(),
+                                capture.get_ir_image().get_system_timestamp());
+        }
+        else if (params_.color_enabled)
+        {
+          updateTimestampOffset(capture.get_color_image().get_device_timestamp(),
+                                capture.get_color_image().get_system_timestamp());
+        }
+      }
     }
     else if (k4a_playback_handle_)
     {
@@ -876,10 +891,6 @@ void K4AROSDevice::framePublisherThread()
         }
         else if (result == K4A_RESULT_SUCCEEDED)
         {
-          // Update the timestamp offset based on the difference between the system timestamp (i.e., arrival at USB bus)
-          // and device timestamp (i.e., hardware clock at exposure start).
-          updateTimestampOffset(capture.get_ir_image().get_device_timestamp(),
-                                capture.get_ir_image().get_system_timestamp());
           capture_time = timestampToROS(capture.get_ir_image().get_device_timestamp());
           printTimestampDebugMessage("IR image", capture_time);
 
@@ -912,8 +923,6 @@ void K4AROSDevice::framePublisherThread()
           }
           else if (result == K4A_RESULT_SUCCEEDED)
           {
-            updateTimestampOffset(capture.get_ir_image().get_device_timestamp(),
-                                  capture.get_ir_image().get_system_timestamp());
             capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
             printTimestampDebugMessage("Depth image", capture_time);
 
@@ -946,8 +955,6 @@ void K4AROSDevice::framePublisherThread()
           }
           else if (result == K4A_RESULT_SUCCEEDED)
           {
-            updateTimestampOffset(capture.get_ir_image().get_device_timestamp(),
-                                  capture.get_ir_image().get_system_timestamp());
             capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
             printTimestampDebugMessage("Depth image", capture_time);
 
