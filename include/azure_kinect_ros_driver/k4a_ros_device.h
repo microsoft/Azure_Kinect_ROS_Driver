@@ -102,6 +102,9 @@ class K4AROSDevice
   // time the message arrived at the USB bus.
   void updateTimestampOffset(const std::chrono::microseconds& k4a_device_timestamp_us,
                              const std::chrono::nanoseconds& k4a_system_timestamp_ns);
+  // Make an initial guess based on wall clock. The best we can do when no image timestamps are
+  // available.
+  void initializeTimestampOffset(const std::chrono::microseconds& k4a_device_timestamp_us);
 
   // When using IMU throttling, computes a mean measurement from a set of IMU samples
   k4a_imu_sample_t computeMeanIMUSample(const std::vector<k4a_imu_sample_t>& samples);
@@ -154,7 +157,7 @@ class K4AROSDevice
   k4abt::tracker k4abt_tracker_;
 #endif
 
-  ros::Time start_time_;
+  std::chrono::nanoseconds device_to_realtime_offset_;
 
   // Thread control
   volatile bool running_;

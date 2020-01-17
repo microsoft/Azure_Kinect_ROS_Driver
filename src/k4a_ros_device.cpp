@@ -1325,28 +1325,36 @@ std::chrono::microseconds K4AROSDevice::getCaptureTimestamp(const k4a::capture& 
   return std::chrono::microseconds::zero();
 }
 
-// Converts a k4a_image_t timestamp to a ros::Time object
+// Converts a k4a *device* timestamp to a ros::Time object
 ros::Time K4AROSDevice::timestampToROS(const std::chrono::microseconds& k4a_timestamp_us)
 {
-  return timestampToROS(k4a_timestamp_us.count());
+  // This will give INCORRECT timestamps until the first image.
+  if (device_to_realtime_offset_.count() == 0)
+  {
+    initializeTimestampOffset(k4a_timestamp_us);
+  }
+
+  std::chrono::nanoseconds timestamp_in_realtime = k4a_timestamp_us + device_to_realtime_offset_;
+  ros::Time ros_time;
+  ros_time.fromNSec(timestamp_in_realtime.count());
+  return ros_time;
 }
 
 // Converts a k4a_imu_sample_t timestamp to a ros::Time object
 ros::Time K4AROSDevice::timestampToROS(const uint64_t& k4a_timestamp_us)
 {
-  ros::Duration duration_since_device_startup(k4a_timestamp_us / 1e6);
+  return timestampToROS(std::chrono::microseconds(k4a_timestamp_us));
+}
 
-  // Set the time base if it is not set yet.
-  if (start_time_.isZero())
-  {
-    const ros::Duration transmission_delay(params_.usb_tramission_delay_sec);
-    ROS_INFO_STREAM(
-        "Setting the initial time base using current clock time. "
-        "Assuming the transmission delay to be "
-        << transmission_delay.toSec() * 1000.0 << " ms.");
-    start_time_ = ros::Time::now() - duration_since_device_startup - transmission_delay;
-  }
-  return start_time_ + duration_since_device_startup;
+void K4AROSDevice::initializeTimestampOffset(const std::chrono::microseconds& k4a_device_timestamp_us)
+{
+  // We have no better guess than "now".
+  std::chrono::nanoseconds realtime_clock = std::chrono::system_clock::now().time_since_epoch();
+
+  device_to_realtime_offset_ = realtime_clock - k4a_device_timestamp_us;
+
+  ROS_WARN_STREAM("Initializing the device to realtime offset based on wall clock: "
+                  << device_to_realtime_offset_.count() << " ns");
 }
 
 void K4AROSDevice::updateTimestampOffset(const std::chrono::microseconds& k4a_device_timestamp_us,
@@ -1356,32 +1364,32 @@ void K4AROSDevice::updateTimestampOffset(const std::chrono::microseconds& k4a_de
   // Device time is on AKDK hardware clock.
   // We want to continuously estimate diff between realtime and AKDK hardware clock as low-pass offset.
   // This consists of two parts: device to monotonic, and monotonic to realtime.
-  struct timespec ts_monotonic, ts_realtime;
-  clock_gettime(CLOCK_MONOTONIC, &ts_monotonic);
-  clock_gettime(CLOCK_REALTIME, &ts_realtime);
-  std::chrono::nanoseconds monotonic =
-      std::chrono::seconds(ts_monotonic.tv_sec) + std::chrono::nanoseconds(ts_monotonic.tv_nsec);
-  std::chrono::nanoseconds realtime =
-      std::chrono::seconds(ts_realtime.tv_sec) + std::chrono::nanoseconds(ts_realtime.tv_nsec);
-  std::chrono::nanoseconds monotonic_to_realtime = realtime - monotonic;
 
-  ROS_INFO_STREAM("Monotonic to realtime: ns " << monotonic_to_realtime.count());
-  ROS_INFO_STREAM("System (monotonic) timestamp: ns: " << k4a_system_timestamp_ns.count());
-  ROS_INFO_STREAM("Device timestamp: ns: "
-                  << std::chrono::duration_cast<std::chrono::nanoseconds>(k4a_device_timestamp_us).count());
+  // First figure out realtime to monotonic offset. This will change to keep updating it.
+  std::chrono::nanoseconds realtime_clock = std::chrono::system_clock::now().time_since_epoch();
+  std::chrono::nanoseconds monotonic_clock = std::chrono::steady_clock::now().time_since_epoch();
 
-  ROS_INFO_STREAM("Realtime to device offset, ns: "
-                  << std::chrono::duration_cast<std::chrono::nanoseconds>(
-                         k4a_system_timestamp_ns - k4a_device_timestamp_us + monotonic_to_realtime)
-                         .count());
-  ROS_INFO_STREAM("Start time, in ns: " << start_time_.toNSec());
-  std::chrono::duration<double> start_time_ros = std::chrono::nanoseconds(start_time_.toNSec());
-  std::chrono::duration<double> diff_seconds =
-      start_time_ros - (k4a_system_timestamp_ns - k4a_device_timestamp_us + monotonic_to_realtime);
-  ROS_INFO_STREAM("Difference in seconds: " << diff_seconds.count());
-  std::chrono::duration<double> now = std::chrono::system_clock::now().time_since_epoch();
-  std::chrono::duration<double> diff2 = now - (k4a_device_timestamp_us + start_time_ros);
-  ROS_INFO_STREAM("Difference in timestamp to now: " << (diff2).count());
+  std::chrono::nanoseconds monotonic_to_realtime = realtime_clock - monotonic_clock;
+
+  // Next figure out the other part (combined).
+  std::chrono::nanoseconds device_to_realtime =
+      k4a_system_timestamp_ns - k4a_device_timestamp_us + monotonic_to_realtime;
+  // If we're over a second off, just snap into place.
+  if (device_to_realtime_offset_.count() == 0 ||
+      std::abs((device_to_realtime_offset_ - device_to_realtime).count()) > 1e7)
+  {
+    ROS_WARN_STREAM("Initializing or re-initializing the device to realtime offset: " << device_to_realtime.count()
+                                                                                      << " ns");
+    device_to_realtime_offset_ = device_to_realtime;
+  }
+  else
+  {
+    // Low-pass filter!
+    constexpr double alpha = 0.10;
+    device_to_realtime_offset_ = device_to_realtime_offset_ +
+                                 std::chrono::nanoseconds(static_cast<int64_t>(
+                                     std::floor(alpha * (device_to_realtime - device_to_realtime_offset_).count())));
+  }
 }
 
 void printTimestampDebugMessage(const std::string& name, const ros::Time& timestamp)
