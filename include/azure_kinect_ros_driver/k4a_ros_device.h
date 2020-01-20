@@ -6,37 +6,37 @@
 
 // System headers
 //
-#include <thread>
 #include <atomic>
 #include <mutex>
+#include <thread>
 
 // Library headers
 //
+#include <image_transport/image_transport.h>
 #include <k4a/k4a.h>
-#include <k4a/k4a.hpp>
-#include <k4arecord/playback.hpp>
 #include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/CompressedImage.h>
 #include <sensor_msgs/Image.h>
-#include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Temperature.h>
-#include <image_transport/image_transport.h>
+#include <k4a/k4a.hpp>
+#include <k4arecord/playback.hpp>
 
 #if defined(K4A_BODY_TRACKING)
-#include <k4abt.hpp>
 #include <visualization_msgs/MarkerArray.h>
+#include <k4abt.hpp>
 #endif
 
 // Project headers
 //
-#include "azure_kinect_ros_driver/k4a_ros_device_params.h"
 #include "azure_kinect_ros_driver/k4a_calibration_transform_data.h"
+#include "azure_kinect_ros_driver/k4a_ros_device_params.h"
 
 class K4AROSDevice
 {
-public:
+ public:
   K4AROSDevice(const ros::NodeHandle& n = ros::NodeHandle(), const ros::NodeHandle& p = ros::NodeHandle("~"));
 
   ~K4AROSDevice();
@@ -76,7 +76,7 @@ public:
                                        const k4abt::frame& body_frame);
 #endif
 
-private:
+ private:
   k4a_result_t renderBGRA32ToROS(sensor_msgs::ImagePtr& rgb_frame, k4a::image& k4a_bgra_frame);
   k4a_result_t renderDepthToROS(sensor_msgs::ImagePtr& depth_image, k4a::image& k4a_depth_frame);
   k4a_result_t renderIrToROS(sensor_msgs::ImagePtr& ir_image, k4a::image& k4a_ir_frame);
@@ -96,6 +96,15 @@ private:
 
   // Converts a k4a_imu_sample_t timestamp to a ros::Time object
   ros::Time timestampToROS(const uint64_t& k4a_timestamp_us);
+
+  // Updates the timestamp offset (stored as start_time_) between the device time and ROS time.
+  // This is a low-pass filtered update based on the system time from k4a, which represents the
+  // time the message arrived at the USB bus.
+  void updateTimestampOffset(const std::chrono::microseconds& k4a_device_timestamp_us,
+                             const std::chrono::nanoseconds& k4a_system_timestamp_ns);
+  // Make an initial guess based on wall clock. The best we can do when no image timestamps are
+  // available.
+  void initializeTimestampOffset(const std::chrono::microseconds& k4a_device_timestamp_us);
 
   // When using IMU throttling, computes a mean measurement from a set of IMU samples
   k4a_imu_sample_t computeMeanIMUSample(const std::vector<k4a_imu_sample_t>& samples);
@@ -148,7 +157,7 @@ private:
   k4abt::tracker k4abt_tracker_;
 #endif
 
-  ros::Time start_time_;
+  std::chrono::nanoseconds device_to_realtime_offset_;
 
   // Thread control
   volatile bool running_;
