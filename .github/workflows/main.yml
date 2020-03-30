@@ -1,0 +1,53 @@
+name: Azure_Kinect_ROS_Driver CI
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron:  '0 0 */3 * *'
+
+jobs:
+  build_and_test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+          os: [windows-latest]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Cache Conda
+      id: conda-cache
+      uses: actions/cache@v1
+      with:
+        path: c:/miniconda/envs/myenv
+        key: ${{ runner.os }}-conda-${{ hashFiles('ci/environment.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-conda-
+    - uses: goanpeca/setup-miniconda@v1
+      with:
+        activate-environment: myenv
+        environment-file: ci/environment.yaml
+        python-version: 3.7
+    - name: Cleanup windows environment
+      shell: bash
+      run: |
+        rm -rf /c/hostedtoolcache/windows/Boost/1.72.0/lib/cmake/Boost-1.72.0
+        mkdir -p /c/ci
+        cp $GITHUB_WORKSPACE/ci/toolchain.cmake /c/ci
+    - name: Install Azure Kinect Sensor SDK
+      shell: powershell
+      run: |
+        wget https://download.microsoft.com/download/e/6/6/e66482b2-b6c1-4e34-bfee-95294163fc40/Azure%20Kinect%20SDK%201.3.0.exe -OutFile sdk.exe
+        $p = Start-Process -PassThru -FilePath ".\sdk.exe" -Wait -NoNewWindow -ArgumentList "/passive"
+        $p.WaitForExit()
+    - uses: ros-tooling/action-ros-ci@master
+      with:
+        package-name: azure_kinect_ros_driver
+        vcs-repo-file-url: ${{ github.workspace }}/ci/deps.rosinstall
+        extra-cmake-args: "-G Ninja -DCMAKE_TOOLCHAIN_FILE=c:/ci/toolchain.cmake -DCATKIN_SKIP_TESTING=ON -DCMAKE_BUILD_TYPE=Release"
+      env:
+        COLCON_DEFAULTS_FILE: ${{ github.workspace }}/ci/defaults.yaml
+        ROS_PYTHON_VERSION: 3
+        CC: cl.exe
+        CXX: cl.exe
