@@ -11,7 +11,7 @@ dependencies:
   - boost=1.69
   - opencv=3
   - tinyxml2
-  - sip
+  - sip=4.19.20
   - qt
   - poco
   - console_bridge
