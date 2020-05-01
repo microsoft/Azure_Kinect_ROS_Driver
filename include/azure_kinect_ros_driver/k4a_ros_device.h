@@ -157,7 +157,7 @@ class K4AROSDevice
   k4abt::tracker k4abt_tracker_;
 #endif
 
-  std::chrono::nanoseconds device_to_realtime_offset_;
+  std::chrono::nanoseconds device_to_realtime_offset_{0};
 
   // Thread control
   volatile bool running_;
