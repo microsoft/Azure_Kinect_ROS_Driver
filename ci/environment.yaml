@@ -16,3 +16,4 @@ dependencies:
   - poco
   - console_bridge
   - bzip2
+  - python-orocos-kdl
