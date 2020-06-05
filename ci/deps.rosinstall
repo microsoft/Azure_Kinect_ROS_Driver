@@ -71,10 +71,6 @@
     uri: https://github.com/ros/nodelet_core.git
     version: indigo-devel
 - git:
-    local-name: orocos_kinematics_dynamics
-    uri: https://github.com/orocos/orocos_kinematics_dynamics.git
-    version: master
-- git:
     local-name: pluginlib
     uri: https://github.com/ros/pluginlib.git
     version: melodic-devel
