@@ -1,6 +1,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      name: ms-iot/rosonwindows_ci
+      endpoint: microsoft
+
 name: Azure_Kinect_ROS_Driver-$(SourceBranchName)-$(Date:yyyyMMdd)-$(Rev:rrr)
 
 trigger:
@@ -20,88 +27,26 @@ pr:
     - melodic
 
 jobs:
-- job: WindowsMelodic
-  displayName: Windows Melodic
-
-  pool:
-    vmImage: 'vs2017-win2016'
-
-  steps:
-  - checkout: self
-    clean: "all"
-    fetchDepth: 20
-    lfs: false
-    persistCredentials: true
-    submodules: true
-    path: catkin_ws\src\Azure_Kinect_ROS_Driver
-
-  # Install Chcolatey
-  - powershell: Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-
-  # Install ROS
-  - powershell: |
-      choco source add -n=ros-win -s="https://roswin.azurewebsites.net/api/v2" --priority=1
-      choco upgrade ros-melodic-ros_base -y --execution-timeout=0
-
-  # Create a catkin workspace
-  - script: |
-      C:\opt\ros\melodic\x64\setup.bat
-      mkdir %BUILD_SOURCESDIRECTORY%\catkin_ws
-      mkdir %BUILD_SOURCESDIRECTORY%\catkin_ws\src
-      cd %BUILD_SOURCESDIRECTORY%\catkin_ws
-      catkin_make
-    displayName: Create Catkin Workspace
-
-  # Download and install the Azure Kinect Sensor SDK 
-  - powershell: |
-      wget https://download.microsoft.com/download/e/6/6/e66482b2-b6c1-4e34-bfee-95294163fc40/Azure%20Kinect%20SDK%201.3.0.exe -OutFile $(Build.SourcesDirectory)\sdk.exe
-      $(Build.SourcesDirectory)\sdk.exe /passive
-
-  # Build the catkin workspace
-  - script: |
-      C:\opt\ros\melodic\x64\setup.bat
-      cd %BUILD_SOURCESDIRECTORY%\catkin_ws
-      catkin_make --force-cmake
-    displayName: Build ROS Driver Node
-
-- job: LinuxMelodic
-  displayName: Linux Melodic
-
-  pool:
-    vmImage: 'ubuntu-16.04'
-
-  container: 
-    image: ros:melodic-perception-bionic
-    options: "--name ci-container -v /usr/bin/docker:/tmp/docker:ro"
-
-  steps:
-  - script: |
-      /tmp/docker exec -t -u 0 ci-container \
-      sh -c "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confold" -y install sudo"
-    displayName: Enable sudo
-
-  - checkout: self
-    clean: "all"
-    fetchDepth: 20
-    lfs: false
-    persistCredentials: true
-    submodules: true
-    path: catkin_ws/src/Azure_Kinect_ROS_Driver
-
-  # Download and install the Azure Kinect Sensor SDK 
-  - bash: |
-      sudo apt-get -y install curl software-properties-common
-      curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-      sudo apt-add-repository https://packages.microsoft.com/ubuntu/18.04/prod
-      sudo apt-get update
-      echo libk4a1.3 libk4a1.3/accept-eula boolean true | sudo debconf-set-selections
-      echo libk4a1.3 libk4a1.3/accepted-eula-hash string 0f5d5c5de396e4fee4c0753a21fee0c1ed726cf0316204edda484f08cb266d76 | sudo debconf-set-selections -u
-      sudo apt-get -y install libk4a1.3-dev
-    displayName: Install the Azure Kinect Sensor SDK
-
-  # Build the catkin workspace
-  - bash: |
-      source /opt/ros/melodic/setup.bash
-      catkin_make --force-cmake
-    displayName: Build ROS Driver Node
-    workingDirectory: ../../
+- template: build.yml@templates  # Template reference
+  parameters:
+    rosdistro: melodic
+    metapackage: desktop
+    platforms:
+      - linux
+      - windows
+    pre_build:
+      - powershell: |
+          wget https://download.microsoft.com/download/e/6/6/e66482b2-b6c1-4e34-bfee-95294163fc40/Azure%20Kinect%20SDK%201.3.0.exe -OutFile $(Build.SourcesDirectory)\sdk.exe
+          $(Build.SourcesDirectory)\sdk.exe /passive
+        displayName: Install Azure Kinect Sensor SDK v1.3.0 (Windows)
+        condition: eq(variables['Agent.OS'], 'Windows_NT')
+      - bash: |
+          sudo apt-get -y install curl software-properties-common
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          sudo apt-add-repository https://packages.microsoft.com/ubuntu/18.04/prod
+          sudo apt-get update
+          echo libk4a1.3 libk4a1.3/accept-eula boolean true | sudo debconf-set-selections
+          echo libk4a1.3 libk4a1.3/accepted-eula-hash string 0f5d5c5de396e4fee4c0753a21fee0c1ed726cf0316204edda484f08cb266d76 | sudo debconf-set-selections -u
+          sudo apt-get -y install libk4a1.3-dev
+        displayName: Install Azure Kinect Sensor SDK v1.3.0 (Linux)
+        condition: eq(variables['Agent.OS'], 'Linux')
