@@ -1,4 +1,4 @@
-<!-- 
+<!--
 Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 -->
@@ -13,7 +13,7 @@ Licensed under the MIT License.
 
   <!-- Start the K4A sensor driver -->
   <group ns="k4a" >
-    
+
     <!-- Spawn a nodelet manager -->
     <node pkg="nodelet" type="nodelet" name="manager" args="manager" output="screen">
       <param name="num_worker_threads" value="16" />
@@ -46,6 +46,8 @@ Licensed under the MIT License.
       <param name="point_cloud"       value="false" />
       <param name="rgb_point_cloud"   value="false" />
       <param name="required"          value="true" />
+      <param name="imu_rate_target"   value="100" />
+
     </node>
 
   </group>
@@ -55,7 +57,7 @@ Licensed under the MIT License.
     <arg name="rgb_topic"          value="/k4a/rgb_to_depth/image_rect" />
     <arg name="depth_topic"        value="/k4a/depth/image_rect" />
     <arg name="camera_info_topic"  value="/k4a/depth/camera_info" />
-    <arg name="approx_sync"        value="false" />
+    <arg name="approx_sync"        value="true" />
     <arg name="frame_id"           value="camera_base" />
     <arg name="args"               value="--delete_db_on_start --Odom/ResetCountdown 2" />
   </include>
