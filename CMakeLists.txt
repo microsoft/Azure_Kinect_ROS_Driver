@@ -87,7 +87,7 @@ message("Finding K4A SDK binaries")
 unset(k4a_DIR CACHE)
 
 # Force running the Findk4a.cmake module
-find_package(k4a 1.4.0 QUIET MODULE REQUIRED)
+find_package(k4a 1.3.0 QUIET MODULE REQUIRED)
 set(K4A_LIBS k4a::k4a;k4a::k4arecord)
 
 # Try to find and enable the body tracking SDK
