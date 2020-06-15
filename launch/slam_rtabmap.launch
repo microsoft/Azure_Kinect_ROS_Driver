@@ -41,8 +41,8 @@ Licensed under the MIT License.
       <param name="depth_enabled"     value="true" />
       <param name="depth_mode"        value="NFOV_UNBINNED" />
       <param name="color_enabled"     value="true" />
-      <param name="color_resolution"  value="720P" />
-      <param name="fps"               value="5" />
+      <param name="color_resolution"  value="1536P" />
+      <param name="fps"               value="30" />
       <param name="point_cloud"       value="false" />
       <param name="rgb_point_cloud"   value="false" />
       <param name="required"          value="true" />
