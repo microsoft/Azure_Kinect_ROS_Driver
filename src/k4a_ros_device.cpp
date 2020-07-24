@@ -234,7 +234,9 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
 
   imu_orientation_publisher_ = node_.advertise<Imu>("imu", 200);
 
-  pointcloud_publisher_ = node_.advertise<PointCloud2>("points2", 1);
+  if (params_.point_cloud || params_.rgb_point_cloud) {
+    pointcloud_publisher_ = node_.advertise<PointCloud2>("points2", 1);
+  }
 
 #if defined(K4A_BODY_TRACKING)
   body_marker_publisher_ = node_.advertise<MarkerArray>("body_tracking_data", 1);
