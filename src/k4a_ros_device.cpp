@@ -239,9 +239,11 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
   }
 
 #if defined(K4A_BODY_TRACKING)
-  body_marker_publisher_ = node_.advertise<MarkerArray>("body_tracking_data", 1);
+  if (params_.body_tracking_enabled) {
+    body_marker_publisher_ = node_.advertise<MarkerArray>("body_tracking_data", 1);
 
-  body_index_map_publisher_ = image_transport_.advertise("body_index_map/image_raw", 1);
+    body_index_map_publisher_ = image_transport_.advertise("body_index_map/image_raw", 1);
+  }
 #endif
 }
 
