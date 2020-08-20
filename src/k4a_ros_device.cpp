@@ -447,7 +447,7 @@ k4a_result_t K4AROSDevice::getJpegRgbFrame(const k4a::capture& capture, sensor_m
   }
 
   const uint8_t* jpeg_frame_buffer = k4a_jpeg_frame.get_buffer();
-  jpeg_image->format = "jpeg";
+  jpeg_image->format = "bgra8; jpeg compressed bgr8";
   jpeg_image->data.assign(jpeg_frame_buffer, jpeg_frame_buffer + k4a_jpeg_frame.get_size());
   return K4A_RESULT_SUCCEEDED;
 }
