@@ -23,7 +23,6 @@
   <depend>tf2_geometry_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>angles</depend>
-  <depend>nodelet</depend>
   <depend>xacro</depend>
   <depend>cv_bridge</depend>
 

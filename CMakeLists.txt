@@ -4,8 +4,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(azure_kinect_ros_driver LANGUAGES C CXX)
 
-# list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
-
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
 if(NOT CMAKE_CXX_STANDARD)
@@ -41,7 +39,13 @@ add_executable(${PROJECT_NAME}_node
   src/k4a_calibration_transform_data.cpp
   )
 
-ament_target_dependencies(${PROJECT_NAME}_node rclcpp std_msgs) 
+ament_target_dependencies(${PROJECT_NAME}_node rclcpp 
+  std_msgs 
+  image_transport
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  cv_bridge) 
 
 add_library(${PROJECT_NAME}_nodelet
   src/k4a_ros_bridge_nodelet.cpp
@@ -50,7 +54,13 @@ add_library(${PROJECT_NAME}_nodelet
   src/k4a_calibration_transform_data.cpp
   )
 
-ament_target_dependencies(${PROJECT_NAME}_nodelet rclcpp std_msgs) 
+ament_target_dependencies(${PROJECT_NAME}_nodelet rclcpp 
+  std_msgs 
+  image_transport
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  cv_bridge) 
 
 
 ## Rename C++ executable without prefix
@@ -118,6 +128,7 @@ install(TARGETS ${PROJECT_NAME}_node ${PROJECT_NAME}_nodelet
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
