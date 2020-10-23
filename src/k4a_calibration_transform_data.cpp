@@ -12,7 +12,7 @@
 // Library headers
 //
 #include <angles/angles.h>
-#include <sensor_msgs/distortion_models.h>
+#include <sensor_msgs/distortion_models.hpp>
 #include <tf2/LinearMath/Transform.h>
 #include <tf2/convert.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -20,21 +20,24 @@
 // Project headers
 //
 #include "azure_kinect_ros_driver/k4a_ros_types.h"
-
+K4ACalibrationTransformData::K4ACalibrationTransformData() : Node("k4a_calibration_transform_data")
+{
+  static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
+}
 void K4ACalibrationTransformData::initialize(const k4a::device& device, const k4a_depth_mode_t depth_mode,
-                                             const k4a_color_resolution_t resolution, const K4AROSDeviceParams params)
+                                             const k4a_color_resolution_t resolution, const K4AROSDeviceParams& params)
 {
   k4a_calibration_ = device.get_calibration(depth_mode, resolution);
   initialize(params);
 }
 
-void K4ACalibrationTransformData::initialize(const k4a::playback& k4a_playback_handle, const K4AROSDeviceParams params)
+void K4ACalibrationTransformData::initialize(const k4a::playback& k4a_playback_handle, const K4AROSDeviceParams& params)
 {
   k4a_calibration_ = k4a_playback_handle.get_calibration();
   initialize(params);
 }
 
-void K4ACalibrationTransformData::initialize(const K4AROSDeviceParams params)
+void K4ACalibrationTransformData::initialize(const K4AROSDeviceParams& params)
 {
   k4a_transformation_ = k4a::transformation(k4a_calibration_);
   tf_prefix_ = params.tf_prefix;
@@ -92,26 +95,26 @@ int K4ACalibrationTransformData::getColorHeight()
 
 void K4ACalibrationTransformData::print()
 {
-  ROS_INFO("K4A Calibration Blob:");
-  ROS_INFO("\t Depth:");
+  RCLCPP_INFO(this->get_logger(),"K4A Calibration Blob:");
+  RCLCPP_INFO(this->get_logger(),"\t Depth:");
   printCameraCalibration(k4a_calibration_.depth_camera_calibration);
 
-  ROS_INFO("\t Color:");
+  RCLCPP_INFO(this->get_logger(),"\t Color:");
   printCameraCalibration(k4a_calibration_.color_camera_calibration);
 
-  ROS_INFO("\t IMU (Depth to Color):");
+  RCLCPP_INFO(this->get_logger(),"\t IMU (Depth to Color):");
   printExtrinsics(k4a_calibration_.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_COLOR]);
 
-  ROS_INFO("\t IMU (Depth to IMU):");
+  RCLCPP_INFO(this->get_logger(),"\t IMU (Depth to IMU):");
   printExtrinsics(k4a_calibration_.extrinsics[K4A_CALIBRATION_TYPE_DEPTH][K4A_CALIBRATION_TYPE_ACCEL]);
 
-  ROS_INFO("\t IMU (IMU to Depth):");
+  RCLCPP_INFO(this->get_logger(),"\t IMU (IMU to Depth):");
   printExtrinsics(k4a_calibration_.extrinsics[K4A_CALIBRATION_TYPE_ACCEL][K4A_CALIBRATION_TYPE_DEPTH]);
 
-  ROS_INFO("\t IMU (Color to IMU):");
+  RCLCPP_INFO(this->get_logger(),"\t IMU (Color to IMU):");
   printExtrinsics(k4a_calibration_.extrinsics[K4A_CALIBRATION_TYPE_COLOR][K4A_CALIBRATION_TYPE_ACCEL]);
 
-  ROS_INFO("\t IMU (IMU to Color):");
+  RCLCPP_INFO(this->get_logger(),"\t IMU (IMU to Color):");
   printExtrinsics(k4a_calibration_.extrinsics[K4A_CALIBRATION_TYPE_ACCEL][K4A_CALIBRATION_TYPE_COLOR]);
 }
 
@@ -119,40 +122,40 @@ void K4ACalibrationTransformData::printCameraCalibration(k4a_calibration_camera_
 {
   printExtrinsics(calibration.extrinsics);
 
-  ROS_INFO("\t\t Resolution:");
-  ROS_INFO_STREAM("\t\t\t Width: " << calibration.resolution_width);
-  ROS_INFO_STREAM("\t\t\t Height: " << calibration.resolution_height);
+  RCLCPP_INFO(this->get_logger(),"\t\t Resolution:");
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t Width: " << calibration.resolution_width);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t Height: " << calibration.resolution_height);
 
-  ROS_INFO("\t\t Intrinsics:");
-  ROS_INFO_STREAM("\t\t\t Model Type: " << calibration.intrinsics.type);
-  ROS_INFO_STREAM("\t\t\t Parameter Count: " << calibration.intrinsics.parameter_count);
-  ROS_INFO_STREAM("\t\t\t cx: " << calibration.intrinsics.parameters.param.cx);
-  ROS_INFO_STREAM("\t\t\t cy: " << calibration.intrinsics.parameters.param.cy);
-  ROS_INFO_STREAM("\t\t\t fx: " << calibration.intrinsics.parameters.param.fx);
-  ROS_INFO_STREAM("\t\t\t fy: " << calibration.intrinsics.parameters.param.fy);
-  ROS_INFO_STREAM("\t\t\t k1: " << calibration.intrinsics.parameters.param.k1);
-  ROS_INFO_STREAM("\t\t\t k2: " << calibration.intrinsics.parameters.param.k2);
-  ROS_INFO_STREAM("\t\t\t k3: " << calibration.intrinsics.parameters.param.k3);
-  ROS_INFO_STREAM("\t\t\t k4: " << calibration.intrinsics.parameters.param.k4);
-  ROS_INFO_STREAM("\t\t\t k5: " << calibration.intrinsics.parameters.param.k5);
-  ROS_INFO_STREAM("\t\t\t k6: " << calibration.intrinsics.parameters.param.k6);
-  ROS_INFO_STREAM("\t\t\t codx: " << calibration.intrinsics.parameters.param.codx);
-  ROS_INFO_STREAM("\t\t\t cody: " << calibration.intrinsics.parameters.param.cody);
-  ROS_INFO_STREAM("\t\t\t p2: " << calibration.intrinsics.parameters.param.p2);
-  ROS_INFO_STREAM("\t\t\t p1: " << calibration.intrinsics.parameters.param.p1);
-  ROS_INFO_STREAM("\t\t\t metric_radius: " << calibration.intrinsics.parameters.param.metric_radius);
+  RCLCPP_INFO(this->get_logger(),"\t\t Intrinsics:");
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t Model Type: " << calibration.intrinsics.type);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t Parameter Count: " << calibration.intrinsics.parameter_count);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t cx: " << calibration.intrinsics.parameters.param.cx);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t cy: " << calibration.intrinsics.parameters.param.cy);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t fx: " << calibration.intrinsics.parameters.param.fx);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t fy: " << calibration.intrinsics.parameters.param.fy);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t k1: " << calibration.intrinsics.parameters.param.k1);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t k2: " << calibration.intrinsics.parameters.param.k2);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t k3: " << calibration.intrinsics.parameters.param.k3);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t k4: " << calibration.intrinsics.parameters.param.k4);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t k5: " << calibration.intrinsics.parameters.param.k5);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t k6: " << calibration.intrinsics.parameters.param.k6);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t codx: " << calibration.intrinsics.parameters.param.codx);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t cody: " << calibration.intrinsics.parameters.param.cody);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t p2: " << calibration.intrinsics.parameters.param.p2);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t p1: " << calibration.intrinsics.parameters.param.p1);
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t metric_radius: " << calibration.intrinsics.parameters.param.metric_radius);
 }
 
 void K4ACalibrationTransformData::printExtrinsics(k4a_calibration_extrinsics_t& extrinsics)
 {
-  ROS_INFO("\t\t Extrinsics:");
-  ROS_INFO_STREAM("\t\t\t Translation: " << extrinsics.translation[0] << ", " << extrinsics.translation[1] << ", "
+  RCLCPP_INFO(this->get_logger(),"\t\t Extrinsics:");
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t Translation: " << extrinsics.translation[0] << ", " << extrinsics.translation[1] << ", "
                                          << extrinsics.translation[2]);
-  ROS_INFO_STREAM("\t\t\t Rotation[0]: " << extrinsics.rotation[0] << ", " << extrinsics.rotation[1] << ", "
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t Rotation[0]: " << extrinsics.rotation[0] << ", " << extrinsics.rotation[1] << ", "
                                          << extrinsics.rotation[2]);
-  ROS_INFO_STREAM("\t\t\t Rotation[1]: " << extrinsics.rotation[3] << ", " << extrinsics.rotation[4] << ", "
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t Rotation[1]: " << extrinsics.rotation[3] << ", " << extrinsics.rotation[4] << ", "
                                          << extrinsics.rotation[5]);
-  ROS_INFO_STREAM("\t\t\t Rotation[2]: " << extrinsics.rotation[6] << ", " << extrinsics.rotation[7] << ", "
+  RCLCPP_INFO_STREAM(this->get_logger(),"\t\t\t Rotation[2]: " << extrinsics.rotation[6] << ", " << extrinsics.rotation[7] << ", "
                                          << extrinsics.rotation[8]);
 }
 
@@ -169,14 +172,14 @@ void K4ACalibrationTransformData::publishRgbToDepthTf()
       rgb_extrinsics->rotation[6], rgb_extrinsics->rotation[7], rgb_extrinsics->rotation[8]);
   tf2::Transform depth_to_rgb_transform(depth_to_rgb_rotation, depth_to_rgb_translation);
 
-  geometry_msgs::TransformStamped static_transform;
+  geometry_msgs::msg::TransformStamped static_transform;
   static_transform.transform = tf2::toMsg(depth_to_rgb_transform.inverse());
 
-  static_transform.header.stamp = ros::Time::now();
+  static_transform.header.stamp = this->get_clock()->now();
   static_transform.header.frame_id = tf_prefix_ + depth_camera_frame_;
   static_transform.child_frame_id = tf_prefix_ + rgb_camera_frame_;
 
-  static_broadcaster_.sendTransform(static_transform);
+  static_broadcaster_->sendTransform(static_transform);
 }
 
 void K4ACalibrationTransformData::publishImuToDepthTf()
@@ -192,22 +195,22 @@ void K4ACalibrationTransformData::publishImuToDepthTf()
       imu_extrinsics->rotation[6], imu_extrinsics->rotation[7], imu_extrinsics->rotation[8]);
   tf2::Transform depth_to_imu_transform(depth_to_imu_rotation, depth_to_imu_translation);
 
-  geometry_msgs::TransformStamped static_transform;
+  geometry_msgs::msg::TransformStamped static_transform;
   static_transform.transform = tf2::toMsg(depth_to_imu_transform.inverse());
 
-  static_transform.header.stamp = ros::Time::now();
+  static_transform.header.stamp = this->get_clock()->now();
   static_transform.header.frame_id = tf_prefix_ + depth_camera_frame_;
   static_transform.child_frame_id = tf_prefix_ + imu_frame_;
 
-  static_broadcaster_.sendTransform(static_transform);
+  static_broadcaster_->sendTransform(static_transform);
 }
 
 void K4ACalibrationTransformData::publishDepthToBaseTf()
 {
   // This is a purely cosmetic transform to make the base model of the URDF look good.
-  geometry_msgs::TransformStamped static_transform;
+  geometry_msgs::msg::TransformStamped static_transform;
 
-  static_transform.header.stamp = ros::Time::now();
+  static_transform.header.stamp = this->get_clock()->now();
   static_transform.header.frame_id = tf_prefix_ + camera_base_frame_;
   static_transform.child_frame_id = tf_prefix_ + depth_camera_frame_;
 
@@ -222,7 +225,7 @@ void K4ACalibrationTransformData::publishDepthToBaseTf()
   static_transform.transform.rotation.z = depth_rotation.z();
   static_transform.transform.rotation.w = depth_rotation.w();
 
-  static_broadcaster_.sendTransform(static_transform);
+  static_broadcaster_->sendTransform(static_transform);
 }
 
 // The [0,0,0] center of the URDF, the TF frame known as "camera_base", is offset slightly from the
@@ -253,7 +256,7 @@ tf2::Quaternion K4ACalibrationTransformData::getDepthToBaseRotationCorrection()
   return ros_camera_rotation * depth_rotation;
 }
 
-void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo& camera_info)
+void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::msg::CameraInfo& camera_info)
 {
   camera_info.header.frame_id = tf_prefix_ + depth_camera_frame_;
   camera_info.width = getDepthWidth();
@@ -264,7 +267,7 @@ void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo& ca
 
   // The distortion parameters, size depending on the distortion model.
   // For "rational_polynomial", the 8 parameters are: (k1, k2, p1, p2, k3, k4, k5, k6).
-  camera_info.D = {parameters->param.k1, parameters->param.k2, parameters->param.p1, parameters->param.p2,
+  camera_info.d = {parameters->param.k1, parameters->param.k2, parameters->param.p1, parameters->param.p2,
                    parameters->param.k3, parameters->param.k4, parameters->param.k5, parameters->param.k6};
 
   // clang-format off
@@ -275,7 +278,7 @@ void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo& ca
   // Projects 3D points in the camera coordinate frame to 2D pixel
   // coordinates using the focal lengths (fx, fy) and principal point
   // (cx, cy).
-  camera_info.K = {parameters->param.fx,  0.0f,                   parameters->param.cx,
+  camera_info.k = {parameters->param.fx,  0.0f,                   parameters->param.cx,
                    0.0f,                  parameters->param.fy,   parameters->param.cy,
                    0.0f,                  0.0,                    1.0f};
 
@@ -291,7 +294,7 @@ void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo& ca
   //  (cx', cy') - these may differ from the values in K.
   // For monocular cameras, Tx = Ty = 0. Normally, monocular cameras will
   //  also have R = the identity and P[1:3,1:3] = K.
-  camera_info.P = {parameters->param.fx,  0.0f,                   parameters->param.cx,   0.0f,
+  camera_info.p = {parameters->param.fx,  0.0f,                   parameters->param.cx,   0.0f,
                    0.0f,                  parameters->param.fy,   parameters->param.cy,   0.0f,
                    0.0f,                  0.0,                    1.0f,                   0.0f};
 
@@ -299,13 +302,13 @@ void K4ACalibrationTransformData::getDepthCameraInfo(sensor_msgs::CameraInfo& ca
   // A rotation matrix aligning the camera coordinate system to the ideal
   // stereo image plane so that epipolar lines in both stereo images are
   // parallel.
-  camera_info.R = {1.0f, 0.0f, 0.0f,
+  camera_info.r = {1.0f, 0.0f, 0.0f,
                    0.0f, 1.0f, 0.0f,
                    0.0f, 0.0f, 1.0f};
   // clang-format on
 }
 
-void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo& camera_info)
+void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::msg::CameraInfo& camera_info)
 {
   camera_info.header.frame_id = tf_prefix_ + rgb_camera_frame_;
   camera_info.width = getColorWidth();
@@ -316,7 +319,7 @@ void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo& came
 
   // The distortion parameters, size depending on the distortion model.
   // For "rational_polynomial", the 8 parameters are: (k1, k2, p1, p2, k3, k4, k5, k6).
-  camera_info.D = {parameters->param.k1, parameters->param.k2, parameters->param.p1, parameters->param.p2,
+  camera_info.d = {parameters->param.k1, parameters->param.k2, parameters->param.p1, parameters->param.p2,
                    parameters->param.k3, parameters->param.k4, parameters->param.k5, parameters->param.k6};
 
   // clang-format off
@@ -327,7 +330,7 @@ void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo& came
   // Projects 3D points in the camera coordinate frame to 2D pixel
   // coordinates using the focal lengths (fx, fy) and principal point
   // (cx, cy).
-  camera_info.K = {parameters->param.fx,  0.0f,                   parameters->param.cx,
+  camera_info.k = {parameters->param.fx,  0.0f,                   parameters->param.cx,
                    0.0f,                  parameters->param.fy,   parameters->param.cy,
                    0.0f,                  0.0,                    1.0f};
 
@@ -343,7 +346,7 @@ void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo& came
   //  (cx', cy') - these may differ from the values in K.
   // For monocular cameras, Tx = Ty = 0. Normally, monocular cameras will
   //  also have R = the identity and P[1:3,1:3] = K.
-  camera_info.P = {parameters->param.fx,  0.0f,                   parameters->param.cx,   0.0f,
+  camera_info.p = {parameters->param.fx,  0.0f,                   parameters->param.cx,   0.0f,
                    0.0f,                  parameters->param.fy,   parameters->param.cy,   0.0f,
                    0.0f,                  0.0,                    1.0f,                   0.0f};
 
@@ -351,7 +354,7 @@ void K4ACalibrationTransformData::getRgbCameraInfo(sensor_msgs::CameraInfo& came
   // A rotation matrix aligning the camera coordinate system to the ideal
   // stereo image plane so that epipolar lines in both stereo images are
   // parallel.
-  camera_info.R = {1.0f, 0.0f, 0.0f,
+  camera_info.r = {1.0f, 0.0f, 0.0f,
                    0.0f, 1.0f, 0.0f,
                    0.0f, 0.0f, 1.0f};
   // clang-format on

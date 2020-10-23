@@ -17,11 +17,13 @@
 int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv); 
+
   // Create Node for handling info and error messages 
   rclcpp::Node::SharedPtr node = rclcpp::Node::make_shared("k4a_bridge");
 
+
   // Setup the K4A device
-  std::shared_ptr<K4AROSDevice> device(new K4AROSDevice);
+  std::shared_ptr<K4AROSDevice> device(new K4AROSDevice); 
 
   k4a_result_t result = device->startCameras();
 
@@ -31,7 +33,7 @@ int main(int argc, char** argv)
     return -1;
   }
 
-  result = device->startImu();
+  result = device->startImu(); 
   if (result != K4A_RESULT_SUCCEEDED)
   {
     RCLCPP_ERROR_STREAM(node->get_logger(),"Failed to start IMU");
@@ -55,5 +57,6 @@ int main(int argc, char** argv)
 
   RCLCPP_INFO(node->get_logger(),"ROS Shutdown complete");
 
+  RCLCPP_INFO(node->get_logger(),"Finished ros bridge main");
   return 0;
 }

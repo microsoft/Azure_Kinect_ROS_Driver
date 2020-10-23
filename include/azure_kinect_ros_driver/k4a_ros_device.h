@@ -109,11 +109,8 @@ class K4AROSDevice : public rclcpp::Node
   // When using IMU throttling, computes a mean measurement from a set of IMU samples
   k4a_imu_sample_t computeMeanIMUSample(const std::vector<k4a_imu_sample_t>& samples);
 
-  // ROS Node variables
-  rclcpp::Node node_;
-  rclcpp::Node private_node_;
+  void printTimestampDebugMessage(const std::string& name, const rclcpp::Time& timestamp);
 
-  image_transport::ImageTransport image_transport_;
 
   image_transport::Publisher rgb_raw_publisher_;
   rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr rgb_jpeg_publisher_;
@@ -173,7 +170,5 @@ class K4AROSDevice : public rclcpp::Node
   std::thread frame_publisher_thread_;
   std::thread imu_publisher_thread_;
 };
-
-void printTimestampDebugMessage(const std::string& name, const rclcpp::Time& timestamp);
 
 #endif  // K4A_ROS_DEVICE_H
