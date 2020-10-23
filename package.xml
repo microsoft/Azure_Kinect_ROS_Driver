@@ -27,7 +27,6 @@
   <depend>cv_bridge</depend>
 
   <export>
-    <nodelet plugin="${prefix}/nodelet_plugins.xml" />
     <build_type>ament_cmake</build_type>
   </export>
 

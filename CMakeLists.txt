@@ -47,22 +47,6 @@ ament_target_dependencies(${PROJECT_NAME}_node rclcpp
   tf2_geometry_msgs
   cv_bridge) 
 
-add_library(${PROJECT_NAME}_nodelet
-  src/k4a_ros_bridge_nodelet.cpp
-  src/k4a_ros_device.cpp
-  src/k4a_ros_device_params.cpp
-  src/k4a_calibration_transform_data.cpp
-  )
-
-ament_target_dependencies(${PROJECT_NAME}_nodelet rclcpp 
-  std_msgs 
-  image_transport
-  tf2
-  tf2_ros
-  tf2_geometry_msgs
-  cv_bridge) 
-
-
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -94,7 +78,6 @@ if (k4abt_FOUND)
   list(APPEND K4A_LIBS k4abt::k4abt)
   message(STATUS "Body Tracking SDK found: compiling support for Body Tracking")
   target_compile_definitions(${PROJECT_NAME}_node PUBLIC K4A_BODY_TRACKING)
-  target_compile_definitions(${PROJECT_NAME}_nodelet PUBLIC K4A_BODY_TRACKING)
 else()
   message("!!! Body Tracking SDK not found: body tracking features will not be available !!!")
 endif()
@@ -112,10 +95,6 @@ target_link_libraries(${PROJECT_NAME}_node
   ${K4A_LIBS}
 )
 
-target_link_libraries(${PROJECT_NAME}_nodelet
-  ${K4A_LIBS}
-)
-
 #############
 ## Install ##
 #############
@@ -124,7 +103,7 @@ target_link_libraries(${PROJECT_NAME}_nodelet
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
 
 ## Mark executables and/or libraries for installation
-install(TARGETS ${PROJECT_NAME}_node ${PROJECT_NAME}_nodelet
+install(TARGETS ${PROJECT_NAME}_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
