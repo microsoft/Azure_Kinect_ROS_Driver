@@ -5,7 +5,6 @@
  -->
 
 <robot name="azure-kinect" xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <xacro:arg name="tf_prefix" default=""/>
   <material name="black">
     <color rgba="0. 0. 0. 1" />
   </material>
@@ -19,7 +18,7 @@
     <color rgba="0.9 0.9 0.9 1" />
   </material>
 
-  <link name="$(arg tf_prefix)camera_body">
+  <link name="camera_body">
     <visual>
       <origin xyz="0. 0. 0." />
       <geometry>
@@ -29,7 +28,7 @@
     </visual>
   </link>
 
-  <link name="$(arg tf_prefix)camera_base">
+  <link name="camera_base">
     <visual>
       <origin xyz="-0.013 0. 0." />
       <geometry>
@@ -39,7 +38,7 @@
     </visual>
   </link>
 
-  <link name="$(arg tf_prefix)camera_visor">
+  <link name="camera_visor">
     <visual>
       <origin xyz="-0.0128 0. 0." />
       <geometry>
@@ -49,15 +48,15 @@
     </visual>
   </link>
 
-  <joint name="$(arg tf_prefix)camera_base_to_body" type="fixed">
-    <parent link="$(arg tf_prefix)camera_base" />
-    <child link="$(arg tf_prefix)camera_body" />
+  <joint name="camera_base_to_body" type="fixed">
+    <parent link="camera_base" />
+    <child link="camera_body" />
     <origin xyz="-0.0757 0. 0.008" rpy="0. 0. 0." />
   </joint>
 
-  <joint name="$(arg tf_prefix)camera_base_to_visor" type="fixed">
-    <parent link="$(arg tf_prefix)camera_base" />
-    <child link="$(arg tf_prefix)camera_visor" />
+  <joint name="camera_base_to_visor" type="fixed">
+    <parent link="camera_base" />
+    <child link="camera_visor" />
     <origin xyz="0. 0. 0." rpy="0. 0. 0." />
   </joint>
 </robot>
