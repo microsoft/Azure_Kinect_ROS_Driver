@@ -68,7 +68,7 @@ class K4AROSDevice : public rclcpp::Node
 
 #if defined(K4A_BODY_TRACKING)
   k4a_result_t getBodyMarker(const k4abt_body_t& body, std::shared_ptr<visualization_msgs::msg::Marker> marker_msg, int jointType,
-                             ros::Time capture_time);
+                             rclcpp::Time capture_time);
 
   k4a_result_t getBodyIndexMap(const k4abt::frame& body_frame, std::shared_ptr<sensor_msgs::msg::Image> body_index_map_image);
 

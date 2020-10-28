@@ -47,12 +47,33 @@ K4AROSDevice::K4AROSDevice()
     last_imu_time_usec_(0),
     imu_stream_end_of_file_(false)
 {
+  // Declare node parameters 
+  this->declare_parameter("depth_enabled");
+  this->declare_parameter("depth_mode");
+  this->declare_parameter("color_enabled");
+  this->declare_parameter("color_format");
+  this->declare_parameter("color_resolution");
+  this->declare_parameter("fps");
+  this->declare_parameter("point_cloud");
+  this->declare_parameter("rgb_point_cloud");
+  this->declare_parameter("point_cloud_in_depth_frame");
+  this->declare_parameter("required");
+  this->declare_parameter("sensor_sn");
+  this->declare_parameter("recording_file");
+  this->declare_parameter("recording_loop_enabled");
+  this->declare_parameter("body_tracking_enabled");
+  this->declare_parameter("body_tracking_smoothing_factor");
+  this->declare_parameter("rescale_ir_to_mono8");
+  this->declare_parameter("ir_mono8_scaling_factor");
+  this->declare_parameter("imu_rate_target");
+  this->declare_parameter("wired_sync_mode");
+  this->declare_parameter("subordinate_delay_off_master_usec");
+
   // Collect ROS parameters from the param server or from the command line
 #define LIST_ENTRY(param_variable, param_help_string, param_type, param_default_val) \
   this->get_parameter_or(#param_variable, params_.param_variable, param_default_val);
   ROS_PARAM_LIST
 #undef LIST_ENTRY
-
 
   if (params_.recording_file != "")
   {
@@ -254,7 +275,6 @@ K4AROSDevice::~K4AROSDevice()
   // Start tearing down the publisher threads
   running_ = false;
 
-  // Join the publisher thread 
   RCLCPP_INFO(this->get_logger(),"Joining camera publisher thread");
   frame_publisher_thread_.join();
   RCLCPP_INFO(this->get_logger(),"Camera publisher thread joined");
@@ -708,7 +728,7 @@ k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, std::shar
 
 #if defined(K4A_BODY_TRACKING)
 k4a_result_t K4AROSDevice::getBodyMarker(const k4abt_body_t& body, std::shared_ptr<visualization_msgs::msg::Marker> marker_msg, int jointType,
-                                         ros::Time capture_time)
+                                         rclcpp::Time capture_time)
 {
   k4a_float3_t position = body.skeleton.joints[jointType].position;
   k4a_quaternion_t orientation = body.skeleton.joints[jointType].orientation;
@@ -883,10 +903,9 @@ void K4AROSDevice::framePublisherThread()
       // Only do compute if we have subscribers
       // Only create ir frame when we are using a device or we have an ir image.
       // Recordings may not have synchronized captures. For unsynchronized captures without ir image skip ir frame.
-      
-        // if ((this->count_subscribers("ir/image_raw") > 0 || this->count_subscribers("ir/camera_info") > 0) &&
-        //   (k4a_device_ || capture.get_ir_image() != nullptr)) // TODO: place back in 
-      if ((k4a_device_ || capture.get_ir_image() != nullptr))
+        
+      if ((this->count_subscribers("ir/image_raw") > 0 || this->count_subscribers("ir/camera_info") > 0) &&
+           (k4a_device_ || capture.get_ir_image() != nullptr)) 
       {
         // IR images are available in all depth modes
         result = getIrFrame(capture, ir_raw_frame);
@@ -919,9 +938,8 @@ void K4AROSDevice::framePublisherThread()
         // Recordings may not have synchronized captures. For unsynchronized captures without depth image skip depth
         // frame.
           
-          // if ((this->count_subscribers("depth/image_raw") > 0 || this->count_subscribers("depth/camera_info") > 0) &&
-          //   (k4a_device_ || capture.get_depth_image() != nullptr)) // TODO, place back in 
-        if ((k4a_device_ || capture.get_depth_image() != nullptr))
+          if ((this->count_subscribers("depth/image_raw") > 0 || this->count_subscribers("depth/camera_info") > 0) &&
+             (k4a_device_ || capture.get_depth_image() != nullptr)) 
         {
           result = getDepthFrame(capture, depth_raw_frame);
 
@@ -951,12 +969,10 @@ void K4AROSDevice::framePublisherThread()
         // Recordings may not have synchronized captures. For unsynchronized captures without depth image skip rect
         // depth frame.
 
-            //     if (params_.color_enabled &&
-            // (this->count_subscribers("depth_to_rgb/image_raw") > 0 ||
-            //  this->count_subscribers("depth_to_rgb/camera_info") > 0) &&
-            // (k4a_device_ || capture.get_depth_image() != nullptr)) // TODO place back in 
-
-        if (params_.color_enabled && (k4a_device_ || capture.get_depth_image() != nullptr))
+          if (params_.color_enabled &&
+             (this->count_subscribers("depth_to_rgb/image_raw") > 0 ||
+              this->count_subscribers("depth_to_rgb/camera_info") > 0) &&
+             (k4a_device_ || capture.get_depth_image() != nullptr))
         {
           result = getDepthFrame(capture, depth_rect_frame, true /* rectified */);
 
@@ -1058,9 +1074,8 @@ void K4AROSDevice::framePublisherThread()
       // Recordings may not have synchronized captures. For unsynchronized captures without color image skip rgb frame.
       if (params_.color_format == "jpeg")
       {
-            //     if ((this->count_subscribers("rgb/image_raw/compressed") > 0 || this->count_subscribers("rgb/camera_info") > 0) &&
-            // (k4a_device_ || capture.get_color_image() != nullptr)) // TODO: place back in 
-        if ((k4a_device_ || capture.get_color_image() != nullptr))
+        if ((this->count_subscribers("rgb/image_raw/compressed") > 0 || this->count_subscribers("rgb/camera_info") > 0) &&
+            (k4a_device_ || capture.get_color_image() != nullptr)) 
         {
           result = getJpegRgbFrame(capture, rgb_jpeg_frame);
 
@@ -1085,9 +1100,8 @@ void K4AROSDevice::framePublisherThread()
       }
       else if (params_.color_format == "bgra")
       {
-            //     if ((this->count_subscribers("rgb/image_raw") > 0 || this->count_subscribers("rgb/camera_info") > 0) &&
-            // (k4a_device_ || capture.get_color_image() != nullptr)) // TODO: place back in 
-        if ((k4a_device_ || capture.get_color_image() != nullptr))
+        if ((this->count_subscribers("rgb/image_raw") > 0 || this->count_subscribers("rgb/camera_info") > 0) &&
+            (k4a_device_ || capture.get_color_image() != nullptr))
         {
           result = getRbgFrame(capture, rgb_raw_frame);
 
@@ -1114,11 +1128,8 @@ void K4AROSDevice::framePublisherThread()
         // data Only create rgb rect frame when we are using a device or we have a synchronized image. Recordings may
         // not have synchronized captures. For unsynchronized captures image skip rgb rect frame.
 
-            //     if (params_.depth_enabled && (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR) &&
-            // (this->count_subscribers("rgb_to_depth/image_raw") > 0 || this->count_subscribers("rgb_to_depth/camera_info") > 0) &&
-            // (k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr))) // TODO place back in
-
         if (params_.depth_enabled && (calibration_data_.k4a_calibration_.depth_mode != K4A_DEPTH_MODE_PASSIVE_IR) &&
+            (this->count_subscribers("rgb_to_depth/image_raw") > 0 || this->count_subscribers("rgb_to_depth/camera_info") > 0) &&
             (k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr)))
         {
           result = getRbgFrame(capture, rgb_rect_frame, true /* rectified */);
@@ -1147,10 +1158,8 @@ void K4AROSDevice::framePublisherThread()
     // Only create pointcloud when we are using a device or we have a synchronized image.
     // Recordings may not have synchronized captures. In unsynchronized captures skip point cloud.
 
-        // if (this->count_subscribers("points2") > 0 &&
-        // (k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr))) // TODO place back in 
-
-    if ((k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr)))
+    if (this->count_subscribers("points2") > 0 &&
+      (k4a_device_ || (capture.get_color_image() != nullptr && capture.get_depth_image() != nullptr)))
     {
       if (params_.rgb_point_cloud)
       {
@@ -1187,15 +1196,6 @@ void K4AROSDevice::framePublisherThread()
         pointcloud_publisher_->publish(*point_cloud);
       }
     }
-
-    // TODO: Find a different implementation for this in ROS2, rate does not have cycletime, consider using "period" (period between calls to the timer callback)
-    // if (loop_rate.cycleTime() > loop_rate.expectedCycleTime())
-    // {
-    //   RCLCPP_WARN_STREAM_THROTTLE(this->get_logger(), _THROTTLE(10, "Image processing thread is running behind."
-    //                                    << std::endl
-    //                                    << "Expected max loop time: " << loop_rate.expectedCycleTime() << std::endl
-    //                                    << "Actual loop time: " << loop_rate.cycleTime() << std::endl);
-    // }
 
     rclcpp::spin_some(shared_from_this());
     loop_rate.sleep();
@@ -1365,7 +1365,7 @@ rclcpp::Time K4AROSDevice::timestampToROS(const std::chrono::microseconds& k4a_t
   }
 
   std::chrono::nanoseconds timestamp_in_realtime = k4a_timestamp_us + device_to_realtime_offset_;
-  rclcpp::Time ros_time(timestamp_in_realtime.count());
+  rclcpp::Time ros_time(timestamp_in_realtime.count(), RCL_ROS_TIME);
   return ros_time;
 }
 
@@ -1421,34 +1421,33 @@ void K4AROSDevice::updateTimestampOffset(const std::chrono::microseconds& k4a_de
   }
 }
 
-// TODO, function causing errors 
 void K4AROSDevice::printTimestampDebugMessage(const std::string& name, const rclcpp::Time& timestamp)
 {
-  // rclcpp::Duration lag = this->get_clock()->now() - timestamp;
-  // static std::map<const std::string, std::vector<rclcpp::Duration>> map_min_max; 
-  // auto it = map_min_max.find(name);
-  // if (it == map_min_max.end())
-  // {
-  //   vector<rclcpp::Duration> v(2, lag);
-  //   map_min_max[name] = v;
-  //   it = map_min_max.find(name);
-  // }
-  // else
-  // {
-  //   auto& min_lag = it->second[0];
-  //   auto& max_lag = it->second[1];
-  //   if (lag < min_lag)
-  //   {
-  //     min_lag = lag;
-  //   }
-  //   if (lag > max_lag)
-  //   {
-  //     max_lag = lag;
-  //   }
-  // }
+  rclcpp::Duration lag = this->get_clock()->now() - timestamp;
+  static std::map<const std::string, std::vector<rclcpp::Duration>> map_min_max; 
+  auto it = map_min_max.find(name);
+  if (it == map_min_max.end())
+  {
+    vector<rclcpp::Duration> v(2, lag);
+    map_min_max[name] = v;
+    it = map_min_max.find(name);
+  }
+  else
+  {
+    auto& min_lag = it->second[0];
+    auto& max_lag = it->second[1];
+    if (lag < min_lag)
+    {
+      min_lag = lag;
+    }
+    if (lag > max_lag)
+    {
+      max_lag = lag;
+    }
+  }
 
-  // RCLCPP_DEBUG_STREAM(this->get_logger(), name << " timestamp lags rclcpp::Clock::now() by\n"
-  //                       << std::setw(23) << lag.seconds() * 1000.0 << " ms. "
-  //                       << "The lag ranges from " << it->second[0].seconds() * 1000.0 << "ms"
-  //                       << " to " << it->second[1].seconds() * 1000.0 << "ms.");
+  RCLCPP_DEBUG_STREAM(this->get_logger(), name << " timestamp lags rclcpp::Clock::now() by\n"
+                        << std::setw(23) << lag.seconds() * 1000.0 << " ms. "
+                        << "The lag ranges from " << it->second[0].seconds() * 1000.0 << "ms"
+                        << " to " << it->second[1].seconds() * 1000.0 << "ms.");
 }
