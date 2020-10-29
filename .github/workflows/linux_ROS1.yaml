@@ -1,0 +1,40 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches:
+      - melodic
+  schedule:
+    # every Monday
+    - cron:  '0 0 * * 1'
+
+jobs:
+  build:
+    runs-on: [ubuntu-latest]
+    strategy:
+      fail-fast: false
+      matrix:
+        ROSDISTRO: [melodic]
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+        path: src
+    - name: Install
+      shell: bash
+      run: |
+        sudo apt update
+        sudo apt install ros-%ROSDISTRO%-desktop-full
+      env:
+        ROSDISTRO: ${{ matrix.ROSDISTRO }}
+    - name: Install Azure Kinect Sensor SDK
+      shell: bash
+      run: |
+        sudo apt install k4a-tools
+    - name: Build
+      shell: bash
+      run: |
+        source /opt/ros/%ROSDISTRO%/setup.bash
+        catkin_make 
+      env:
+        ROSDISTRO: ${{ matrix.ROSDISTRO }}
