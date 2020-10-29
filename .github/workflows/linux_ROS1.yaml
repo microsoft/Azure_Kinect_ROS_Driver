@@ -23,8 +23,9 @@ jobs:
     - name: Install
       shell: bash
       run: |
+        sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
         sudo apt update
-        sudo apt install ros-melodic-desktop
+        sudo apt install ros-melodic-desktop-full
       env:
         ROSDISTRO: ${{ matrix.ROSDISTRO }}
     - name: Install Azure Kinect Sensor SDK
