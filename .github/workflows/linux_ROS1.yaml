@@ -35,8 +35,9 @@ jobs:
         curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
         sudo apt-add-repository https://packages.microsoft.com/ubuntu/18.04/prod
         sudo apt-get update
-        sudo apt install k4a-tools
-        sudo apt install libk4a1.4-dev
+        sudo apt-get install libk4a1.4
+        sudo apt-get install libk4a1.4-dev
+        sudo apt-get install k4a-tools
     - name: Build
       shell: bash
       run: |
