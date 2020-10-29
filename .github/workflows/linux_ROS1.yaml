@@ -1,0 +1,50 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches:
+      - melodic
+  schedule:
+    # every Monday
+    - cron:  '0 0 * * 1'
+
+jobs:
+  build:
+    runs-on: [ubuntu-latest]
+    strategy:
+      fail-fast: false
+      matrix:
+        ROSDISTRO: [melodic]
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+        path: src
+    - name: Install
+      shell: bash
+      run: |
+        sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+        sudo apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
+        sudo apt update
+        sudo apt install ros-melodic-desktop-full
+      env:
+        ROSDISTRO: ${{ matrix.ROSDISTRO }}
+    - name: Install Azure Kinect Sensor SDK
+      shell: bash
+      run: |
+        curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+        sudo apt-add-repository https://packages.microsoft.com/ubuntu/18.04/prod
+        sudo apt-get update
+        export DEBIAN_FRONTEND=noninteractive
+        echo 'libk4a1.4 libk4a1.4/accepted-eula-hash string 0f5d5c5de396e4fee4c0753a21fee0c1ed726cf0316204edda484f08cb266d76' | sudo debconf-set-selections
+        echo 'libk4a1.4 libk4a1.4/accept-eula boolean true' | sudo debconf-set-selections
+        sudo apt-get install libk4a1.4
+        sudo apt-get install libk4a1.4-dev
+        sudo apt-get install k4a-tools
+    - name: Build
+      shell: bash
+      run: |
+        source /opt/ros/melodic/setup.bash
+        catkin_make 
+      env:
+        ROSDISTRO: ${{ matrix.ROSDISTRO }}
