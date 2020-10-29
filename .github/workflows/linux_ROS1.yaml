@@ -32,12 +32,10 @@ jobs:
     - name: Install Azure Kinect Sensor SDK
       shell: bash
       run: |
-        sudo apt update && upgrade
-        sudo apt install curl
         curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
         sudo apt-add-repository https://packages.microsoft.com/ubuntu/18.04/prod
         sudo apt-get update
-        sudo apt install libk4a1.3 libk4a1.3-dev k4a-tools
+        sudo apt install libk4a1.1 libk4a1.1-dev k4a-tools
     - name: Build
       shell: bash
       run: |
