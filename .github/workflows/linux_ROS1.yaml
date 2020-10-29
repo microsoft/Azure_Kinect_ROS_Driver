@@ -24,7 +24,7 @@ jobs:
       shell: bash
       run: |
         sudo apt update
-        sudo apt install ros-%ROSDISTRO%-desktop-full
+        sudo apt install ros-melodic-desktop-full
       env:
         ROSDISTRO: ${{ matrix.ROSDISTRO }}
     - name: Install Azure Kinect Sensor SDK
@@ -34,7 +34,7 @@ jobs:
     - name: Build
       shell: bash
       run: |
-        source /opt/ros/%ROSDISTRO%/setup.bash
+        source /opt/ros/melodic/setup.bash
         catkin_make 
       env:
         ROSDISTRO: ${{ matrix.ROSDISTRO }}
