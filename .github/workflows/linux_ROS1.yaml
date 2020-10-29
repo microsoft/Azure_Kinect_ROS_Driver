@@ -36,6 +36,7 @@ jobs:
         sudo apt-add-repository https://packages.microsoft.com/ubuntu/18.04/prod
         sudo apt-get update
         sudo apt install k4a-tools
+        sudo apt install libk4a1.1-dev
     - name: Build
       shell: bash
       run: |
