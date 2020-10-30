@@ -49,10 +49,9 @@ if (${K4A_INSTALL_NEEDED})
   # Tell cmake that we need to reconfigure if any of the DLL files change
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${K4A_DLL_FILES})
 
-  # We need to copy the DLLs into the CATKIN_PACKAGE_LIB_DESTINATION so
-  # the node executable can find them on launch, and CATKIN_PACKAGE_BIN_DESTINATION
-  # so the nodelet can find them on launch
-  set(DLL_COPY_DIRECTORY "${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION};${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION}")
+  # We need to copy the DLLs into the same folder as 
+  # the node executable so it can find them on launch
+  set(DLL_COPY_DIRECTORY "${PROJECT_SOURCE_DIR}/install/${PROJECT_NAME}/lib/${PROJECT_NAME}")
 
   foreach(DIRECTORY ${DLL_COPY_DIRECTORY})
     file(MAKE_DIRECTORY "${DIRECTORY}")
@@ -76,6 +75,6 @@ endif()
 if (${K4A_INSTALL_NEEDED})
   message("Installing K4A SDK to binary output folder")
   install(CODE "set(K4A_DLL_FILES \"${K4A_DLL_FILES}\")")
-  install(CODE "set(DLL_COPY_DIRECTORY \"${CMAKE_INSTALL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION}\")")
+  install(CODE "set(DLL_COPY_DIRECTORY \"${PROJECT_SOURCE_DIR}/install/${PROJECT_NAME}/lib/${PROJECT_NAME}\")")
   install(SCRIPT "./cmake/k4a-install.cmake")
 endif()
