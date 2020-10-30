@@ -10,8 +10,7 @@
 // Library headers
 //
 #include <k4a/k4a.h>
-#include <ros/ros.h>
-
+#include "rclcpp/rclcpp.hpp"
 // Project headers
 //
 
@@ -79,9 +78,11 @@
               "Delay subordinate camera off master camera by specified amount in usec.",                               \
               int, 0)
 
-class K4AROSDeviceParams
+class K4AROSDeviceParams : public rclcpp::Node
 {
 public:
+  K4AROSDeviceParams();
+
   // Get a device configuration from a a set of parameters
   k4a_result_t GetDeviceConfig(k4a_device_configuration_t* configuration);
 

@@ -12,9 +12,9 @@
   <license>MIT</license>
   <!-- <url type="website">http://wiki.ros.org/azure_kinect_ros_driver</url> -->
 
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>roscpp</depend>
+  <depend>rclcpp</depend>
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>image_transport</depend>
@@ -23,12 +23,11 @@
   <depend>tf2_geometry_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>angles</depend>
-  <depend>nodelet</depend>
   <depend>xacro</depend>
   <depend>cv_bridge</depend>
 
   <export>
-    <nodelet plugin="${prefix}/nodelet_plugins.xml" />
+    <build_type>ament_cmake</build_type>
   </export>
 
 </package>
