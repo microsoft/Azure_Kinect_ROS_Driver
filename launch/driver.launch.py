@@ -32,17 +32,16 @@ def to_urdf(xacro_path, urdf_path=None):
     return urdf_path  # Return path to the urdf file
 
 def generate_launch_description():
-
-    robot_description = LaunchConfiguration('robot_description', default='path')
-    # prefix = "" # TODO: Add parameter to xacro
+    # Note: tf_prefix is not supported as an argument to the xacro file for robot_state publisher
     xacro_file = os.path.join(
             get_package_share_directory("azure_kinect_ros_driver"),
             "urdf",
             "azure_kinect.urdf.xacro")
-
-    print("xacro_file : {}".format(xacro_file))
+    print("Robot description xacro_file : {}".format(xacro_file))
+    
     urdf_path = to_urdf(xacro_file) # convert, xacro to urdf 
-    # doc = xacro.process_file(xacro_file, mappings={'tf_prefix' : prefix }) # TODO: Add parameter to xacro 
+    urdf = open(urdf_path).read()
+    print("Robot description urdf_path : {}".format(urdf_path))
 
     return LaunchDescription([
     DeclareLaunchArgument(
@@ -164,10 +163,10 @@ def generate_launch_description():
         package='robot_state_publisher',
         executable='robot_state_publisher',
         name='robot_state_publisher',
-        parameters = [{'robot_description' : urdf_path}]),
+        parameters = [{'robot_description' : urdf}]),
     launch_ros.actions.Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
         name='joint_state_publisher',
-        parameters=[{'robot_description': urdf_path}]),
+        arguments=[urdf_path]),
     ])
