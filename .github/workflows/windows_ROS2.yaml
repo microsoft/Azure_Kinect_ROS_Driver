@@ -38,6 +38,6 @@ jobs:
       run: |
         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=amd64 -host_arch=amd64
         call "C:\opt\ros\%ROSDISTRO%\x64\setup.bat"
-        colcon build --packages-select azure_kinect_ros_driver
+        colcon build --packages-select azure_kinect_ros_driver --event-handlers console_cohesion+
       env:
         ROSDISTRO: ${{ matrix.ROSDISTRO }}
