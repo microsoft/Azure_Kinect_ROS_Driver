@@ -28,6 +28,8 @@ jobs:
         sudo sh -c 'echo "deb [arch=$(dpkg --print-architecture)] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/ros2-latest.list'
         sudo apt update
         sudo apt install ros-foxy-desktop
+        source /opt/ros/foxy/setup.bash
+        sudo apt install python3-colcon-common-extensions
       env:
         ROSDISTRO: ${{ matrix.ROSDISTRO }}
     - name: Configure Microsoft's Package Repository
@@ -36,9 +38,16 @@ jobs:
       run: |
         curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
         sudo apt-add-repository https://packages.microsoft.com/ubuntu/18.04/prod
+    - name: Continue Configuring Microsoft's Package Repository
+      shell: bash
+      continue-on-error: true 
+      run: |
         curl -sSL https://packages.microsoft.com/config/ubuntu/18.04/prod.list | sudo tee /etc/apt/sources.list.d/microsoft-prod.list
         curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
         sudo apt-get update
+    - name: Install Azure Kinect Sensor SDK
+      shell: bash
+      run: |
         export DEBIAN_FRONTEND=noninteractive
         echo 'libk4a1.3 libk4a1.3/accepted-eula-hash string 0f5d5c5de396e4fee4c0753a21fee0c1ed726cf0316204edda484f08cb266d76' | sudo debconf-set-selections
         echo 'libk4a1.3 libk4a1.3/accept-eula boolean true' | sudo debconf-set-selections
