@@ -31,7 +31,7 @@ using namespace image_transport;
 using namespace std;
 
 #if defined(K4A_BODY_TRACKING)
-using namespace visualization_msgs;
+using namespace visualization_msgs::msg;
 #endif
 
 K4AROSDevice::K4AROSDevice()
@@ -1024,19 +1024,19 @@ void K4AROSDevice::framePublisherThread()
               if (this->count_subscribers("body_tracking_data") > 0)
               {
                 // Joint marker array
-                MarkerArrayPtr markerArrayPtr(new MarkerArray);
+                MarkerArray::SharedPtr markerArrayPtr(new MarkerArray);
                 auto num_bodies = body_frame.get_num_bodies();
                 for (size_t i = 0; i < num_bodies; ++i)
                 {
                   k4abt_body_t body = body_frame.get_body(i);
                   for (int j = 0; j < (int) K4ABT_JOINT_COUNT; ++j)
                   {
-                    MarkerPtr markerPtr(new Marker);
+                    Marker::SharedPtr markerPtr(new Marker);
                     getBodyMarker(body, markerPtr, j, capture_time);
                     markerArrayPtr->markers.push_back(*markerPtr);
                   }
                 }
-                body_marker_publisher_->publish(markerArrayPtr);
+                body_marker_publisher_->publish(*markerArrayPtr);
               }
 
               if (this->count_subscribers("body_index_map/image_raw") > 0)
