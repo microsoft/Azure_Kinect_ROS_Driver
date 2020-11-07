@@ -47,6 +47,9 @@ K4AROSDevice::K4AROSDevice()
     last_imu_time_usec_(0),
     imu_stream_end_of_file_(false)
 {
+  // Declare an image transport 
+  auto image_transport_ = new image_transport::ImageTransport(static_cast<rclcpp::Node::SharedPtr>(this));
+  
   // Declare node parameters 
   this->declare_parameter("depth_enabled");
   this->declare_parameter("depth_mode");
@@ -238,21 +241,21 @@ K4AROSDevice::K4AROSDevice()
   }
   else if (params_.color_format == "bgra")
   {
-    rgb_raw_publisher_ = image_transport::create_publisher(this, "rgb/image_raw");
+    rgb_raw_publisher_ = image_transport_->advertise("rgb/image_raw", 1, true); 
   }
   rgb_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("rgb/camera_info", 1);
   
-  depth_raw_publisher_ = image_transport::create_publisher(this,"depth/image_raw");
+  depth_raw_publisher_ = image_transport_->advertise("depth/image_raw", 1, true); 
   depth_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("depth/camera_info", 1);
 
 
-  depth_rect_publisher_ = image_transport::create_publisher(this,"depth_to_rgb/image_raw");
+  depth_rect_publisher_ = image_transport_->advertise("depth_to_rgb/image_raw", 1, true); 
   depth_rect_camerainfo_publisher_ = this->create_publisher<CameraInfo>("depth_to_rgb/camera_info", 1);
 
-  rgb_rect_publisher_ = image_transport::create_publisher(this,"rgb_to_depth/image_raw");
+  rgb_rect_publisher_ = image_transport_->advertise("rgb_to_depth/image_raw", 1, true); 
   rgb_rect_camerainfo_publisher_ = this->create_publisher<CameraInfo>("rgb_to_depth/camera_info", 1);
 
-  ir_raw_publisher_ = image_transport::create_publisher(this,"ir/image_raw");
+  ir_raw_publisher_ = image_transport_->advertise("ir/image_raw", 1, true); 
   ir_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("ir/camera_info", 1);
 
   imu_orientation_publisher_ = this->create_publisher<Imu>("imu", 200);
@@ -1259,7 +1262,7 @@ void K4AROSDevice::imuPublisherThread()
 
           if (count % target_count == 0)
           {
-            std::shared_ptr<Imu> imu_msg(new Imu);
+            Imu::SharedPtr imu_msg(new Imu);
 
             if (throttling)
             {
@@ -1302,7 +1305,7 @@ void K4AROSDevice::imuPublisherThread()
 
           if (count % target_count == 0)
           {
-            std::shared_ptr<Imu> imu_msg(new Imu);
+            Imu::SharedPtr imu_msg(new Imu);
 
             if (throttling)
             {
@@ -1325,9 +1328,6 @@ void K4AROSDevice::imuPublisherThread()
         }
       }
     }
-
-    rclcpp::spin_some(this->get_node_base_interface());
-    loop_rate.sleep();
   }
 }
 
