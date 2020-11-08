@@ -31,7 +31,7 @@ using namespace image_transport;
 using namespace std;
 
 #if defined(K4A_BODY_TRACKING)
-using namespace visualization_msgs;
+using namespace visualization_msgs::msg;
 #endif
 
 K4AROSDevice::K4AROSDevice()
@@ -47,6 +47,9 @@ K4AROSDevice::K4AROSDevice()
     last_imu_time_usec_(0),
     imu_stream_end_of_file_(false)
 {
+  // Declare an image transport 
+  auto image_transport_ = new image_transport::ImageTransport(static_cast<rclcpp::Node::SharedPtr>(this));
+  
   // Declare node parameters 
   this->declare_parameter("depth_enabled");
   this->declare_parameter("depth_mode");
@@ -238,21 +241,21 @@ K4AROSDevice::K4AROSDevice()
   }
   else if (params_.color_format == "bgra")
   {
-    rgb_raw_publisher_ = image_transport::create_publisher(this, "rgb/image_raw");
+    rgb_raw_publisher_ = image_transport_->advertise("rgb/image_raw", 1, true); 
   }
   rgb_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("rgb/camera_info", 1);
   
-  depth_raw_publisher_ = image_transport::create_publisher(this,"depth/image_raw");
+  depth_raw_publisher_ = image_transport_->advertise("depth/image_raw", 1, true); 
   depth_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("depth/camera_info", 1);
 
 
-  depth_rect_publisher_ = image_transport::create_publisher(this,"depth_to_rgb/image_raw");
+  depth_rect_publisher_ = image_transport_->advertise("depth_to_rgb/image_raw", 1, true); 
   depth_rect_camerainfo_publisher_ = this->create_publisher<CameraInfo>("depth_to_rgb/camera_info", 1);
 
-  rgb_rect_publisher_ = image_transport::create_publisher(this,"rgb_to_depth/image_raw");
+  rgb_rect_publisher_ = image_transport_->advertise("rgb_to_depth/image_raw", 1, true); 
   rgb_rect_camerainfo_publisher_ = this->create_publisher<CameraInfo>("rgb_to_depth/camera_info", 1);
 
-  ir_raw_publisher_ = image_transport::create_publisher(this,"ir/image_raw");
+  ir_raw_publisher_ = image_transport_->advertise("ir/image_raw", 1, true); 
   ir_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("ir/camera_info", 1);
 
   imu_orientation_publisher_ = this->create_publisher<Imu>("imu", 200);
@@ -1024,19 +1027,19 @@ void K4AROSDevice::framePublisherThread()
               if (this->count_subscribers("body_tracking_data") > 0)
               {
                 // Joint marker array
-                MarkerArrayPtr markerArrayPtr(new MarkerArray);
+                MarkerArray::SharedPtr markerArrayPtr(new MarkerArray);
                 auto num_bodies = body_frame.get_num_bodies();
                 for (size_t i = 0; i < num_bodies; ++i)
                 {
                   k4abt_body_t body = body_frame.get_body(i);
                   for (int j = 0; j < (int) K4ABT_JOINT_COUNT; ++j)
                   {
-                    MarkerPtr markerPtr(new Marker);
+                    Marker::SharedPtr markerPtr(new Marker);
                     getBodyMarker(body, markerPtr, j, capture_time);
                     markerArrayPtr->markers.push_back(*markerPtr);
                   }
                 }
-                body_marker_publisher_->publish(markerArrayPtr);
+                body_marker_publisher_->publish(*markerArrayPtr);
               }
 
               if (this->count_subscribers("body_index_map/image_raw") > 0)
@@ -1259,7 +1262,7 @@ void K4AROSDevice::imuPublisherThread()
 
           if (count % target_count == 0)
           {
-            std::shared_ptr<Imu> imu_msg(new Imu);
+            Imu::SharedPtr imu_msg(new Imu);
 
             if (throttling)
             {
@@ -1302,7 +1305,7 @@ void K4AROSDevice::imuPublisherThread()
 
           if (count % target_count == 0)
           {
-            std::shared_ptr<Imu> imu_msg(new Imu);
+            Imu::SharedPtr imu_msg(new Imu);
 
             if (throttling)
             {
@@ -1325,9 +1328,6 @@ void K4AROSDevice::imuPublisherThread()
         }
       }
     }
-
-    rclcpp::spin_some(this->get_node_base_interface());
-    loop_rate.sleep();
   }
 }
 

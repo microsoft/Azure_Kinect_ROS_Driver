@@ -4,6 +4,8 @@
 #ifndef K4A_CALIBRATION_TRANSFORM_DATA_H
 #define K4A_CALIBRATION_TRANSFORM_DATA_H
 
+#define _USE_MATH_DEFINES
+
 // System headers
 //
 #include <vector>

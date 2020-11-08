@@ -19,6 +19,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -41,6 +42,8 @@ add_executable(${PROJECT_NAME}_node
 
 ament_target_dependencies(${PROJECT_NAME}_node rclcpp 
   std_msgs 
+  sensor_msgs
+  visualization_msgs
   image_transport
   tf2
   tf2_ros

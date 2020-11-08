@@ -5,7 +5,7 @@ import os
 import xacro
 from ament_index_python.packages import get_package_share_directory
 
-from launch import LaunchDescription
+from launch import LaunchDescription, conditions
 from launch.actions import (DeclareLaunchArgument, GroupAction)
 from launch.substitutions import LaunchConfiguration, Command
 
@@ -32,27 +32,26 @@ def to_urdf(xacro_path, urdf_path=None):
     return urdf_path  # Return path to the urdf file
 
 def generate_launch_description():
-
-    robot_description = LaunchConfiguration('robot_description', default='path')
-    # prefix = "" # TODO: Add parameter to xacro
+    # Note: tf_prefix is not supported as an argument to the xacro file for robot/joint state publishers
+    # Convert xacro to urdf for robot_state_publisher and joint_state_publisher 
     xacro_file = os.path.join(
             get_package_share_directory("azure_kinect_ros_driver"),
             "urdf",
             "azure_kinect.urdf.xacro")
-
-    print("xacro_file : {}".format(xacro_file))
+    print("Robot description xacro_file : {}".format(xacro_file))
+    
     urdf_path = to_urdf(xacro_file) # convert, xacro to urdf 
-    # doc = xacro.process_file(xacro_file, mappings={'tf_prefix' : prefix }) # TODO: Add parameter to xacro 
+    urdf = open(urdf_path).read()
+    print("Robot description urdf_path : {}".format(urdf_path))
+
+    # Variable used for the flag to publish a standalone azure_description instead of the default robot_description parameter
+    remappings = [('robot_description', 'azure_description')] 
 
     return LaunchDescription([
     DeclareLaunchArgument(
-        'tf_prefix', 
-        default_value="", 
-        description="Prefix added to tf frame IDs. It typically contains a trailing '_' unless empty."),
-    DeclareLaunchArgument(
         'overwrite_robot_description', 
         default_value="true" , 
-        description="Flag to publish a standalone azure_description instead of the default robot_descrition parameter."),
+        description="Flag to publish a standalone azure_description instead of the default robot_description parameter."),
     ##############################################
     DeclareLaunchArgument(
         'depth_enabled', 
@@ -149,7 +148,6 @@ def generate_launch_description():
             {'rgb_point_cloud': launch.substitutions.LaunchConfiguration('rgb_point_cloud')},
             {'point_cloud_in_depth_frame': launch.substitutions.LaunchConfiguration('point_cloud_in_depth_frame')}, 
             {'sensor_sn': launch.substitutions.LaunchConfiguration('sensor_sn')},
-            {'tf_prefix': launch.substitutions.LaunchConfiguration('tf_prefix')},
             {'recording_file': launch.substitutions.LaunchConfiguration('recording_file')}, 
             {'recording_loop_enabled': launch.substitutions.LaunchConfiguration('recording_loop_enabled')},
             {'body_tracking_enabled': launch.substitutions.LaunchConfiguration('body_tracking_enabled')},
@@ -159,15 +157,32 @@ def generate_launch_description():
             {'imu_rate_target': launch.substitutions.LaunchConfiguration('imu_rate_target')},
             {'wired_sync_mode': launch.substitutions.LaunchConfiguration('wired_sync_mode')},
             {'subordinate_delay_off_master_usec': launch.substitutions.LaunchConfiguration('subordinate_delay_off_master_usec')}]),
-    
+    # If flag overwrite_robot_description is set: 
     launch_ros.actions.Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         name='robot_state_publisher',
-        parameters = [{'robot_description' : urdf_path}]),
+        parameters = [{'robot_description' : urdf}], 
+        condition=conditions.IfCondition(launch.substitutions.LaunchConfiguration("overwrite_robot_description"))),
     launch_ros.actions.Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
         name='joint_state_publisher',
-        parameters=[{'robot_description': urdf_path}]),
+        arguments=[urdf_path], 
+        condition=conditions.IfCondition(launch.substitutions.LaunchConfiguration("overwrite_robot_description"))),
+    # If flag overwrite_robot_description is not set: 
+    launch_ros.actions.Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
+        parameters = [{'robot_description' : urdf}], 
+        remappings=remappings,
+        condition=conditions.UnlessCondition(launch.substitutions.LaunchConfiguration("overwrite_robot_description"))),
+    launch_ros.actions.Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='joint_state_publisher',
+        arguments=[urdf_path], 
+        remappings=remappings,
+        condition=conditions.UnlessCondition(launch.substitutions.LaunchConfiguration("overwrite_robot_description"))),
     ])
