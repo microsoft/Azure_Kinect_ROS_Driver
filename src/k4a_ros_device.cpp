@@ -41,6 +41,7 @@ K4AROSDevice::K4AROSDevice()
 // clang-format off
 #if defined(K4A_BODY_TRACKING)
     k4abt_tracker_(nullptr),
+    k4abt_tracker_queue_size_(0),
 #endif
     // clang-format on
     last_capture_time_usec_(0),
@@ -298,6 +299,14 @@ K4AROSDevice::~K4AROSDevice()
   // Start tearing down the publisher threads
   running_ = false;
 
+#if defined(K4A_BODY_TRACKING)
+  // Join the publisher thread
+  RCLCPP_INFO(this->get_logger(),"Joining body publisher thread");
+  body_publisher_thread_.join();
+  RCLCPP_INFO(this->get_logger(),"Body publisher thread joined");
+#endif
+
+  // Join the publisher thread
   RCLCPP_INFO(this->get_logger(),"Joining camera publisher thread");
   frame_publisher_thread_.join();
   RCLCPP_INFO(this->get_logger(),"Camera publisher thread joined");
@@ -373,6 +382,9 @@ k4a_result_t K4AROSDevice::startCameras()
 
   // Start the thread that will poll the cameras and publish frames
   frame_publisher_thread_ = thread(&K4AROSDevice::framePublisherThread, this);
+#if defined(K4A_BODY_TRACKING)
+  body_publisher_thread_ = thread(&K4AROSDevice::bodyPublisherThread, this);
+#endif
 
   return K4A_RESULT_SUCCEEDED;
 }
@@ -1041,8 +1053,6 @@ void K4AROSDevice::framePublisherThread()
         if (params_.body_tracking_enabled &&
             (this->count_subscribers("body_tracking_data") > 0 || this->count_subscribers("body_index_map/image_raw") > 0))
         {
-          capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
-
           if (!k4abt_tracker_.enqueue_capture(capture))
           {
             RCLCPP_ERROR(this->get_logger(),"Error! Add capture to tracker process queue failed!");
@@ -1051,56 +1061,7 @@ void K4AROSDevice::framePublisherThread()
           }
           else
           {
-            k4abt::frame body_frame = k4abt_tracker_.pop_result();
-            if (body_frame == nullptr)
-            {
-              RCLCPP_ERROR_STREAM(this->get_logger(),"Pop body frame result failed!");
-              rclcpp::shutdown();
-              return;
-            }
-            else
-            {
-              if (this->count_subscribers("body_tracking_data") > 0)
-              {
-                // Joint marker array
-                MarkerArray::SharedPtr markerArrayPtr(new MarkerArray);
-                auto num_bodies = body_frame.get_num_bodies();
-                for (size_t i = 0; i < num_bodies; ++i)
-                {
-                  k4abt_body_t body = body_frame.get_body(i);
-                  for (int j = 0; j < (int) K4ABT_JOINT_COUNT; ++j)
-                  {
-                    Marker::SharedPtr markerPtr(new Marker);
-                    getBodyMarker(body, markerPtr, j, capture_time);
-                    markerArrayPtr->markers.push_back(*markerPtr);
-                  }
-                }
-                body_marker_publisher_->publish(*markerArrayPtr);
-              }
-
-              if (this->count_subscribers("body_index_map/image_raw") > 0)
-              {
-                // Body index map
-                Image::SharedPtr body_index_map_frame(new Image);
-                result = getBodyIndexMap(body_frame, body_index_map_frame);
-
-                if (result != K4A_RESULT_SUCCEEDED)
-                {
-                  RCLCPP_ERROR_STREAM(this->get_logger(),"Failed to get body index map");
-                  rclcpp::shutdown();
-                  return;
-                }
-                else if (result == K4A_RESULT_SUCCEEDED)
-                {
-                  // Re-sychronize the timestamps with the capture timestamp
-                  body_index_map_frame->header.stamp = capture_time;
-                  body_index_map_frame->header.frame_id =
-                      calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
-
-                  body_index_map_publisher_.publish(body_index_map_frame);
-                }
-              }
-            }
+            ++k4abt_tracker_queue_size_;
           }
         }
 #endif
@@ -1240,6 +1201,77 @@ void K4AROSDevice::framePublisherThread()
     loop_rate.sleep();
   }
 }
+
+#if defined(K4A_BODY_TRACKING)
+void K4AROSDevice::bodyPublisherThread()
+{
+  while (running_ && rclcpp::ok())
+  {
+    if (k4abt_tracker_queue_size_ > 0)
+    {
+      k4abt::frame body_frame = k4abt_tracker_.pop_result();
+      --k4abt_tracker_queue_size_;
+
+      if (body_frame == nullptr)
+      {
+        RCLCPP_ERROR_STREAM(this->get_logger(),"Pop body frame result failed!");
+        rclcpp::shutdown();
+        return;
+      }
+      else
+      {
+        auto capture_time = timestampToROS(body_frame.get_device_timestamp());
+        printTimestampDebugMessage("Body Tracking", capture_time);
+        
+        if (this->count_subscribers("body_tracking_data") > 0)
+        {
+          // Joint marker array
+          MarkerArray::SharedPtr markerArrayPtr(new MarkerArray);
+          auto num_bodies = body_frame.get_num_bodies();
+          for (size_t i = 0; i < num_bodies; ++i)
+          {
+            k4abt_body_t body = body_frame.get_body(i);
+            for (int j = 0; j < (int) K4ABT_JOINT_COUNT; ++j)
+            {
+              Marker::SharedPtr markerPtr(new Marker);
+              getBodyMarker(body, markerPtr, j, capture_time);
+              markerArrayPtr->markers.push_back(*markerPtr);
+            }
+          }
+          body_marker_publisher_->publish(*markerArrayPtr);
+        }
+
+        if (this->count_subscribers("body_index_map/image_raw") > 0)
+        {
+          // Body index map
+          Image::SharedPtr body_index_map_frame(new Image);
+          auto result = getBodyIndexMap(body_frame, body_index_map_frame);
+
+          if (result != K4A_RESULT_SUCCEEDED)
+          {
+            RCLCPP_ERROR_STREAM(this->get_logger(),"Failed to get body index map");
+            rclcpp::shutdown();
+            return;
+          }
+          else if (result == K4A_RESULT_SUCCEEDED)
+          {
+            // Re-sychronize the timestamps with the capture timestamp
+            body_index_map_frame->header.stamp = capture_time;
+            body_index_map_frame->header.frame_id =
+                calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
+
+            body_index_map_publisher_.publish(body_index_map_frame);
+          }
+        }
+      }
+    }
+    else
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds{ 20 });
+    }
+  }
+}
+#endif
 
 k4a_imu_sample_t K4AROSDevice::computeMeanIMUSample(const std::vector<k4a_imu_sample_t>& samples)
 {
