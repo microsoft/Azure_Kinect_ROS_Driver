@@ -6,6 +6,26 @@ The Azure Kinect ROS Driver node exposes Azure Kinect DK sensor streams to ROS.
 
 Please see the [building guide](building.md).
 
+## Running the driver 
+
+#### In the same terminal you built and sourced your workspace launch the driver:
+```
+ros2 launch azure_kinect_ros_driver driver.launch.py
+```
+#### Launch Rviz2 for visualization of driver output streams: 
+Windows 10 platform:
+```
+c:\opt\ros\foxy\x64\setup.bat
+rviz2
+```
+Ubuntu 20.04 platform:
+```
+source /opt/ros/foxy/setup.bash
+rviz2
+```
+
+Once Rviz2 launches change "Fixed Frame" to "camera_body". Visualize the image streams outputted by the driver by adding the topics to Rviz2.
+
 ### Parameters
 
 The Azure Kinect ROS Driver node accepts a number of [ROS Parameters](http://wiki.ros.org/Parameter%20Server) to configure the Azure Kinect DK sensor. Since the node uses the ROS parameter server, these parameters can be set in the usual ROS ways (on the command line, in a launch file, through the parameter server, etc..).

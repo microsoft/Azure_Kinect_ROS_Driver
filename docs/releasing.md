@@ -2,8 +2,8 @@
 
 Releases of the Azure Kinect ROS Driver are a snapshot of a known-good version of the source code for a particular distribution of ROS. The current release process is:
 
-1. Pick the [ROS Distribution](http://wiki.ros.org/Distributions) you wish to publish for (currently, we only publish for ROS Melodic Morenia, but a ROS2 port is planned).
-1. Checkout and build the code for that ROS Distribution. Code for a particular distribution lives under a branch with the same name as the distribution (for example, the `melodic` branch for ROS Melodic Morenia).
+1. Pick the ROS Distribution you wish to publish for (currently, we only publish for ROS Melodic Morenia and ROS2 Foxy Fitzroy).
+1. Checkout and build the code for that ROS Distribution. Code for a particular distribution lives under a branch with the same name as the distribution (for example, the `melodic` branch for ROS Melodic Morenia and the `foxy-devel` branch for ROS2 Foxy Fitzroy).
 1. Test the ROS node on a live ROS system, using Azure Kinect DK hardware.
    - You must test that you can compile on Linux and Windows.
    - You must test that you can compile by installing the Azure Kinect Sensor SDK to the system path. On Windows, this means installing the Azure Kinect Sensor SDK with the `.msi` installer. On Linux, this means installing via the package manager.

@@ -33,7 +33,7 @@ For information on how to contribute, please see our [contributing guide](CONTRI
 
 ## Building
 
-The Azure Kinect ROS Driver uses catkin to build. For instructions on how to build the project please see the 
+The Azure Kinect ROS Driver uses colcon to build. For instructions on how to build the project please see the 
 [building guide](docs/building.md).
 
 ## Join Our Developer Program

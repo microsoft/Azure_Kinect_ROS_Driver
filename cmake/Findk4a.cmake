@@ -17,9 +17,17 @@ else()
     message(FATAL_ERROR "Unknown CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 endif()
 
-# K4A versions have exactly 3 components: major.minor.rev
-if (NOT (FIND_VERSION_COUNT EQUAL 3))
-    message(FATAL_ERROR "Error: Azure Kinect SDK Version numbers contain exactly 3 components (major.minor.rev). Requested number of components: ${FIND_VERSION_COUNT}")
+# K4A versions have exactly 3 components: major.minor.rev in Windows, but 2 or 3 components in Linux
+if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    if (NOT (FIND_VERSION_COUNT EQUAL 3))
+        message(FATAL_ERROR "Error: Azure Kinect SDK Version numbers contain exactly 3 components (major.minor.rev). Requested number of components: ${FIND_VERSION_COUNT}")
+    endif()
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    if (NOT (FIND_VERSION_COUNT EQUAL 3) AND NOT (FIND_VERSION_COUNT EQUAL 2) )
+        message(FATAL_ERROR "Error: Azure Kinect SDK Version numbers contain either 2 or 3 components (major.minor.rev). Requested number of components: ${FIND_VERSION_COUNT}")
+    endif()
+else()
+    message(FATAL_ERROR "Unknown CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 endif()
 
 # First, check the ext/sdk folder for a depth engine. ALWAYS DO THIS FIRST.
