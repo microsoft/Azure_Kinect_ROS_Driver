@@ -1278,7 +1278,7 @@ void K4AROSDevice::imuPublisherThread()
 
             RCLCPP_ERROR_EXPRESSION(this->get_logger(), result != K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
 
-            if (imu_msg->angular_velocity.x != 0 || imu_msg->angular_velocity.y != 0 || imu_msg->angular_velocity.z != 0){
+            if (imu_msg->angular_velocity.x > DBL_EPSILON || imu_msg->angular_velocity.y > DBL_EPSILON || imu_msg->angular_velocity.z > DBL_EPSILON){
               imu_orientation_publisher_->publish(*imu_msg);
             }
           }
@@ -1323,7 +1323,7 @@ void K4AROSDevice::imuPublisherThread()
 
             RCLCPP_ERROR_EXPRESSION(this->get_logger(), result != K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
 
-            if (imu_msg->angular_velocity.x != 0 || imu_msg->angular_velocity.y != 0 || imu_msg->angular_velocity.z != 0){
+            if (imu_msg->angular_velocity.x > DBL_EPSILON || imu_msg->angular_velocity.y > DBL_EPSILON || imu_msg->angular_velocity.z > DBL_EPSILON){
               imu_orientation_publisher_->publish(*imu_msg);
             }
 
