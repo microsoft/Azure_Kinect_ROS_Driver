@@ -27,7 +27,6 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 
-
 ###########
 ## Build ##
 ###########
