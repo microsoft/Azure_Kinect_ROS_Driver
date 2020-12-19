@@ -86,6 +86,9 @@ class K4AROSDevice : public rclcpp::Node
                                    std::shared_ptr<sensor_msgs::msg::PointCloud2>& point_cloud);
 
   void framePublisherThread();
+#if defined(K4A_BODY_TRACKING)
+  void bodyPublisherThread();
+#endif
   void imuPublisherThread();
 
   // Gets a timestap from one of the captures images
@@ -152,6 +155,8 @@ class K4AROSDevice : public rclcpp::Node
 #if defined(K4A_BODY_TRACKING)
   // Body tracker
   k4abt::tracker k4abt_tracker_;
+  std::atomic_int16_t k4abt_tracker_queue_size_;
+  std::thread body_publisher_thread_;
 #endif
 
   std::chrono::nanoseconds device_to_realtime_offset_{0};
