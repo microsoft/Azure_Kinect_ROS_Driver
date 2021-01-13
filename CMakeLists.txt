@@ -6,6 +6,8 @@ project(azure_kinect_ros_driver LANGUAGES C CXX)
 
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
+option(CUDA_SUPPORT "use CUDA support onnxruntime library" ON)
+
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
@@ -100,6 +102,59 @@ if (k4abt_FOUND)
   target_compile_definitions(${PROJECT_NAME}_nodelet PUBLIC K4A_BODY_TRACKING)
 else()
   message("!!! Body Tracking SDK not found: body tracking features will not be available !!!")
+endif()
+if(MSVC)
+  if(CUDA_SUPPORT)
+      set(KINECT_DEPENDENCIES "Microsoft.Azure.Kinect.BodyTracking.Dependencies.0.9.1")
+      set(KINECT_URL "https://www.nuget.org/api/v2/package/Microsoft.Azure.Kinect.BodyTracking.Dependencies/0.9.1")
+      set(KINECT_SHA512 "5df5ceb2f7905a3e208a085a29ef02feb1820ffe819563af77c272ad7e068cf3a158c0ce610e421829b5f7ebbb628c45f56617344d6d1ef0a31d719253cf881f")
+      file(DOWNLOAD
+      ${KINECT_URL}
+      ${CMAKE_CURRENT_BINARY_DIR}/kinect.nuget
+      EXPECTED_HASH SHA512=${KINECT_SHA512}
+      SHOW_PROGRESS
+      )
+
+      file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${KINECT_DEPENDENCIES}")
+        execute_process(COMMAND tar xvzf "${CMAKE_CURRENT_BINARY_DIR}/kinect.nuget" 
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${KINECT_DEPENDENCIES}"
+      )
+        
+      message(STATUS "${CATKIN_PACKAGE_SHARE_DESTINATION} the share destination")
+
+      file(GLOB KINECT_DLLS
+        "${CMAKE_CURRENT_BINARY_DIR}/${KINECT_DEPENDENCIES}/lib/native/amd64/release/*.dll"
+      )
+
+      message(STATUS "kinect dlls ${KINECT_DLLS}")
+      file(COPY ${KINECT_DLLS} DESTINATION ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION})
+      file(COPY ${KINECT_DLLS} DESTINATION ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION})
+
+      set(CUDNN_DEPENDENCIES "Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.0.9.1")
+      set(CUDNN_URL "https://www.nuget.org/api/v2/package/Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN/0.9.1")
+      set(CUDNN_SHA512 "a9986d5d7f06e0445cb65dfe1363c3e827df2c87b80ecfa05894c062714bf2092b3f87defd136cd2a89b9e588e773080ecf7079e8ce7e428426c4a00259c5085")
+      file(DOWNLOAD
+      ${CUDNN_URL}
+      ${CMAKE_CURRENT_BINARY_DIR}/cudnn.nuget
+      EXPECTED_HASH SHA512=${CUDNN_SHA512}
+      SHOW_PROGRESS
+      )
+
+      file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CUDNN_DEPENDENCIES}")
+
+      execute_process(COMMAND tar xvzf "${CMAKE_CURRENT_BINARY_DIR}/cudnn.nuget" 
+                  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CUDNN_DEPENDENCIES}"
+                  )
+      
+      file(GLOB CUDNN_DLLS
+      "${CMAKE_CURRENT_BINARY_DIR}/${CUDNN_DEPENDENCIES}/lib/native/amd64/release/*.dll"
+      )
+      file(COPY ${CUDNN_DLLS} DESTINATION ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION})
+      file(COPY ${CUDNN_DLLS} DESTINATION ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION})
+
+  else()
+    message(FATAL_ERROR "Body Tracking SDK needs a NVIDIA GEFORCE GTX 1070 or better")
+  endif()
 endif()
 
 # This reads the K4A_LIBS and K4A_INSTALL_REQUIRED variables and decides how to install
