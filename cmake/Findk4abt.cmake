@@ -6,7 +6,7 @@ set(RELATIVE_WIN_BIN_DIR "sdk/windows-desktop/amd64/release/bin")
 set(RELATIVE_WIN_K4ABT_LIB_PATH "${RELATIVE_WIN_LIB_DIR}/k4abt.lib")
 
 set(RELATIVE_WIN_K4ABT_DLL_PATH "${RELATIVE_WIN_BIN_DIR}/k4abt.dll")
-set(RELATIVE_WIN_DNN_MODEL_PATH "${RELATIVE_WIN_BIN_DIR}/dnn_model.onnx")
+set(RELATIVE_WIN_DNN_MODEL_PATH "${RELATIVE_WIN_BIN_DIR}/dnn_model_2_0.onnx")
 set(RELATIVE_WIN_ONNX_RUNTIME_DLL_PATH "${RELATIVE_WIN_BIN_DIR}/onnxruntime.dll")
 
 # K4A BT versions have exactly 3 components: major.minor.rev
