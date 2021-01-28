@@ -1437,6 +1437,8 @@ void K4AROSDevice::updateTimestampOffset(const std::chrono::microseconds& k4a_de
 void printTimestampDebugMessage(const std::string& name, const ros::Time& timestamp)
 {
   ros::Duration lag = ros::Time::now() - timestamp;
+  static std::mutex mtx;
+  std::lock_guard<std::mutex> lck(mtx);
   static std::map<const std::string, std::pair<ros::Duration, ros::Duration>> map_min_max;
   auto it = map_min_max.find(name);
   if (it == map_min_max.end())
