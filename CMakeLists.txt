@@ -27,6 +27,7 @@ find_package(catkin REQUIRED COMPONENTS
   camera_info_manager
 )
 
+find_package(OpenCV REQUIRED)
 ###################################
 ## catkin specific configuration ##
 ###################################
@@ -174,11 +175,13 @@ include_directories(
 target_link_libraries(${PROJECT_NAME}_node
   ${K4A_LIBS}
   ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
 )
 
 target_link_libraries(${PROJECT_NAME}_nodelet
   ${K4A_LIBS}
   ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
 )
 
 #############

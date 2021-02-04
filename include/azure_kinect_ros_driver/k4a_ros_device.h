@@ -31,6 +31,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/Pose.h>
+#include <opencv2/opencv.hpp>
 #include <image_geometry/pinhole_camera_model.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -76,6 +77,8 @@ k4a_result_t getBodyMarker(const k4abt_body_t& body, visualization_msgs::MarkerP
 
   k4a_result_t renderBodyIndexMapToROS(sensor_msgs::ImagePtr body_index_map_image, k4a::image& k4a_body_index_map,
                                        const k4abt::frame& body_frame);
+
+  void imageCallback(const sensor_msgs::ImageConstPtr& image_msg, const sensor_msgs::CameraInfoConstPtr& info_msg);
 #endif
 
  private:
@@ -149,6 +152,8 @@ k4a_result_t getBodyMarker(const k4abt_body_t& body, visualization_msgs::MarkerP
   tf2_ros::TransformBroadcaster br;
 
   image_transport::Publisher body_index_map_publisher_;
+  image_transport::Publisher image_tf_publisher_;
+  image_transport::CameraSubscriber image_subscriber_;
   image_geometry::PinholeCameraModel cam_model_;
   tf2_ros::Buffer tfBuffer;
   tf2_ros::TransformListener* tfListener;
