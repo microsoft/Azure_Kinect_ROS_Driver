@@ -244,6 +244,10 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
     body_marker_publisher_ = node_.advertise<MarkerArray>("body_tracking_data", 1);
 
     body_index_map_publisher_ = image_transport_.advertise("body_index_map/image_raw", 1);
+
+    image_subscriber_ = image_transport_.subscribeCamera("rgb/image_raw", 1, &K4AROSDevice::imageCallback, this);
+    image_tf_publisher_ = image_transport_.advertise("image_tf", 1); 
+  
   }
 #endif
 }
@@ -782,6 +786,52 @@ k4a_result_t K4AROSDevice::getBodyMarker(const k4abt_body_t& body, MarkerPtr mar
   return K4A_RESULT_SUCCEEDED;
 }
 
+//method to project a tf frame to an image
+void K4AROSDevice::imageCallback(const sensor_msgs::ImageConstPtr& image_msg, const sensor_msgs::CameraInfoConstPtr& info_msg)
+{
+  cv::Mat image;
+  cv_bridge::CvImagePtr input_bridge;
+  try {
+    input_bridge = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::BGR8);
+    image = input_bridge->image;
+  }
+  catch (cv_bridge::Exception& ex){
+    ROS_ERROR("[draw_frames] Failed to convert image");
+    return;
+  }
+
+  cam_model_.fromCameraInfo(info_msg);
+
+  std::vector<std::string> frame_ids_;
+  for(int i = 0; i < num_bodies; ++i){
+      std::transform(joint_names_.begin(), joint_names_.end(), back_inserter(frame_ids_), [&i](std::string j){return j + std::to_string(i);});    
+  }
+
+  for(const std::string frame_id: frame_ids_) {
+    
+    geometry_msgs::TransformStamped transform_msg;
+    try{
+
+      transform_msg = tfBuffer.lookupTransform(cam_model_.tfFrame(), frame_id,
+                               ros::Time(0));
+    }
+    catch (tf2::TransformException &ex) {
+      ROS_WARN("%s",ex.what());
+      ros::Duration(1.0).sleep();
+      return;
+    }
+
+    cv::Point3d pt_cv(transform_msg.transform.translation.x, transform_msg.transform.translation.y, transform_msg.transform.translation.z);
+    cv::Point2d uv;
+    uv = cam_model_.project3dToPixel(pt_cv);
+
+    static const int RADIUS = 10;
+    cv::circle(image, uv, RADIUS, CV_RGB(255,0,0), -1);
+  }
+
+  image_tf_publisher_.publish(input_bridge->toImageMsg());
+}
+
 k4a_result_t K4AROSDevice::getBodyIndexMap(const k4abt::frame& body_frame, sensor_msgs::ImagePtr body_index_map_image)
 {
   k4a::image k4a_body_index_map = body_frame.get_body_index_map();
@@ -1057,7 +1107,7 @@ void K4AROSDevice::framePublisherThread()
                   }
                 }
                 body_marker_publisher_.publish(markerArrayPtr);
-                br.sendTransform(transformArrary);
+                br.sendTransform(transformArrary); 
               }
 
               if (body_index_map_publisher_.getNumSubscribers() > 0)

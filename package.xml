@@ -27,6 +27,7 @@
   <depend>nodelet</depend>
   <depend>xacro</depend>
   <depend>cv_bridge</depend>
+  <depend>OpenCV</depend>
 
   <export>
     <nodelet plugin="${prefix}/nodelet_plugins.xml" />
