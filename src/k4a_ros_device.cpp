@@ -239,7 +239,8 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
   }
 
 #if defined(K4A_BODY_TRACKING)
-  if (params_.body_tracking_enabled) {
+  if (params_.body_tracking_enabled) {    
+    tfListener = new tf2_ros::TransformListener(tfBuffer);
     body_marker_publisher_ = node_.advertise<MarkerArray>("body_tracking_data", 1);
 
     body_index_map_publisher_ = image_transport_.advertise("body_index_map/image_raw", 1);
@@ -705,13 +706,15 @@ k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_ms
 }
 
 #if defined(K4A_BODY_TRACKING)
-k4a_result_t K4AROSDevice::getBodyMarker(const k4abt_body_t& body, MarkerPtr marker_msg, int jointType,
+k4a_result_t K4AROSDevice::getBodyMarker(const k4abt_body_t& body, MarkerPtr marker_msg, geometry_msgs::TransformStamped& transform_msg, int bodyNum, int jointType,
                                          ros::Time capture_time)
 {
   k4a_float3_t position = body.skeleton.joints[jointType].position;
   k4a_quaternion_t orientation = body.skeleton.joints[jointType].orientation;
+  std::string depth_frame = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
+  std::string rgb_frame = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
 
-  marker_msg->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
+  marker_msg->header.frame_id = depth_frame;
   marker_msg->header.stamp = capture_time;
 
   // Set the lifetime to 0.25 to prevent flickering for even 5fps configurations.
@@ -738,6 +741,43 @@ k4a_result_t K4AROSDevice::getBodyMarker(const k4abt_body_t& body, MarkerPtr mar
   marker_msg->pose.orientation.x = orientation.wxyz.x;
   marker_msg->pose.orientation.y = orientation.wxyz.y;
   marker_msg->pose.orientation.z = orientation.wxyz.z;
+
+ //try transforming from depth_camera_link to rgb_camera_link by waiting for the transform upto 1 second
+  geometry_msgs::TransformStamped depth_link_to_rgb_link;
+  try{
+    depth_link_to_rgb_link = tfBuffer.lookupTransform(rgb_frame , depth_frame,
+                              ros::Time(0));
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN("%s",ex.what());
+    ros::Duration(1.0).sleep();
+  }
+
+  //Pose msg which is used to transform the pose to the rgb camera link
+  geometry_msgs::Pose pose_msg;
+  pose_msg.position.x = position.v[0] / 1000.0f;
+  pose_msg.position.y = position.v[1] / 1000.0f;
+  pose_msg.position.z = position.v[2] / 1000.0f;
+  pose_msg.orientation.w = orientation.wxyz.w;
+  pose_msg.orientation.x = orientation.wxyz.x;
+  pose_msg.orientation.y = orientation.wxyz.y;
+  pose_msg.orientation.z = orientation.wxyz.z;
+
+
+  tf2::doTransform(pose_msg, pose_msg, depth_link_to_rgb_link);
+
+  transform_msg.header.stamp = capture_time;
+  transform_msg.header.frame_id = rgb_frame;
+  transform_msg.child_frame_id = joint_names_[jointType] + std::to_string(bodyNum);
+
+  transform_msg.transform.translation.x = pose_msg.position.x;
+  transform_msg.transform.translation.y = pose_msg.position.y;
+  transform_msg.transform.translation.z = pose_msg.position.z;
+
+  transform_msg.transform.rotation.w = pose_msg.orientation.w;
+  transform_msg.transform.rotation.x = pose_msg.orientation.x;
+  transform_msg.transform.rotation.y = pose_msg.orientation.y;
+  transform_msg.transform.rotation.z = pose_msg.orientation.z;
 
   return K4A_RESULT_SUCCEEDED;
 }
@@ -999,19 +1039,25 @@ void K4AROSDevice::framePublisherThread()
               if (body_marker_publisher_.getNumSubscribers() > 0)
               {
                 // Joint marker array
+                
                 MarkerArrayPtr markerArrayPtr(new MarkerArray);
-                auto num_bodies = body_frame.get_num_bodies();
+                std::vector<geometry_msgs::TransformStamped> transformArrary;
+                num_bodies = body_frame.get_num_bodies();
                 for (size_t i = 0; i < num_bodies; ++i)
                 {
+                  //tf2_ros::TransformListener tfListener(tfBuffer);
                   k4abt_body_t body = body_frame.get_body(i);
                   for (int j = 0; j < (int) K4ABT_JOINT_COUNT; ++j)
                   {
                     MarkerPtr markerPtr(new Marker);
-                    getBodyMarker(body, markerPtr, j, capture_time);
+                    geometry_msgs::TransformStamped transform_msg; 
+                    getBodyMarker(body, markerPtr, transform_msg, i, j, capture_time);
                     markerArrayPtr->markers.push_back(*markerPtr);
+                    transformArrary.push_back(std::move(transform_msg));
                   }
                 }
                 body_marker_publisher_.publish(markerArrayPtr);
+                br.sendTransform(transformArrary);
               }
 
               if (body_index_map_publisher_.getNumSubscribers() > 0)

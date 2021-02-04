@@ -30,7 +30,7 @@ Licensed under the MIT License.
   <arg name="color_enabled"           default="true" />           <!-- Enable or disable the color camera -->
   <arg name="color_format"            default="bgra" />           <!-- The format of RGB camera. Valid options: bgra, jpeg -->
   <arg name="color_resolution"        default="1536P" />          <!-- Resolution at which to run the color camera. Valid options: 720P, 1080P, 1440P, 1536P, 2160P, 3072P -->
-  <arg name="fps"                     default="5" />              <!-- FPS to run both cameras at. Valid options are 5, 15, and 30 -->
+  <arg name="fps"                     default="15" />              <!-- FPS to run both cameras at. Valid options are 5, 15, and 30 -->
   <arg name="point_cloud"             default="true" />           <!-- Generate a point cloud from depth data. Requires depth_enabled -->
   <arg name="rgb_point_cloud"         default="true" />           <!-- Colorize the point cloud using the RBG camera. Requires color_enabled and depth_enabled -->
   <arg name="point_cloud_in_depth_frame" default="false" />        <!-- Whether the RGB pointcloud is rendered in the depth frame (true) or RGB frame (false). Will either match the resolution of the depth camera (true) or the RGB camera (false). -->
@@ -38,7 +38,7 @@ Licensed under the MIT License.
   <arg name="sensor_sn"               default="" />               <!-- Sensor serial number. If none provided, the first sensor will be selected -->
   <arg name="recording_file"          default="" />               <!-- Absolute path to a mkv recording file which will be used with the playback api instead of opening a device -->
   <arg name="recording_loop_enabled"  default="false" />          <!-- If set to true the recording file will rewind the beginning once end of file is reached -->
-  <arg name="body_tracking_enabled"           default="false" />  <!-- If set to true the joint positions will be published as marker arrays -->
+  <arg name="body_tracking_enabled"           default="true" />  <!-- If set to true the joint positions will be published as marker arrays -->
   <arg name="body_tracking_smoothing_factor"  default="0.0" />    <!-- Set between 0 for no smoothing and 1 for full smoothing -->
   <arg name="rescale_ir_to_mono8"  default="false" />    <!-- Whether to rescale the IR image to an 8-bit monochrome image for visualization and further processing. A scaling factor (ir_mono8_scaling_factor) is applied. -->
   <arg name="ir_mono8_scaling_factor"  default="1.0" />    <!-- Scaling factor to apply when converting IR to mono8 (see rescale_ir_to_mono8). If using illumination, use the value 0.5-1. If using passive IR, use 10. -->
