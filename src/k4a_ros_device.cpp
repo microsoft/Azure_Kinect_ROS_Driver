@@ -391,12 +391,24 @@ k4a_result_t K4AROSDevice::renderDepthToROS(sensor_msgs::ImagePtr& depth_image, 
 {
   cv::Mat depth_frame_buffer_mat(k4a_depth_frame.get_height_pixels(), k4a_depth_frame.get_width_pixels(), CV_16UC1,
                                  k4a_depth_frame.get_buffer());
-  cv::Mat new_image(k4a_depth_frame.get_height_pixels(), k4a_depth_frame.get_width_pixels(), CV_32FC1);
+  std::string encoding;
 
-  depth_frame_buffer_mat.convertTo(new_image, CV_32FC1, 1.0 / 1000.0f);
+  if (params_.depth_unit == sensor_msgs::image_encodings::TYPE_32FC1) {
+    // convert from 16 bit integer millimetre to 32 bit float metre
+    depth_frame_buffer_mat.convertTo(depth_frame_buffer_mat, CV_32FC1, 1.0 / 1000.0f);
+    encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+  }
+  else if (params_.depth_unit == sensor_msgs::image_encodings::TYPE_16UC1) {
+    // source data is already in 'K4A_IMAGE_FORMAT_DEPTH16' format
+    encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+  }
+  else {
+    ROS_ERROR_STREAM("Invalid depth unit: " << params_.depth_unit);
+    return K4A_RESULT_FAILED;
+  }
 
   depth_image =
-      cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::TYPE_32FC1, new_image).toImageMsg();
+      cv_bridge::CvImage(std_msgs::Header(), encoding, depth_frame_buffer_mat).toImageMsg();
 
   return K4A_RESULT_SUCCEEDED;
 }
