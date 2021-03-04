@@ -220,10 +220,20 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
   }
   rgb_raw_camerainfo_publisher_ = node_.advertise<CameraInfo>("rgb/camera_info", 1);
 
-  depth_raw_publisher_ = image_transport_.advertise("depth/image_raw", 1);
+  static const std::string depth_raw_topic = "depth/image_raw";
+  static const std::string depth_rect_topic = "depth_to_rgb/image_raw";
+  if (params_.depth_unit == sensor_msgs::image_encodings::TYPE_16UC1) {
+    // set lowest PNG compression for maximum FPS
+    node_.setParam(node_.resolveName(depth_raw_topic) + "/compressed/format", "png");
+    node_.setParam(node_.resolveName(depth_raw_topic) + "/compressed/png_level", 1);
+    node_.setParam(node_.resolveName(depth_rect_topic) + "/compressed/format", "png");
+    node_.setParam(node_.resolveName(depth_rect_topic) + "/compressed/png_level", 1);
+  }
+
+  depth_raw_publisher_ = image_transport_.advertise(depth_raw_topic, 1);
   depth_raw_camerainfo_publisher_ = node_.advertise<CameraInfo>("depth/camera_info", 1);
 
-  depth_rect_publisher_ = image_transport_.advertise("depth_to_rgb/image_raw", 1);
+  depth_rect_publisher_ = image_transport_.advertise(depth_rect_topic, 1);
   depth_rect_camerainfo_publisher_ = node_.advertise<CameraInfo>("depth_to_rgb/camera_info", 1);
 
   rgb_rect_publisher_ = image_transport_.advertise("rgb_to_depth/image_raw", 1);
