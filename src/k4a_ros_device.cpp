@@ -248,8 +248,20 @@ K4AROSDevice::K4AROSDevice()
   depth_raw_publisher_ = image_transport_->advertise("depth/image_raw", 1, true); 
   depth_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("depth/camera_info", 1);
 
+  static const std::string depth_raw_topic = "depth/image_raw";
+  static const std::string depth_rect_topic = "depth_to_rgb/image_raw";
+  if (params_.depth_unit == sensor_msgs::image_encodings::TYPE_16UC1) {
+    // set lowest PNG compression for maximum FPS
+    this->set_parameter({depth_raw_topic + "/compressed/format", "png"});
+    this->set_parameter({depth_raw_topic + "/compressed/png_level", 1});
+    this->set_parameter({depth_rect_topic + "/compressed/format", "png"});
+    this->set_parameter({depth_rect_topic + "/compressed/png_level", 1});
+  }
 
-  depth_rect_publisher_ = image_transport_->advertise("depth_to_rgb/image_raw", 1, true); 
+  depth_raw_publisher_ = image_transport_->advertise(depth_raw_topic, 1, true);
+  depth_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("depth/camera_info", 1);
+
+  depth_rect_publisher_ = image_transport_->advertise(depth_rect_topic, 1, true);
   depth_rect_camerainfo_publisher_ = this->create_publisher<CameraInfo>("depth_to_rgb/camera_info", 1);
 
   rgb_rect_publisher_ = image_transport_->advertise("rgb_to_depth/image_raw", 1, true); 
