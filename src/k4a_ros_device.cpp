@@ -985,7 +985,7 @@ void K4AROSDevice::framePublisherThread()
 
 #if defined(K4A_BODY_TRACKING)
         // Publish body markers when body tracking is enabled and a depth image is available
-        if (params_.body_tracking_enabled &&
+        if (params_.body_tracking_enabled &&  k4abt_tracker_queue_size_ < 3 &&
             (body_marker_publisher_.getNumSubscribers() > 0 || body_index_map_publisher_.getNumSubscribers() > 0))
         {
           if (!k4abt_tracker_.enqueue_capture(capture))
