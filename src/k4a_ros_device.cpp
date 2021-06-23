@@ -35,7 +35,7 @@ using namespace visualization_msgs::msg;
 #endif
 
 K4AROSDevice::K4AROSDevice()
-  : Node("k4a_ros_device_node"), 
+  : Node("k4a_ros_device_node"),
     k4a_device_(nullptr),
     k4a_playback_handle_(nullptr),
 // clang-format off
@@ -47,10 +47,10 @@ K4AROSDevice::K4AROSDevice()
     last_imu_time_usec_(0),
     imu_stream_end_of_file_(false)
 {
-  // Declare an image transport 
+  // Declare an image transport
   auto image_transport_ = new image_transport::ImageTransport(static_cast<rclcpp::Node::SharedPtr>(this));
-  
-  // Declare node parameters 
+
+  // Declare node parameters
   this->declare_parameter("depth_enabled");
   this->declare_parameter("depth_mode");
   this->declare_parameter("color_enabled");
@@ -241,11 +241,11 @@ K4AROSDevice::K4AROSDevice()
   }
   else if (params_.color_format == "bgra")
   {
-    rgb_raw_publisher_ = image_transport_->advertise("rgb/image_raw", 1, true); 
+    rgb_raw_publisher_ = image_transport_->advertise("rgb/image_raw", 1, true);
   }
   rgb_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("rgb/camera_info", 1);
-  
-  depth_raw_publisher_ = image_transport_->advertise("depth/image_raw", 1, true); 
+
+  depth_raw_publisher_ = image_transport_->advertise("depth/image_raw", 1, true);
   depth_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("depth/camera_info", 1);
 
   static const std::string depth_raw_topic = "depth/image_raw";
@@ -264,10 +264,10 @@ K4AROSDevice::K4AROSDevice()
   depth_rect_publisher_ = image_transport_->advertise(depth_rect_topic, 1, true);
   depth_rect_camerainfo_publisher_ = this->create_publisher<CameraInfo>("depth_to_rgb/camera_info", 1);
 
-  rgb_rect_publisher_ = image_transport_->advertise("rgb_to_depth/image_raw", 1, true); 
+  rgb_rect_publisher_ = image_transport_->advertise("rgb_to_depth/image_raw", 1, true);
   rgb_rect_camerainfo_publisher_ = this->create_publisher<CameraInfo>("rgb_to_depth/camera_info", 1);
 
-  ir_raw_publisher_ = image_transport_->advertise("ir/image_raw", 1, true); 
+  ir_raw_publisher_ = image_transport_->advertise("ir/image_raw", 1, true);
   ir_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("ir/camera_info", 1);
 
   imu_orientation_publisher_ = this->create_publisher<Imu>("imu", 200);
@@ -378,7 +378,7 @@ k4a_result_t K4AROSDevice::startImu()
   }
 
   // Start the IMU publisher thread
-  imu_publisher_thread_ = thread(&K4AROSDevice::imuPublisherThread, this); 
+  imu_publisher_thread_ = thread(&K4AROSDevice::imuPublisherThread, this);
 
   return K4A_RESULT_SUCCEEDED;
 }
@@ -402,7 +402,7 @@ void K4AROSDevice::stopImu()
   }
 }
 
-k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture& capture, std::shared_ptr<sensor_msgs::msg::Image>& depth_image, 
+k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture& capture, std::shared_ptr<sensor_msgs::msg::Image>& depth_image,
                                           bool rectified = false)
 {
   k4a::image k4a_depth_frame = capture.get_depth_image();
@@ -917,7 +917,7 @@ void K4AROSDevice::framePublisherThread()
       last_capture_time_usec_ = getCaptureTimestamp(capture).count();
     }
 
-    CompressedImage::SharedPtr rgb_jpeg_frame(new CompressedImage); 
+    CompressedImage::SharedPtr rgb_jpeg_frame(new CompressedImage);
     Image::SharedPtr rgb_raw_frame(new Image);
     Image::SharedPtr rgb_rect_frame(new Image);
     Image::SharedPtr depth_raw_frame(new Image);
@@ -930,9 +930,9 @@ void K4AROSDevice::framePublisherThread()
       // Only do compute if we have subscribers
       // Only create ir frame when we are using a device or we have an ir image.
       // Recordings may not have synchronized captures. For unsynchronized captures without ir image skip ir frame.
-        
+
       if ((this->count_subscribers("ir/image_raw") > 0 || this->count_subscribers("ir/camera_info") > 0) &&
-           (k4a_device_ || capture.get_ir_image() != nullptr)) 
+           (k4a_device_ || capture.get_ir_image() != nullptr))
       {
         // IR images are available in all depth modes
         result = getIrFrame(capture, ir_raw_frame);
@@ -964,9 +964,9 @@ void K4AROSDevice::framePublisherThread()
         // Only create depth frame when we are using a device or we have an depth image.
         // Recordings may not have synchronized captures. For unsynchronized captures without depth image skip depth
         // frame.
-          
+
           if ((this->count_subscribers("depth/image_raw") > 0 || this->count_subscribers("depth/camera_info") > 0) &&
-             (k4a_device_ || capture.get_depth_image() != nullptr)) 
+             (k4a_device_ || capture.get_depth_image() != nullptr))
         {
           result = getDepthFrame(capture, depth_raw_frame);
 
@@ -986,7 +986,7 @@ void K4AROSDevice::framePublisherThread()
             depth_raw_frame->header.stamp = capture_time;
             depth_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
 
-            depth_raw_publisher_.publish(depth_raw_frame); 
+            depth_raw_publisher_.publish(depth_raw_frame);
             depth_raw_camerainfo_publisher_->publish(depth_raw_camera_info);
           }
         }
@@ -1102,7 +1102,7 @@ void K4AROSDevice::framePublisherThread()
       if (params_.color_format == "jpeg")
       {
         if ((this->count_subscribers("rgb/image_raw/compressed") > 0 || this->count_subscribers("rgb/camera_info") > 0) &&
-            (k4a_device_ || capture.get_color_image() != nullptr)) 
+            (k4a_device_ || capture.get_color_image() != nullptr))
         {
           result = getJpegRgbFrame(capture, rgb_jpeg_frame);
 
@@ -1448,7 +1448,7 @@ void K4AROSDevice::updateTimestampOffset(const std::chrono::microseconds& k4a_de
 void K4AROSDevice::printTimestampDebugMessage(const std::string& name, const rclcpp::Time& timestamp)
 {
   rclcpp::Duration lag = this->get_clock()->now() - timestamp;
-  static std::map<const std::string, std::vector<rclcpp::Duration>> map_min_max; 
+  static std::map<const std::string, std::vector<rclcpp::Duration>> map_min_max;
   auto it = map_min_max.find(name);
   if (it == map_min_max.end())
   {
