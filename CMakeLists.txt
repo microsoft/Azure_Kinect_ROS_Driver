@@ -26,6 +26,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(angles REQUIRED)
 
 ###########
 ## Build ##
@@ -48,7 +49,8 @@ ament_target_dependencies(${PROJECT_NAME}_node rclcpp
   tf2
   tf2_ros
   tf2_geometry_msgs
-  cv_bridge)
+  cv_bridge
+  angles)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
