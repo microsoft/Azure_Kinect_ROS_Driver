@@ -5,6 +5,12 @@ Licensed under the MIT License.
 
 <launch>
 
+  <!-- If color_enabled is false, IR camera is used (may work better in dark areas). -->
+  <!-- When using color camera, to avoid black borders in point clouds 
+       in rtabmapviz, set ROI ratios in Preferences->3D rendering 
+       to "0.05 0.05 0.05 0.05" under Map and Odom columns. -->
+  <arg name="color_enabled" default="true"/> 
+
   <param name="robot_description"
     command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf.xacro" />
 
@@ -23,43 +29,65 @@ Licensed under the MIT License.
     <node pkg="nodelet" type="nodelet" name="rectify_rgb"
           args="load image_proc/rectify manager --no-bond"
           respawn="true">
-      <remap from="image_mono"  to="rgb_to_depth/image_raw" />
-      <remap from="image_rect"  to="rgb_to_depth/image_rect" />
+      <remap from="image_mono"  to="rgb/image_raw" />
+      <remap from="image_rect"  to="rgb/image_rect" />
     </node>
-
+    
     <!-- Spawn an image_proc/rectify nodelet to rectify the depth image -->
-    <node pkg="nodelet" type="nodelet" name="rectify_depth"
+    <node unless="$(arg color_enabled)" pkg="nodelet" type="nodelet" name="rectify_depth"
           args="load image_proc/rectify manager --no-bond"
           respawn="true">
+      <param name="interpolation"  value="0" />
       <remap from="image_mono"  to="depth/image_raw" />
       <remap from="image_rect"  to="depth/image_rect" />
     </node>
-
+    
+    <!-- Spawn an image_proc/rectify nodelet to rectify the ir image -->
+    <node unless="$(arg color_enabled)" pkg="nodelet" type="nodelet" name="rectify_ir"
+          args="load image_proc/rectify manager --no-bond"
+          respawn="true">
+      <remap from="image_mono"  to="ir/image_raw" />
+      <remap from="image_rect"  to="ir/image_rect" />
+    </node>
+    
     <node pkg="nodelet" type="nodelet" name="k4a_ros_bridge"
           args="load Azure_Kinect_ROS_Driver/K4AROSBridgeNodelet manager --no-bond"
           respawn="true">
       <param name="depth_enabled"     value="true" />
-      <param name="depth_mode"        value="NFOV_UNBINNED" />
-      <param name="color_enabled"     value="true" />
-      <param name="color_resolution"  value="1536P" />
+      <param name="depth_mode"        value="WFOV_2X2BINNED" />
+      <param name="color_enabled"     value="$(arg color_enabled)" />
+      <param name="color_resolution"  value="720P" />
       <param name="fps"               value="30" />
       <param name="point_cloud"       value="false" />
       <param name="rgb_point_cloud"   value="false" />
       <param name="required"          value="true" />
       <param name="imu_rate_target"   value="100" />
-
+      <param name="rescale_ir_to_mono8"   value="true" />
     </node>
 
   </group>
-
+  
+  <!-- compute IMU quaternion -->
+  <node pkg="imu_filter_madgwick" type="imu_filter_node" name="imu_filter_node">
+    <param name="use_mag" value="false" />
+    <param name="publish_tf" value="false" />
+    <param name="world_frame" value="enu" />
+    <remap from="/imu/data_raw" to="/k4a/imu" />
+  </node>
+  
   <!-- Start rtabmap_ros node -->
-  <include file="$(find rtabmap_ros)/launch/rtabmap.launch" ns="rtabmap" >
-    <arg name="rgb_topic"          value="/k4a/rgb_to_depth/image_rect" />
-    <arg name="depth_topic"        value="/k4a/depth/image_rect" />
-    <arg name="camera_info_topic"  value="/k4a/depth/camera_info" />
-    <arg name="approx_sync"        value="true" />
-    <arg name="frame_id"           value="camera_base" />
-    <arg name="args"               value="--delete_db_on_start --Odom/ResetCountdown 2" />
+  <include file="$(find rtabmap_ros)/launch/rtabmap.launch">
+    <arg     if="$(arg color_enabled)" name="rgb_topic"          value="/k4a/rgb/image_rect" />
+    <arg     if="$(arg color_enabled)" name="depth_topic"        value="/k4a/depth_to_rgb/image_raw" />
+    <arg     if="$(arg color_enabled)" name="camera_info_topic"  value="/k4a/rgb/camera_info" />
+    <arg unless="$(arg color_enabled)" name="rgb_topic"          value="/k4a/ir/image_rect" />
+    <arg unless="$(arg color_enabled)" name="depth_topic"        value="/k4a/depth/image_rect" />
+    <arg unless="$(arg color_enabled)" name="camera_info_topic"  value="/k4a/ir/camera_info" />
+    <arg name="approx_sync" value="true" />
+    <arg name="frame_id"    value="camera_base" />
+    <arg      if="$(arg color_enabled)" name="args" value="--delete_db_on_start --GFTT/MinDistance 7 --Vis/CorGuessWinSize 40 --Optimizer/GravitySigma 0.3" />
+    <arg unless ="$(arg color_enabled)" name="args" value="--delete_db_on_start --Optimizer/GravitySigma 0.3" />
+    <arg name="wait_imu_to_init"   value="true"/>
   </include>
 
 </launch>
