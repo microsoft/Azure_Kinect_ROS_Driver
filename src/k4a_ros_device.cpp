@@ -261,7 +261,8 @@ K4AROSDevice::K4AROSDevice()
   imu_orientation_publisher_ = this->create_publisher<Imu>("imu", 200);
 
   if (params_.point_cloud || params_.rgb_point_cloud) {
-    pointcloud_publisher_ = this->create_publisher<PointCloud2>("points2", 1);
+    rclcpp::QoS custom_qos(KeepLast(1), rmw_qos_profile_sensor_data);
+    pointcloud_publisher_ = this->create_publisher<PointCloud2>("points2", custom_qos);
   }
 
 #if defined(K4A_BODY_TRACKING)
