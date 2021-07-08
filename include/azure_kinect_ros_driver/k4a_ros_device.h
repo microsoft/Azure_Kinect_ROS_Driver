@@ -23,6 +23,7 @@
 #include <sensor_msgs/Temperature.h>
 #include <k4a/k4a.hpp>
 #include <k4arecord/playback.hpp>
+#include <camera_info_manager/camera_info_manager.h>
 
 #if defined(K4A_BODY_TRACKING)
 #include <visualization_msgs/MarkerArray.h>
@@ -107,6 +108,8 @@ class K4AROSDevice
   // ROS Node variables
   ros::NodeHandle node_;
   ros::NodeHandle private_node_;
+  ros::NodeHandle node_rgb_;
+  ros::NodeHandle node_ir_;
 
   image_transport::ImageTransport image_transport_;
 
@@ -130,6 +133,8 @@ class K4AROSDevice
 
   ros::Publisher pointcloud_publisher_;
 
+  std::shared_ptr<camera_info_manager::CameraInfoManager> ci_mngr_rgb_, ci_mngr_ir_;
+
 #if defined(K4A_BODY_TRACKING)
   ros::Publisher body_marker_publisher_;
 
@@ -138,6 +143,8 @@ class K4AROSDevice
 
   // Parameters
   K4AROSDeviceParams params_;
+
+  std::string serial_number_;
 
   // K4A device
   k4a::device k4a_device_;
