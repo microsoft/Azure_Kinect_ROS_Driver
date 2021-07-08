@@ -47,11 +47,6 @@ class K4AROSDevice
   void stopCameras();
   void stopImu();
 
-  // Get camera calibration information for the depth camera
-  void getDepthCameraInfo(sensor_msgs::CameraInfo& camera_info);
-
-  void getRgbCameraInfo(sensor_msgs::CameraInfo& camera_info);
-
   k4a_result_t getDepthFrame(const k4a::capture& capture, sensor_msgs::ImagePtr& depth_frame, bool rectified);
 
   k4a_result_t getPointCloud(const k4a::capture& capture, sensor_msgs::PointCloud2Ptr& point_cloud);
