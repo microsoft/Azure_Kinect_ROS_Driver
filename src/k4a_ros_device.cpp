@@ -220,10 +220,20 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
   }
   rgb_raw_camerainfo_publisher_ = node_.advertise<CameraInfo>("rgb/camera_info", 1);
 
-  depth_raw_publisher_ = image_transport_.advertise("depth/image_raw", 1);
+  static const std::string depth_raw_topic = "depth/image_raw";
+  static const std::string depth_rect_topic = "depth_to_rgb/image_raw";
+  if (params_.depth_unit == sensor_msgs::image_encodings::TYPE_16UC1) {
+    // set lowest PNG compression for maximum FPS
+    node_.setParam(node_.resolveName(depth_raw_topic) + "/compressed/format", "png");
+    node_.setParam(node_.resolveName(depth_raw_topic) + "/compressed/png_level", 1);
+    node_.setParam(node_.resolveName(depth_rect_topic) + "/compressed/format", "png");
+    node_.setParam(node_.resolveName(depth_rect_topic) + "/compressed/png_level", 1);
+  }
+
+  depth_raw_publisher_ = image_transport_.advertise(depth_raw_topic, 1);
   depth_raw_camerainfo_publisher_ = node_.advertise<CameraInfo>("depth/camera_info", 1);
 
-  depth_rect_publisher_ = image_transport_.advertise("depth_to_rgb/image_raw", 1);
+  depth_rect_publisher_ = image_transport_.advertise(depth_rect_topic, 1);
   depth_rect_camerainfo_publisher_ = node_.advertise<CameraInfo>("depth_to_rgb/camera_info", 1);
 
   rgb_rect_publisher_ = image_transport_.advertise("rgb_to_depth/image_raw", 1);
@@ -391,12 +401,24 @@ k4a_result_t K4AROSDevice::renderDepthToROS(sensor_msgs::ImagePtr& depth_image, 
 {
   cv::Mat depth_frame_buffer_mat(k4a_depth_frame.get_height_pixels(), k4a_depth_frame.get_width_pixels(), CV_16UC1,
                                  k4a_depth_frame.get_buffer());
-  cv::Mat new_image(k4a_depth_frame.get_height_pixels(), k4a_depth_frame.get_width_pixels(), CV_32FC1);
+  std::string encoding;
 
-  depth_frame_buffer_mat.convertTo(new_image, CV_32FC1, 1.0 / 1000.0f);
+  if (params_.depth_unit == sensor_msgs::image_encodings::TYPE_32FC1) {
+    // convert from 16 bit integer millimetre to 32 bit float metre
+    depth_frame_buffer_mat.convertTo(depth_frame_buffer_mat, CV_32FC1, 1.0 / 1000.0f);
+    encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+  }
+  else if (params_.depth_unit == sensor_msgs::image_encodings::TYPE_16UC1) {
+    // source data is already in 'K4A_IMAGE_FORMAT_DEPTH16' format
+    encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+  }
+  else {
+    ROS_ERROR_STREAM("Invalid depth unit: " << params_.depth_unit);
+    return K4A_RESULT_FAILED;
+  }
 
   depth_image =
-      cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::TYPE_32FC1, new_image).toImageMsg();
+      cv_bridge::CvImage(std_msgs::Header(), encoding, depth_frame_buffer_mat).toImageMsg();
 
   return K4A_RESULT_SUCCEEDED;
 }

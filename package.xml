@@ -26,6 +26,7 @@
   <depend>nodelet</depend>
   <depend>xacro</depend>
   <depend>cv_bridge</depend>
+  <depend>K4A</depend>
 
   <export>
     <nodelet plugin="${prefix}/nodelet_plugins.xml" />
