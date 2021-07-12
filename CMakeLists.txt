@@ -13,6 +13,11 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+if(MSVC)
+  add_compile_options(/wd4251)
+  # WORKAROUND: warning C4251: 'cv_bridge::CvImage::tracked_object_': class 'std::shared_ptr<const void>' needs to have dll-interface to be used by clients of class 'cv_bridge::CvImage'
+endif()
+
 ## Find packages
 
 find_package(ament_cmake REQUIRED)
