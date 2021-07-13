@@ -42,6 +42,8 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
     // clang-format on
     node_(n),
     private_node_(p),
+    node_rgb_("rgb"),
+    node_ir_("ir"),
     image_transport_(n),
     last_capture_time_usec_(0),
     last_imu_time_usec_(0),
@@ -53,7 +55,7 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
   ROS_PARAM_LIST
 #undef LIST_ENTRY
 
-  if (params_.recording_file != "")
+  if (!params_.recording_file.empty())
   {
     ROS_INFO("Node is started in playback mode");
     ROS_INFO_STREAM("Try to open recording file " << params_.recording_file);
@@ -63,6 +65,12 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
     auto recording_length = k4a_playback_handle_.get_recording_length();
     ROS_INFO_STREAM("Successfully openend recording file. Recording is " << recording_length.count() / 1000000
                                                                          << " seconds long");
+
+    if (!k4a_playback_handle_.get_tag("K4A_DEVICE_SERIAL_NUMBER", &serial_number_))
+    {
+      serial_number_ = {};
+      ROS_ERROR("Cannot read serial number from recording.");
+    }
 
     // Get the recordings configuration to overwrite node parameters
     k4a_record_configuration_t record_config = k4a_playback_handle_.get_record_configuration();
@@ -189,7 +197,9 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
       return;
     }
 
-    ROS_INFO_STREAM("K4A Serial Number: " << k4a_device_.get_serialnum());
+    serial_number_ = k4a_device_.get_serialnum();
+
+    ROS_INFO_STREAM("K4A Serial Number: " << serial_number_);
 
     k4a_hardware_version_t version_info = k4a_device_.get_version();
 
@@ -247,6 +257,15 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
   if (params_.point_cloud || params_.rgb_point_cloud) {
     pointcloud_publisher_ = node_.advertise<PointCloud2>("points2", 1);
   }
+
+  // load calibration file from provided path or use default camera calibration URL at $HOME/.ros/camera_info/<cname>.yaml
+  const std::string calibration_file_name_rgb = "azure_kinect_rgb_"+serial_number_+"_"+params_.color_resolution;
+  const std::string calibration_file_name_ir = "azure_kinect_ir_"+serial_number_+"_"+params_.depth_mode;
+  const std::string calibration_url_rgb = params_.calibration_url.empty() ? std::string{} : params_.calibration_url + '/' + calibration_file_name_rgb + ".yaml";
+  const std::string calibration_url_ir = params_.calibration_url.empty() ? std::string{} : params_.calibration_url + '/' + calibration_file_name_ir + ".yaml";
+
+  ci_mngr_rgb_ = std::make_shared<camera_info_manager::CameraInfoManager>(node_rgb_, calibration_file_name_rgb, calibration_url_rgb);
+  ci_mngr_ir_ = std::make_shared<camera_info_manager::CameraInfoManager>(node_ir_, calibration_file_name_ir, calibration_url_ir);
 
 #if defined(K4A_BODY_TRACKING)
   if (params_.body_tracking_enabled) {
@@ -833,11 +852,26 @@ void K4AROSDevice::framePublisherThread()
 
   k4a::capture capture;
 
-  calibration_data_.getDepthCameraInfo(depth_raw_camera_info);
-  calibration_data_.getRgbCameraInfo(rgb_raw_camera_info);
-  calibration_data_.getDepthCameraInfo(rgb_rect_camera_info);
-  calibration_data_.getRgbCameraInfo(depth_rect_camera_info);
-  calibration_data_.getDepthCameraInfo(ir_raw_camera_info);
+  if (ci_mngr_rgb_->isCalibrated())
+  {
+    rgb_raw_camera_info = depth_rect_camera_info = ci_mngr_rgb_->getCameraInfo();
+  }
+  else
+  {
+    calibration_data_.getRgbCameraInfo(rgb_raw_camera_info);
+    calibration_data_.getRgbCameraInfo(depth_rect_camera_info);
+  }
+
+  if (ci_mngr_ir_->isCalibrated())
+  {
+    depth_raw_camera_info = rgb_rect_camera_info = ir_raw_camera_info = ci_mngr_ir_->getCameraInfo();
+  }
+  else
+  {
+    calibration_data_.getDepthCameraInfo(depth_raw_camera_info);
+    calibration_data_.getDepthCameraInfo(rgb_rect_camera_info);
+    calibration_data_.getDepthCameraInfo(ir_raw_camera_info);
+  }
 
   while (running_ && ros::ok() && !ros::isShuttingDown())
   {
