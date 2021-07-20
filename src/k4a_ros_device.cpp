@@ -310,10 +310,10 @@ K4AROSDevice::~K4AROSDevice()
 k4a_result_t K4AROSDevice::startCameras()
 {
   k4a_device_configuration_t k4a_configuration = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-  k4a_result_t result = params_.GetDeviceConfig(&k4a_configuration);
 
   if (k4a_device_)
   {
+    k4a_result_t result = params_.GetDeviceConfig(&k4a_configuration);
     if (result != K4A_RESULT_SUCCEEDED)
     {
       ROS_ERROR("Failed to generate a device configuration. Not starting camera!");
@@ -1276,7 +1276,7 @@ void K4AROSDevice::imuPublisherThread()
 
   // For IMU throttling
   unsigned int count = 0;
-  unsigned int target_count = IMU_MAX_RATE / params_.imu_rate_target;
+  unsigned int target_count = params_.imu_rate_target ? IMU_MAX_RATE / params_.imu_rate_target : IMU_MAX_RATE;
   std::vector<k4a_imu_sample_t> accumulated_samples;
   accumulated_samples.reserve(target_count);
   bool throttling = target_count > 1;
