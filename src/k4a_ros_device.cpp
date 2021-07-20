@@ -18,6 +18,7 @@
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/point_cloud2_iterator.h>
 #include <k4a/k4a.hpp>
+#include <unordered_map>
 
 // Project headers
 //
@@ -27,6 +28,23 @@ using namespace ros;
 using namespace sensor_msgs;
 using namespace image_transport;
 using namespace std;
+
+static const std::unordered_map<k4a_color_resolution_t, std::string> color_mode_string = {
+  {K4A_COLOR_RESOLUTION_720P, "720P"},
+  {K4A_COLOR_RESOLUTION_1080P, "1080P"},
+  {K4A_COLOR_RESOLUTION_1440P, "1440P"},
+  {K4A_COLOR_RESOLUTION_1536P, "1536P"},
+  {K4A_COLOR_RESOLUTION_2160P, "2160P"},
+  {K4A_COLOR_RESOLUTION_3072P, "3072P"},
+};
+
+static const std::unordered_map<k4a_depth_mode_t, std::string> depth_mode_string = {
+  {K4A_DEPTH_MODE_NFOV_2X2BINNED, "NFOV_2X2BINNED"},
+  {K4A_DEPTH_MODE_NFOV_UNBINNED, "NFOV_UNBINNED"},
+  {K4A_DEPTH_MODE_WFOV_2X2BINNED, "WFOV_2X2BINNED"},
+  {K4A_DEPTH_MODE_WFOV_UNBINNED, "WFOV_UNBINNED"},
+  {K4A_DEPTH_MODE_PASSIVE_IR, "PASSIVE_IR"},
+};
 
 #if defined(K4A_BODY_TRACKING)
 using namespace visualization_msgs;
@@ -256,6 +274,19 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
 
   if (params_.point_cloud || params_.rgb_point_cloud) {
     pointcloud_publisher_ = node_.advertise<PointCloud2>("points2", 1);
+  }
+
+  if (k4a_playback_handle_) {
+    // override color and depth mode configuration with settings from log file
+    const k4a_color_resolution_t cm = k4a_playback_handle_.get_record_configuration().color_resolution;
+    if (cm != K4A_COLOR_RESOLUTION_OFF) {
+      params_.color_resolution = color_mode_string.at(cm);
+    }
+
+    const k4a_depth_mode_t dm = k4a_playback_handle_.get_record_configuration().depth_mode;
+    if (dm != K4A_DEPTH_MODE_OFF) {
+      params_.depth_mode = depth_mode_string.at(dm);
+    }
   }
 
   // load calibration file from provided path or use default camera calibration URL at $HOME/.ros/camera_info/<cname>.yaml
