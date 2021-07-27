@@ -53,6 +53,8 @@ K4AROSDevice::K4AROSDevice()
   // Declare depth topics
   static const std::string depth_raw_topic = "depth/image_raw";
   static const std::string depth_rect_topic = "depth_to_rgb/image_raw";
+  static const std::string compressed_format = "/compressed/format";
+  static const std::string compressed_png_level = "/compressed/png_level";
 
   // Declare node parameters
   this->declare_parameter("depth_enabled");
@@ -75,10 +77,10 @@ K4AROSDevice::K4AROSDevice()
   this->declare_parameter("imu_rate_target");
   this->declare_parameter("wired_sync_mode");
   this->declare_parameter("subordinate_delay_off_master_usec");
-  this->declare_parameter({depth_raw_topic + "/compressed/format"});
-  this->declare_parameter({depth_raw_topic + "/compressed/png_level"});
-  this->declare_parameter({depth_rect_topic + "/compressed/format"});
-  this->declare_parameter({depth_rect_topic + "/compressed/png_level"});
+  this->declare_parameter({depth_raw_topic + compressed_format});
+  this->declare_parameter({depth_raw_topic + compressed_png_level});
+  this->declare_parameter({depth_rect_topic + compressed_format});
+  this->declare_parameter({depth_rect_topic + compressed_png_level});
 
   // Collect ROS parameters from the param server or from the command line
 #define LIST_ENTRY(param_variable, param_help_string, param_type, param_default_val) \
@@ -258,10 +260,10 @@ K4AROSDevice::K4AROSDevice()
 
   if (params_.depth_unit == sensor_msgs::image_encodings::TYPE_16UC1) {
     // set lowest PNG compression for maximum FPS
-    this->set_parameter({depth_raw_topic + "/compressed/format", "png"});
-    this->set_parameter({depth_raw_topic + "/compressed/png_level", 1});
-    this->set_parameter({depth_rect_topic + "/compressed/format", "png"});
-    this->set_parameter({depth_rect_topic + "/compressed/png_level", 1});
+    this->set_parameter({depth_raw_topic + compressed_format, "png"});
+    this->set_parameter({depth_raw_topic + compressed_png_level, 1});
+    this->set_parameter({depth_rect_topic + compressed_format, "png"});
+    this->set_parameter({depth_rect_topic + compressed_png_level, 1});
   }
 
   depth_raw_publisher_ = image_transport_->advertise(depth_raw_topic, 1, true);
