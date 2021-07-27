@@ -1278,7 +1278,11 @@ void K4AROSDevice::imuPublisherThread()
 
             ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
 
-            imu_orientation_publisher_.publish(imu_msg);
+            if (std::abs(imu_msg->angular_velocity.x) > DBL_EPSILON ||
+                std::abs(imu_msg->angular_velocity.y) > DBL_EPSILON ||
+                std::abs(imu_msg->angular_velocity.z) > DBL_EPSILON){
+              imu_orientation_publisher_.publish(imu_msg);
+            }
           }
         }
 
@@ -1321,7 +1325,11 @@ void K4AROSDevice::imuPublisherThread()
 
             ROS_ASSERT_MSG(result == K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
 
-            imu_orientation_publisher_.publish(imu_msg);
+            if (std::abs(imu_msg->angular_velocity.x) > DBL_EPSILON ||
+                std::abs(imu_msg->angular_velocity.y) > DBL_EPSILON ||
+                std::abs(imu_msg->angular_velocity.z) > DBL_EPSILON){
+              imu_orientation_publisher_.publish(imu_msg);
+            }
 
             last_imu_time_usec_ = sample.acc_timestamp_usec;
           }
