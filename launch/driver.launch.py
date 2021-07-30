@@ -162,6 +162,11 @@ def generate_launch_description():
             {'imu_rate_target': launch.substitutions.LaunchConfiguration('imu_rate_target')},
             {'wired_sync_mode': launch.substitutions.LaunchConfiguration('wired_sync_mode')},
             {'subordinate_delay_off_master_usec': launch.substitutions.LaunchConfiguration('subordinate_delay_off_master_usec')}]),
+    launch_ros.actions.Node(
+        package='azure_kinect_ros_driver',
+        executable='tf_node',
+        name='tf_node', 
+        condition=conditions.IfCondition(launch.substitutions.LaunchConfiguration("body_tracking_enabled") and launch.substitutions.LaunchConfiguration("depth_enabled"))),
     # If flag overwrite_robot_description is set:
     launch_ros.actions.Node(
         package='robot_state_publisher',

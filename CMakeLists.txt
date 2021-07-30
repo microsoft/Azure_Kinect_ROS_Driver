@@ -55,11 +55,21 @@ ament_target_dependencies(${PROJECT_NAME}_node rclcpp
   tf2_geometry_msgs
   cv_bridge)
 
+add_executable(${PROJECT_NAME}_tf_node
+  src/body_tracking_tf_broadcaster.cpp
+  )
+ament_target_dependencies(${PROJECT_NAME}_tf_node rclcpp
+  visualization_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs)
+
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
 ## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
 set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
+set_target_properties(${PROJECT_NAME}_tf_node PROPERTIES OUTPUT_NAME node PREFIX "")
 
 ############################
 #### AZURE KINECT SDK ######
@@ -86,6 +96,7 @@ if (k4abt_FOUND)
   list(APPEND K4A_LIBS k4abt::k4abt)
   message(STATUS "Body Tracking SDK found: compiling support for Body Tracking")
   target_compile_definitions(${PROJECT_NAME}_node PUBLIC K4A_BODY_TRACKING)
+  target_compile_definitions(${PROJECT_NAME}_tf_node PUBLIC K4A_BODY_TRACKING)
 else()
   message("!!! Body Tracking SDK not found: body tracking features will not be available !!!")
 endif()
@@ -103,6 +114,10 @@ target_link_libraries(${PROJECT_NAME}_node
   ${K4A_LIBS}
 )
 
+target_link_libraries(${PROJECT_NAME}_tf_node
+  ${K4A_LIBS}
+)
+
 #############
 ## Install ##
 #############
@@ -112,6 +127,13 @@ target_link_libraries(${PROJECT_NAME}_node
 
 ## Mark executables and/or libraries for installation
 install(TARGETS ${PROJECT_NAME}_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS ${PROJECT_NAME}_tf_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
