@@ -1095,7 +1095,6 @@ void K4AROSDevice::framePublisherThread()
                 num_bodies = body_frame.get_num_bodies();
                 for (size_t i = 0; i < num_bodies; ++i)
                 {
-                  //tf2_ros::TransformListener tfListener(tfBuffer);
                   k4abt_body_t body = body_frame.get_body(i);
                   for (int j = 0; j < (int) K4ABT_JOINT_COUNT; ++j)
                   {
