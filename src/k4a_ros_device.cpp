@@ -882,7 +882,6 @@ void K4AROSDevice::framePublisherThread()
   {
     if (k4a_device_)
     {
-      // TODO: consider appropriate capture timeout based on camera framerate
       if (!k4a_device_.get_capture(&capture, waitTime))
       {
         RCLCPP_FATAL(this->get_logger(),"Failed to poll cameras: node cannot continue.");
