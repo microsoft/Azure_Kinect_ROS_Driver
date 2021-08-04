@@ -839,12 +839,17 @@ void K4AROSDevice::framePublisherThread()
   calibration_data_.getRgbCameraInfo(depth_rect_camera_info);
   calibration_data_.getDepthCameraInfo(ir_raw_camera_info);
 
+  //First frame needs longer to arrive, we wait up to 4 seconds for it
+  const std::chrono::milliseconds firstFrameWaitTime = std::chrono::milliseconds(4 * 1000);
+  //fail if we did non receive 5 consecutive frames in a row
+  const std::chrono::milliseconds regularFrameWaitTime = std::chrono::milliseconds(1000 * 5 / params_.fps);
+  std::chrono::milliseconds waitTime = firstFrameWaitTime;
+
   while (running_ && ros::ok() && !ros::isShuttingDown())
   {
     if (k4a_device_)
     {
-      // TODO: consider appropriate capture timeout based on camera framerate
-      if (!k4a_device_.get_capture(&capture, std::chrono::milliseconds(K4A_WAIT_INFINITE)))
+      if (!k4a_device_.get_capture(&capture, waitTime))
       {
         ROS_FATAL("Failed to poll cameras: node cannot continue.");
         ros::requestShutdown();
@@ -865,6 +870,7 @@ void K4AROSDevice::framePublisherThread()
                                 capture.get_color_image().get_system_timestamp());
         }
       }
+      waitTime = regularFrameWaitTime;
     }
     else if (k4a_playback_handle_)
     {
