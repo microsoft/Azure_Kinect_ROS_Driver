@@ -18,6 +18,7 @@
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/point_cloud2_iterator.h>
 #include <k4a/k4a.hpp>
+#include <unordered_map>
 
 // Project headers
 //
@@ -27,6 +28,23 @@ using namespace ros;
 using namespace sensor_msgs;
 using namespace image_transport;
 using namespace std;
+
+static const std::unordered_map<k4a_color_resolution_t, std::string> color_mode_string = {
+  {K4A_COLOR_RESOLUTION_720P, "720P"},
+  {K4A_COLOR_RESOLUTION_1080P, "1080P"},
+  {K4A_COLOR_RESOLUTION_1440P, "1440P"},
+  {K4A_COLOR_RESOLUTION_1536P, "1536P"},
+  {K4A_COLOR_RESOLUTION_2160P, "2160P"},
+  {K4A_COLOR_RESOLUTION_3072P, "3072P"},
+};
+
+static const std::unordered_map<k4a_depth_mode_t, std::string> depth_mode_string = {
+  {K4A_DEPTH_MODE_NFOV_2X2BINNED, "NFOV_2X2BINNED"},
+  {K4A_DEPTH_MODE_NFOV_UNBINNED, "NFOV_UNBINNED"},
+  {K4A_DEPTH_MODE_WFOV_2X2BINNED, "WFOV_2X2BINNED"},
+  {K4A_DEPTH_MODE_WFOV_UNBINNED, "WFOV_UNBINNED"},
+  {K4A_DEPTH_MODE_PASSIVE_IR, "PASSIVE_IR"},
+};
 
 #if defined(K4A_BODY_TRACKING)
 using namespace visualization_msgs;
@@ -42,6 +60,8 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
     // clang-format on
     node_(n),
     private_node_(p),
+    node_rgb_("rgb"),
+    node_ir_("ir"),
     image_transport_(n),
     last_capture_time_usec_(0),
     last_imu_time_usec_(0),
@@ -53,7 +73,7 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
   ROS_PARAM_LIST
 #undef LIST_ENTRY
 
-  if (params_.recording_file != "")
+  if (!params_.recording_file.empty())
   {
     ROS_INFO("Node is started in playback mode");
     ROS_INFO_STREAM("Try to open recording file " << params_.recording_file);
@@ -63,6 +83,12 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
     auto recording_length = k4a_playback_handle_.get_recording_length();
     ROS_INFO_STREAM("Successfully openend recording file. Recording is " << recording_length.count() / 1000000
                                                                          << " seconds long");
+
+    if (!k4a_playback_handle_.get_tag("K4A_DEVICE_SERIAL_NUMBER", &serial_number_))
+    {
+      serial_number_ = {};
+      ROS_ERROR("Cannot read serial number from recording.");
+    }
 
     // Get the recordings configuration to overwrite node parameters
     k4a_record_configuration_t record_config = k4a_playback_handle_.get_record_configuration();
@@ -189,7 +215,9 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
       return;
     }
 
-    ROS_INFO_STREAM("K4A Serial Number: " << k4a_device_.get_serialnum());
+    serial_number_ = k4a_device_.get_serialnum();
+
+    ROS_INFO_STREAM("K4A Serial Number: " << serial_number_);
 
     k4a_hardware_version_t version_info = k4a_device_.get_version();
 
@@ -248,6 +276,28 @@ K4AROSDevice::K4AROSDevice(const NodeHandle& n, const NodeHandle& p)
     pointcloud_publisher_ = node_.advertise<PointCloud2>("points2", 1);
   }
 
+  if (k4a_playback_handle_) {
+    // override color and depth mode configuration with settings from log file
+    const k4a_color_resolution_t cm = k4a_playback_handle_.get_record_configuration().color_resolution;
+    if (cm != K4A_COLOR_RESOLUTION_OFF) {
+      params_.color_resolution = color_mode_string.at(cm);
+    }
+
+    const k4a_depth_mode_t dm = k4a_playback_handle_.get_record_configuration().depth_mode;
+    if (dm != K4A_DEPTH_MODE_OFF) {
+      params_.depth_mode = depth_mode_string.at(dm);
+    }
+  }
+
+  // load calibration file from provided path or use default camera calibration URL at $HOME/.ros/camera_info/<cname>.yaml
+  const std::string calibration_file_name_rgb = "azure_kinect_rgb_"+serial_number_+"_"+params_.color_resolution;
+  const std::string calibration_file_name_ir = "azure_kinect_ir_"+serial_number_+"_"+params_.depth_mode;
+  const std::string calibration_url_rgb = params_.calibration_url.empty() ? std::string{} : params_.calibration_url + '/' + calibration_file_name_rgb + ".yaml";
+  const std::string calibration_url_ir = params_.calibration_url.empty() ? std::string{} : params_.calibration_url + '/' + calibration_file_name_ir + ".yaml";
+
+  ci_mngr_rgb_ = std::make_shared<camera_info_manager::CameraInfoManager>(node_rgb_, calibration_file_name_rgb, calibration_url_rgb);
+  ci_mngr_ir_ = std::make_shared<camera_info_manager::CameraInfoManager>(node_ir_, calibration_file_name_ir, calibration_url_ir);
+
 #if defined(K4A_BODY_TRACKING)
   if (params_.body_tracking_enabled) {
     body_marker_publisher_ = node_.advertise<MarkerArray>("body_tracking_data", 1);
@@ -291,10 +341,10 @@ K4AROSDevice::~K4AROSDevice()
 k4a_result_t K4AROSDevice::startCameras()
 {
   k4a_device_configuration_t k4a_configuration = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-  k4a_result_t result = params_.GetDeviceConfig(&k4a_configuration);
 
   if (k4a_device_)
   {
+    k4a_result_t result = params_.GetDeviceConfig(&k4a_configuration);
     if (result != K4A_RESULT_SUCCEEDED)
     {
       ROS_ERROR("Failed to generate a device configuration. Not starting camera!");
@@ -833,11 +883,26 @@ void K4AROSDevice::framePublisherThread()
 
   k4a::capture capture;
 
-  calibration_data_.getDepthCameraInfo(depth_raw_camera_info);
-  calibration_data_.getRgbCameraInfo(rgb_raw_camera_info);
-  calibration_data_.getDepthCameraInfo(rgb_rect_camera_info);
-  calibration_data_.getRgbCameraInfo(depth_rect_camera_info);
-  calibration_data_.getDepthCameraInfo(ir_raw_camera_info);
+  if (ci_mngr_rgb_->isCalibrated())
+  {
+    rgb_raw_camera_info = depth_rect_camera_info = ci_mngr_rgb_->getCameraInfo();
+  }
+  else
+  {
+    calibration_data_.getRgbCameraInfo(rgb_raw_camera_info);
+    calibration_data_.getRgbCameraInfo(depth_rect_camera_info);
+  }
+
+  if (ci_mngr_ir_->isCalibrated())
+  {
+    depth_raw_camera_info = rgb_rect_camera_info = ir_raw_camera_info = ci_mngr_ir_->getCameraInfo();
+  }
+  else
+  {
+    calibration_data_.getDepthCameraInfo(depth_raw_camera_info);
+    calibration_data_.getDepthCameraInfo(rgb_rect_camera_info);
+    calibration_data_.getDepthCameraInfo(ir_raw_camera_info);
+  }
 
   //First frame needs longer to arrive, we wait up to 4 seconds for it
   const std::chrono::milliseconds firstFrameWaitTime = std::chrono::milliseconds(4 * 1000);
@@ -1242,7 +1307,7 @@ void K4AROSDevice::imuPublisherThread()
 
   // For IMU throttling
   unsigned int count = 0;
-  unsigned int target_count = IMU_MAX_RATE / params_.imu_rate_target;
+  unsigned int target_count = params_.imu_rate_target ? IMU_MAX_RATE / params_.imu_rate_target : IMU_MAX_RATE;
   std::vector<k4a_imu_sample_t> accumulated_samples;
   accumulated_samples.reserve(target_count);
   bool throttling = target_count > 1;
