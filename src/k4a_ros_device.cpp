@@ -35,7 +35,7 @@ using namespace visualization_msgs::msg;
 #endif
 
 K4AROSDevice::K4AROSDevice()
-  : Node("k4a_ros_device_node"), 
+  : Node("k4a_ros_device_node"),
     k4a_device_(nullptr),
     k4a_playback_handle_(nullptr),
 // clang-format off
@@ -47,10 +47,16 @@ K4AROSDevice::K4AROSDevice()
     last_imu_time_usec_(0),
     imu_stream_end_of_file_(false)
 {
-  // Declare an image transport 
+  // Declare an image transport
   auto image_transport_ = new image_transport::ImageTransport(static_cast<rclcpp::Node::SharedPtr>(this));
-  
-  // Declare node parameters 
+
+  // Declare depth topics
+  static const std::string depth_raw_topic = "depth/image_raw";
+  static const std::string depth_rect_topic = "depth_to_rgb/image_raw";
+  static const std::string compressed_format = "/compressed/format";
+  static const std::string compressed_png_level = "/compressed/png_level";
+
+  // Declare node parameters
   this->declare_parameter("depth_enabled");
   this->declare_parameter("depth_mode");
   this->declare_parameter("color_enabled");
@@ -71,6 +77,10 @@ K4AROSDevice::K4AROSDevice()
   this->declare_parameter("imu_rate_target");
   this->declare_parameter("wired_sync_mode");
   this->declare_parameter("subordinate_delay_off_master_usec");
+  this->declare_parameter({depth_raw_topic + compressed_format});
+  this->declare_parameter({depth_raw_topic + compressed_png_level});
+  this->declare_parameter({depth_rect_topic + compressed_format});
+  this->declare_parameter({depth_rect_topic + compressed_png_level});
 
   // Collect ROS parameters from the param server or from the command line
 #define LIST_ENTRY(param_variable, param_help_string, param_type, param_default_val) \
@@ -241,21 +251,31 @@ K4AROSDevice::K4AROSDevice()
   }
   else if (params_.color_format == "bgra")
   {
-    rgb_raw_publisher_ = image_transport_->advertise("rgb/image_raw", 1, true); 
+    rgb_raw_publisher_ = image_transport_->advertise("rgb/image_raw", 1, true);
   }
   rgb_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("rgb/camera_info", 1);
-  
-  depth_raw_publisher_ = image_transport_->advertise("depth/image_raw", 1, true); 
+
+  depth_raw_publisher_ = image_transport_->advertise("depth/image_raw", 1, true);
   depth_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("depth/camera_info", 1);
 
+  if (params_.depth_unit == sensor_msgs::image_encodings::TYPE_16UC1) {
+    // set lowest PNG compression for maximum FPS
+    this->set_parameter({depth_raw_topic + compressed_format, "png"});
+    this->set_parameter({depth_raw_topic + compressed_png_level, 1});
+    this->set_parameter({depth_rect_topic + compressed_format, "png"});
+    this->set_parameter({depth_rect_topic + compressed_png_level, 1});
+  }
 
-  depth_rect_publisher_ = image_transport_->advertise("depth_to_rgb/image_raw", 1, true); 
+  depth_raw_publisher_ = image_transport_->advertise(depth_raw_topic, 1, true);
+  depth_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("depth/camera_info", 1);
+
+  depth_rect_publisher_ = image_transport_->advertise(depth_rect_topic, 1, true);
   depth_rect_camerainfo_publisher_ = this->create_publisher<CameraInfo>("depth_to_rgb/camera_info", 1);
 
-  rgb_rect_publisher_ = image_transport_->advertise("rgb_to_depth/image_raw", 1, true); 
+  rgb_rect_publisher_ = image_transport_->advertise("rgb_to_depth/image_raw", 1, true);
   rgb_rect_camerainfo_publisher_ = this->create_publisher<CameraInfo>("rgb_to_depth/camera_info", 1);
 
-  ir_raw_publisher_ = image_transport_->advertise("ir/image_raw", 1, true); 
+  ir_raw_publisher_ = image_transport_->advertise("ir/image_raw", 1, true);
   ir_raw_camerainfo_publisher_ = this->create_publisher<CameraInfo>("ir/camera_info", 1);
 
   imu_orientation_publisher_ = this->create_publisher<Imu>("imu", 200);
@@ -367,7 +387,7 @@ k4a_result_t K4AROSDevice::startImu()
   }
 
   // Start the IMU publisher thread
-  imu_publisher_thread_ = thread(&K4AROSDevice::imuPublisherThread, this); 
+  imu_publisher_thread_ = thread(&K4AROSDevice::imuPublisherThread, this);
 
   return K4A_RESULT_SUCCEEDED;
 }
@@ -391,7 +411,7 @@ void K4AROSDevice::stopImu()
   }
 }
 
-k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture& capture, std::shared_ptr<sensor_msgs::msg::Image>& depth_image, 
+k4a_result_t K4AROSDevice::getDepthFrame(const k4a::capture& capture, std::shared_ptr<sensor_msgs::msg::Image>& depth_image,
                                           bool rectified = false)
 {
   k4a::image k4a_depth_frame = capture.get_depth_image();
@@ -417,12 +437,24 @@ k4a_result_t K4AROSDevice::renderDepthToROS(std::shared_ptr<sensor_msgs::msg::Im
 {
   cv::Mat depth_frame_buffer_mat(k4a_depth_frame.get_height_pixels(), k4a_depth_frame.get_width_pixels(), CV_16UC1,
                                  k4a_depth_frame.get_buffer());
-  cv::Mat new_image(k4a_depth_frame.get_height_pixels(), k4a_depth_frame.get_width_pixels(), CV_32FC1);
+  std::string encoding;
 
-  depth_frame_buffer_mat.convertTo(new_image, CV_32FC1, 1.0 / 1000.0f);
+  if (params_.depth_unit == sensor_msgs::image_encodings::TYPE_32FC1) {
+    // convert from 16 bit integer millimetre to 32 bit float metre
+    depth_frame_buffer_mat.convertTo(depth_frame_buffer_mat, CV_32FC1, 1.0 / 1000.0f);
+    encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+  }
+  else if (params_.depth_unit == sensor_msgs::image_encodings::TYPE_16UC1) {
+    // source data is already in 'K4A_IMAGE_FORMAT_DEPTH16' format
+    encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+  }
+  else {
+    RCLCPP_ERROR_STREAM(this->get_logger(), "Invalid depth unit: " << params_.depth_unit);
+    return K4A_RESULT_FAILED;
+  }
 
   depth_image =
-      cv_bridge::CvImage(std_msgs::msg::Header(), sensor_msgs::image_encodings::TYPE_32FC1, new_image).toImageMsg();
+      cv_bridge::CvImage(std_msgs::msg::Header(), encoding, depth_frame_buffer_mat).toImageMsg();
 
   return K4A_RESULT_SUCCEEDED;
 }
@@ -843,12 +875,15 @@ void K4AROSDevice::framePublisherThread()
   calibration_data_.getRgbCameraInfo(depth_rect_camera_info);
   calibration_data_.getDepthCameraInfo(ir_raw_camera_info);
 
+  const std::chrono::milliseconds firstFrameWaitTime = std::chrono::milliseconds(4 * 1000);
+  const std::chrono::milliseconds regularFrameWaitTime = std::chrono::milliseconds(1000 * 5 / params_.fps);
+  std::chrono::milliseconds waitTime = firstFrameWaitTime;
+
   while (running_ && rclcpp::ok())
   {
     if (k4a_device_)
     {
-      // TODO: consider appropriate capture timeout based on camera framerate
-      if (!k4a_device_.get_capture(&capture, std::chrono::milliseconds(K4A_WAIT_INFINITE)))
+      if (!k4a_device_.get_capture(&capture, waitTime))
       {
         RCLCPP_FATAL(this->get_logger(),"Failed to poll cameras: node cannot continue.");
         rclcpp::shutdown();
@@ -869,6 +904,7 @@ void K4AROSDevice::framePublisherThread()
                                 capture.get_color_image().get_system_timestamp());
         }
       }
+      waitTime = regularFrameWaitTime;
     }
     else if (k4a_playback_handle_)
     {
@@ -894,7 +930,7 @@ void K4AROSDevice::framePublisherThread()
       last_capture_time_usec_ = getCaptureTimestamp(capture).count();
     }
 
-    CompressedImage::SharedPtr rgb_jpeg_frame(new CompressedImage); 
+    CompressedImage::SharedPtr rgb_jpeg_frame(new CompressedImage);
     Image::SharedPtr rgb_raw_frame(new Image);
     Image::SharedPtr rgb_rect_frame(new Image);
     Image::SharedPtr depth_raw_frame(new Image);
@@ -907,9 +943,9 @@ void K4AROSDevice::framePublisherThread()
       // Only do compute if we have subscribers
       // Only create ir frame when we are using a device or we have an ir image.
       // Recordings may not have synchronized captures. For unsynchronized captures without ir image skip ir frame.
-        
+
       if ((this->count_subscribers("ir/image_raw") > 0 || this->count_subscribers("ir/camera_info") > 0) &&
-           (k4a_device_ || capture.get_ir_image() != nullptr)) 
+           (k4a_device_ || capture.get_ir_image() != nullptr))
       {
         // IR images are available in all depth modes
         result = getIrFrame(capture, ir_raw_frame);
@@ -941,9 +977,9 @@ void K4AROSDevice::framePublisherThread()
         // Only create depth frame when we are using a device or we have an depth image.
         // Recordings may not have synchronized captures. For unsynchronized captures without depth image skip depth
         // frame.
-          
+
           if ((this->count_subscribers("depth/image_raw") > 0 || this->count_subscribers("depth/camera_info") > 0) &&
-             (k4a_device_ || capture.get_depth_image() != nullptr)) 
+             (k4a_device_ || capture.get_depth_image() != nullptr))
         {
           result = getDepthFrame(capture, depth_raw_frame);
 
@@ -963,7 +999,7 @@ void K4AROSDevice::framePublisherThread()
             depth_raw_frame->header.stamp = capture_time;
             depth_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
 
-            depth_raw_publisher_.publish(depth_raw_frame); 
+            depth_raw_publisher_.publish(depth_raw_frame);
             depth_raw_camerainfo_publisher_->publish(depth_raw_camera_info);
           }
         }
@@ -1079,7 +1115,7 @@ void K4AROSDevice::framePublisherThread()
       if (params_.color_format == "jpeg")
       {
         if ((this->count_subscribers("rgb/image_raw/compressed") > 0 || this->count_subscribers("rgb/camera_info") > 0) &&
-            (k4a_device_ || capture.get_color_image() != nullptr)) 
+            (k4a_device_ || capture.get_color_image() != nullptr))
         {
           result = getJpegRgbFrame(capture, rgb_jpeg_frame);
 
@@ -1279,7 +1315,11 @@ void K4AROSDevice::imuPublisherThread()
 
             RCLCPP_ERROR_EXPRESSION(this->get_logger(), result != K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
 
-            imu_orientation_publisher_->publish(*imu_msg);
+            if (std::abs(imu_msg->angular_velocity.x) > DBL_EPSILON ||
+                std::abs(imu_msg->angular_velocity.y) > DBL_EPSILON ||
+                std::abs(imu_msg->angular_velocity.z) > DBL_EPSILON){
+              imu_orientation_publisher_->publish(*imu_msg);
+            }
           }
         }
 
@@ -1322,7 +1362,11 @@ void K4AROSDevice::imuPublisherThread()
 
             RCLCPP_ERROR_EXPRESSION(this->get_logger(), result != K4A_RESULT_SUCCEEDED, "Failed to get IMU frame");
 
-            imu_orientation_publisher_->publish(*imu_msg);
+            if (std::abs(imu_msg->angular_velocity.x) > DBL_EPSILON ||
+                std::abs(imu_msg->angular_velocity.y) > DBL_EPSILON ||
+                std::abs(imu_msg->angular_velocity.z) > DBL_EPSILON){
+              imu_orientation_publisher_->publish(*imu_msg);
+            }
 
             last_imu_time_usec_ = sample.acc_timestamp_usec;
           }
@@ -1425,7 +1469,7 @@ void K4AROSDevice::updateTimestampOffset(const std::chrono::microseconds& k4a_de
 void K4AROSDevice::printTimestampDebugMessage(const std::string& name, const rclcpp::Time& timestamp)
 {
   rclcpp::Duration lag = this->get_clock()->now() - timestamp;
-  static std::map<const std::string, std::vector<rclcpp::Duration>> map_min_max; 
+  static std::map<const std::string, std::vector<rclcpp::Duration>> map_min_max;
   auto it = map_min_max.find(name);
   if (it == map_min_max.end())
   {
