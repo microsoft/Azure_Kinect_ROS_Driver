@@ -388,7 +388,7 @@ k4a_result_t K4AROSDevice::startImu()
 
   // Start the IMU publisher thread
   imu_publisher_thread_ = thread(&K4AROSDevice::imuPublisherThread, this);
-
+  
   return K4A_RESULT_SUCCEEDED;
 }
 
@@ -1373,6 +1373,7 @@ void K4AROSDevice::imuPublisherThread()
         }
       }
     }
+    loop_rate.sleep();
   }
 }
 
