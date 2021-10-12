@@ -1372,6 +1372,7 @@ void K4AROSDevice::imuPublisherThread()
         }
       }
     }
+    loop_rate.sleep();
   }
 }
 
