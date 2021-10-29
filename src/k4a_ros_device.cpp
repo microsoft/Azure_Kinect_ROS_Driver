@@ -607,7 +607,6 @@ k4a_result_t K4AROSDevice::getRgbPointCloudInDepthFrame(const k4a::capture& capt
 
   point_cloud->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
   point_cloud->header.stamp = timestampToROS(k4a_depth_frame.get_device_timestamp());
-  printTimestampDebugMessage("RGB point cloud", point_cloud->header.stamp);
 
   return fillColorPointCloud(calibration_data_.point_cloud_image_, calibration_data_.transformed_rgb_image_,
                              point_cloud);
@@ -640,7 +639,6 @@ k4a_result_t K4AROSDevice::getRgbPointCloudInRgbFrame(const k4a::capture& captur
 
   point_cloud->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
   point_cloud->header.stamp = timestampToROS(k4a_depth_frame.get_device_timestamp());
-  printTimestampDebugMessage("RGB point cloud", point_cloud->header.stamp);
 
   return fillColorPointCloud(calibration_data_.point_cloud_image_, k4a_bgra_frame, point_cloud);
 }
@@ -657,7 +655,6 @@ k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture& capture, sensor_msg
 
   point_cloud->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
   point_cloud->header.stamp = timestampToROS(k4a_depth_frame.get_device_timestamp());
-  printTimestampDebugMessage("Point cloud", point_cloud->header.stamp);
 
   // Tranform depth image to point cloud
   calibration_data_.k4a_transformation_.depth_image_to_point_cloud(k4a_depth_frame, K4A_CALIBRATION_TYPE_DEPTH,
@@ -769,7 +766,6 @@ k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, sensor_ms
 {
   imu_msg->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.imu_frame_;
   imu_msg->header.stamp = timestampToROS(sample.acc_timestamp_usec);
-  printTimestampDebugMessage("IMU", imu_msg->header.stamp);
 
   // The correct convention in ROS is to publish the raw sensor data, in the
   // sensor coordinate frame. Do that here.
@@ -1000,7 +996,6 @@ void K4AROSDevice::framePublisherThread()
         else if (result == K4A_RESULT_SUCCEEDED)
         {
           capture_time = timestampToROS(capture.get_ir_image().get_device_timestamp());
-          printTimestampDebugMessage("IR image", capture_time);
 
           // Re-sychronize the timestamps with the capture timestamp
           ir_raw_camera_info.header.stamp = capture_time;
@@ -1032,7 +1027,6 @@ void K4AROSDevice::framePublisherThread()
           else if (result == K4A_RESULT_SUCCEEDED)
           {
             capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
-            printTimestampDebugMessage("Depth image", capture_time);
 
             // Re-sychronize the timestamps with the capture timestamp
             depth_raw_camera_info.header.stamp = capture_time;
@@ -1064,7 +1058,6 @@ void K4AROSDevice::framePublisherThread()
           else if (result == K4A_RESULT_SUCCEEDED)
           {
             capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
-            printTimestampDebugMessage("Depth image", capture_time);
 
             depth_rect_frame->header.stamp = capture_time;
             depth_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
@@ -1115,7 +1108,6 @@ void K4AROSDevice::framePublisherThread()
           }
 
           capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
-          printTimestampDebugMessage("Color image", capture_time);
 
           rgb_jpeg_frame->header.stamp = capture_time;
           rgb_jpeg_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
@@ -1141,7 +1133,6 @@ void K4AROSDevice::framePublisherThread()
           }
 
           capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
-          printTimestampDebugMessage("Color image", capture_time);
 
           rgb_raw_frame->header.stamp = capture_time;
           rgb_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
@@ -1169,7 +1160,6 @@ void K4AROSDevice::framePublisherThread()
           }
 
           capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
-          printTimestampDebugMessage("Color image", capture_time);
 
           rgb_rect_frame->header.stamp = capture_time;
           rgb_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
@@ -1255,8 +1245,7 @@ void K4AROSDevice::bodyPublisherThread()
       else
       {
         auto capture_time = timestampToROS(body_frame.get_device_timestamp());
-        printTimestampDebugMessage("Body Tracking", capture_time);
-        
+
         if (body_marker_publisher_.getNumSubscribers() > 0)
         {
           // Joint marker array
@@ -1533,36 +1522,4 @@ void K4AROSDevice::updateTimestampOffset(const std::chrono::microseconds& k4a_de
                                  std::chrono::nanoseconds(static_cast<int64_t>(
                                      std::floor(alpha * (device_to_realtime - device_to_realtime_offset_).count())));
   }
-}
-
-void printTimestampDebugMessage(const std::string& name, const ros::Time& timestamp)
-{
-  ros::Duration lag = ros::Time::now() - timestamp;
-  static std::mutex mtx;
-  std::lock_guard<std::mutex> lck(mtx);
-  static std::map<const std::string, std::pair<ros::Duration, ros::Duration>> map_min_max;
-  auto it = map_min_max.find(name);
-  if (it == map_min_max.end())
-  {
-    map_min_max[name] = std::make_pair(lag, lag);
-    it = map_min_max.find(name);
-  }
-  else
-  {
-    auto& min_lag = it->second.first;
-    auto& max_lag = it->second.second;
-    if (lag < min_lag)
-    {
-      min_lag = lag;
-    }
-    if (lag > max_lag)
-    {
-      max_lag = lag;
-    }
-  }
-
-  ROS_DEBUG_STREAM(name << " timestamp lags ros::Time::now() by\n"
-                        << std::setw(23) << lag.toSec() * 1000.0 << " ms. "
-                        << "The lag ranges from " << it->second.first.toSec() * 1000.0 << "ms"
-                        << " to " << it->second.second.toSec() * 1000.0 << "ms.");
 }
