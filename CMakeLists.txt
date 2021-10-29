@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   nodelet
   cv_bridge
+  camera_info_manager
 )
 
 ###################################

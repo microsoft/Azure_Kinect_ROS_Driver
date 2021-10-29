@@ -33,6 +33,10 @@
 #define ROS_PARAM_LIST                                                                                                 \
   LIST_ENTRY(sensor_sn, "The serial number of the sensor this node should connect to.", std::string, std::string(""))  \
   LIST_ENTRY(depth_enabled, "True if depth camera should be enabled", bool, true)                                      \
+  LIST_ENTRY(depth_unit, "Depth distance units. Options are: "+                                                        \
+                         sensor_msgs::image_encodings::TYPE_32FC1+" (32 bit float metre) or "+                         \
+                         sensor_msgs::image_encodings::TYPE_16UC1+" (16 bit integer millimetre)",                      \
+                         std::string, sensor_msgs::image_encodings::TYPE_16UC1)                                        \
   LIST_ENTRY(depth_mode,                                                                                               \
              "The mode of the depth camera. Options are: NFOV_2X2BINNED, NFOV_UNBINNED, WFOV_2X2BINNED, "              \
              "WFOV_UNBINNED, PASSIVE_IR",                                                                              \
@@ -53,6 +57,8 @@
              "Whether the RGB pointcloud is rendered in the depth frame (true) or RGB frame (false). Will either "     \
              "match the resolution of the depth camera (true) or the RGB camera (false)",                              \
              bool, true)                                                                                               \
+  LIST_ENTRY(calibration_url, 'URL to folder with calibration files (default: "file://$HOME/.ros/camera_info/").',    \
+             std::string, {})                                                                                          \
   LIST_ENTRY(tf_prefix, "The prefix prepended to tf frame ID's", std::string, std::string())                           \
   LIST_ENTRY(recording_file, "Path to a recording file to open instead of opening a device", std::string,              \
              std::string(""))                                                                                          \

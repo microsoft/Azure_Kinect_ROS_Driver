@@ -9,14 +9,14 @@ Licensed under the MIT License.
 
   <group if="$(arg overwrite_robot_description)">
     <param name="robot_description"
-      command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf.xacro tf_prefix:=$(arg tf_prefix)/" />
+      command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf.xacro tf_prefix:=$(arg tf_prefix)" />
     <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
   </group>
 
   <group unless="$(arg overwrite_robot_description)">
     <param name="azure_description"
-      command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf.xacro tf_prefix:=$(arg tf_prefix)/" />
+      command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf.xacro tf_prefix:=$(arg tf_prefix)" />
     <node name="joint_state_publisher_azure" pkg="joint_state_publisher" type="joint_state_publisher">
       <remap from="robot_description" to="azure_description" />
     </node>  
@@ -27,6 +27,7 @@ Licensed under the MIT License.
 
   <arg name="depth_enabled"           default="true" />           <!-- Enable or disable the depth camera -->
   <arg name="depth_mode"              default="WFOV_UNBINNED" />  <!-- Set the depth camera mode, which affects FOV, depth range, and camera resolution. See Azure Kinect documentation for full details. Valid options: NFOV_UNBINNED, NFOV_2X2BINNED, WFOV_UNBINNED, WFOV_2X2BINNED, and PASSIVE_IR -->
+  <arg name="depth_unit"              default="16UC1" />          <!-- Depth distance units. Options are: "32FC1" (32 bit float metre) or "16UC1" (16 bit integer millimetre) -->
   <arg name="color_enabled"           default="true" />           <!-- Enable or disable the color camera -->
   <arg name="color_format"            default="bgra" />           <!-- The format of RGB camera. Valid options: bgra, jpeg -->
   <arg name="color_resolution"        default="1536P" />          <!-- Resolution at which to run the color camera. Valid options: 720P, 1080P, 1440P, 1536P, 2160P, 3072P -->
@@ -49,6 +50,7 @@ Licensed under the MIT License.
   <node pkg="azure_kinect_ros_driver" type="node" name="azure_kinect_ros_driver" output="screen" required="$(arg required)">
     <param name="depth_enabled"     type="bool"   value="$(arg depth_enabled)" />
     <param name="depth_mode"        type="string" value="$(arg depth_mode)" />
+    <param name="depth_unit"        type="string" value="$(arg depth_unit)" />
     <param name="color_enabled"     type="bool"   value="$(arg color_enabled)" />
     <param name="color_format"      type="string" value="$(arg color_format)" />
     <param name="color_resolution"  type="string" value="$(arg color_resolution)" />

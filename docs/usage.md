@@ -2,6 +2,12 @@
 
 The Azure Kinect ROS Driver node exposes Azure Kinect DK sensor streams to ROS.
 
+## Starting the Driver
+
+The ROS package contains two main launch files to start the driver:
+- `driver.launch` starts the driver as a separate node which publishes the raw images and the factory calibration. **The published images are not rectified.**
+- `kinect_rgbd.launch` starts the driver as a nodelet in a nodelet manager and starts the RGB-D processing from `rgbd_launch` which will load additional nodelets for image rectification and registration. This will publish raw (unrectified) as well as rectified images.
+
 ## Setup and Building
 
 Please see the [building guide](building.md).
@@ -27,7 +33,7 @@ The node accepts the following parameters:
 - `body_tracking_smoothing_factor` (float) : Defaults to `0.0`. Controls the temporal smoothing across frames. Set between `0` for no smoothing and `1` for full smoothing. Less smoothing will increase the responsiveness of the detected skeletons but will cause more positional and oriantational jitters.
 - `rescale_ir_to_mono8` (bool) : Defaults to `false`. Whether to rescale the IR image to an 8-bit monochrome image for visualization and further processing. A scaling factor (`ir_mono8_scaling_factor`) is applied.
 - `ir_mono8_scaling_factor` (float) : Defaults to `1.0`. Scaling factor to apply when converting IR to mono8 (see rescale_ir_to_mono8). If using illumination, use the value 0.5-1. If using passive IR, use 10.
-- `imu_rate_target` (int) : Defaults to `0`. Controls the desired IMU message rate, which is rounded to the closest allowable value.  IMU samples from the device are integrated and a mean sample is published at this rate. A value of `0` is interpreted to mean a request for the maximum rate from the sensor (approx. 1.6 kHz).  
+- `imu_rate_target` (int) : Defaults to `0`. Controls the desired IMU message rate, which is rounded to the closest allowable value.  IMU samples from the device are integrated and a mean sample is published at this rate. A value of `0` is interpreted to mean a request for the maximum rate from the sensor (approx. 1.6 kHz).
 - `wired_sync_mode` (int) : Defaults to `0`. Sets the external wired synchronization mode. The modes are: `0: OFF (STANDALONE)`, `1: MASTER`, `2: SUBORDINATE`.
 - `subordinate_delay_off_master_usec` (int) : Defaults to `0`. Delay subordinate camera off master camera by specified amount in usec. Recommended minimum value is 160.
 #### Parameter Restrictions
@@ -66,3 +72,5 @@ Unlike previous ROS Kinect drivers, the Azure Kinect ROS Driver provides calibra
 
 - tf2 : The relative offsets of the cameras and IMU are loaded from the Azure Kinect DK extrinsics calibration information. The various co-ordinate frames published by the node to TF2 are based on the calibration data. Please note that the calibration information only provides the relative positions of the IMU, color and depth cameras. It does not provide the offset between the sensors and the mechanical housing of the camera. The transform between the `camera_base` frame and `depth_camera_link` frame are based on the mechanical specifications of the Azure Kinect DK, and are not corrected by calibration.
 - sensor_msgs::CameraInfo : Intrinsics calibration data for the cameras is converted into a ROS-compatible format. Fully populated CameraInfo messages are published for both the depth and color cameras, allowing ROS to undistort the images using image_proc and project them into point clouds using depth_image_proc. Using the point cloud functions in this node will provide GPU-accelerated results, but the same quality point clouds can be produced using standard ROS tools.
+
+The driver integrates the `camera_info_manager` and provides the `set_camera_info` service to override the factory RGB and IR intrinsics in the ROS node. This is useful for a [manual calibration](http://wiki.ros.org/camera_calibration). Note that this will not override the factory calibration stored on the device.
