@@ -42,7 +42,7 @@
   <arg name="color_enabled"               default="true" />           <!-- Enable or disable the color camera -->
   <arg name="color_format"                default="bgra" />           <!-- The format of RGB camera. Valid options: bgra, jpeg -->
   <arg name="color_resolution"            default="1536P" />          <!-- Resolution at which to run the color camera. Valid options: 720P, 1080P, 1440P, 1536P, 2160P, 3072P -->
-  <arg name="fps"                         default="30" />             <!-- FPS to run both cameras at. Valid options are 5, 15, and 30 -->
+  <arg name="fps"                         default="5" />              <!-- FPS to run both cameras at. Valid options are 5, 15, and 30 -->
   <arg name="point_cloud"                 default="false" />          <!-- Generate a point cloud from depth data. Requires depth_enabled -->
   <arg name="rgb_point_cloud"             default="false" />          <!-- Colorize the point cloud using the RBG camera. Requires color_enabled and depth_enabled -->
   <arg name="point_cloud_in_depth_frame"  default="false" />          <!-- Whether the RGB pointcloud is rendered in the depth frame (true) or RGB frame (false). Will either match the resolution of the depth camera (true) or the RGB camera (false). -->
