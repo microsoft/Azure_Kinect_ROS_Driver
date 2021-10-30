@@ -81,6 +81,7 @@ set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX ""
 ############################
 
 message("Finding K4A SDK binaries")
+message("--------------------------------------------${CMAKE_MODULE_PATH}-----------------------------------------")
 
 # Disable cached locations for K4A SDK binaries.
 # Do this to force the search logic to happen correctly.
@@ -96,41 +97,89 @@ find_package(k4a 1.3.0 QUIET MODULE REQUIRED)
 set(K4A_LIBS k4a::k4a;k4a::k4arecord)
 
 # Try to find and enable the body tracking SDK
-find_package(k4abt 1.0.0 QUIET MODULE)
+find_package(k4abt 1.0.1 QUIET MODULE)
 if (k4abt_FOUND)
   list(APPEND K4A_LIBS k4abt::k4abt)
   message(STATUS "Body Tracking SDK found: compiling support for Body Tracking")
   target_compile_definitions(${PROJECT_NAME}_node PUBLIC K4A_BODY_TRACKING)
   target_compile_definitions(${PROJECT_NAME}_nodelet PUBLIC K4A_BODY_TRACKING)
+  message("!!! Body Tracking SDK found: body tracking features will be available !!!")
 else()
   message("!!! Body Tracking SDK not found: body tracking features will not be available !!!")
 endif()
-if(MSVC)
+if(MSVC AND NOT k4abt_FOUND)
   if(CUDA_SUPPORT)
-      set(KINECT_DEPENDENCIES "Microsoft.Azure.Kinect.BodyTracking.Dependencies.0.9.1")
-      set(KINECT_URL "https://www.nuget.org/api/v2/package/Microsoft.Azure.Kinect.BodyTracking.Dependencies/0.9.1")
-      set(KINECT_SHA512 "5df5ceb2f7905a3e208a085a29ef02feb1820ffe819563af77c272ad7e068cf3a158c0ce610e421829b5f7ebbb628c45f56617344d6d1ef0a31d719253cf881f")
+
+      set(KBT "Microsoft.Azure.Kinect.BodyTracking.1.0.1")
+      set(KBT_URL "https://www.nuget.org/api/v2/package/Microsoft.Azure.Kinect.BodyTracking/1.0.1")
+      set(KBT_SHA512 "546ebf82551ca809213c7540c4a7c3ccdd14d1ae0ac5d8475b3a98439c4a68cf3d5b4e3fa70676d524ac820815f77611bf2d8ffba96933ad5b317db392d34f20")
       file(DOWNLOAD
-      ${KINECT_URL}
-      ${CMAKE_CURRENT_BINARY_DIR}/kinect.nuget
-      EXPECTED_HASH SHA512=${KINECT_SHA512}
+      ${KBT_URL}
+      ${CMAKE_CURRENT_BINARY_DIR}/kbt.nuget
+      EXPECTED_HASH SHA512=${KBT_SHA512}
       SHOW_PROGRESS
       )
 
-      file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${KINECT_DEPENDENCIES}")
-        execute_process(COMMAND tar xvzf "${CMAKE_CURRENT_BINARY_DIR}/kinect.nuget" 
-                    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${KINECT_DEPENDENCIES}"
-      )
-        
-      message(STATUS "${CATKIN_PACKAGE_SHARE_DESTINATION} the share destination")
-
-      file(GLOB KINECT_DLLS
-        "${CMAKE_CURRENT_BINARY_DIR}/${KINECT_DEPENDENCIES}/lib/native/amd64/release/*.dll"
+      file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${KBT}")
+        execute_process(COMMAND tar xvzf "${CMAKE_CURRENT_BINARY_DIR}/kbt.nuget" 
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${KBT}"
       )
 
-      message(STATUS "kinect dlls ${KINECT_DLLS}")
-      file(COPY ${KINECT_DLLS} DESTINATION ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION})
-      file(COPY ${KINECT_DLLS} DESTINATION ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION})
+      file(GLOB KBT_ONNX_DLL
+        "${CMAKE_CURRENT_BINARY_DIR}/${KBT}/lib/native/amd64/release/onnxruntime.dll"
+      )
+
+      file(GLOB KBT_DLL
+      "${CMAKE_CURRENT_BINARY_DIR}/${KBT}/lib/native/amd64/release/k4abt.dll"
+      )
+
+      file(GLOB KBT_LIB
+      "${CMAKE_CURRENT_BINARY_DIR}/${KBT}/lib/native/amd64/release/k4abt.lib"
+      )
+
+      file(GLOB KBT_DNN_MODEL
+      "${CMAKE_CURRENT_BINARY_DIR}/${KBT}/content/dnn_model_2_0.onnx"
+      )
+
+      add_library(k4abt::k4abt SHARED IMPORTED GLOBAL)
+
+      target_include_directories(
+          k4abt::k4abt
+          INTERFACE
+              ${CMAKE_CURRENT_BINARY_DIR}/${KBT}/build/native/include
+      )
+
+      set_property(TARGET k4abt::k4abt PROPERTY IMPORTED_CONFIGURATIONS "")
+      set_property(TARGET k4abt::k4abt PROPERTY IMPORTED_LOCATION "${KBT_DLL}")
+      set_property(TARGET k4abt::k4abt PROPERTY IMPORTED_IMPLIB "${KBT_LIB}")
+      set_property(TARGET k4abt::k4abt PROPERTY IMPORTED_LINK_DEPENDENT_LIBRARIES "${KBT_DNN_MODEL};${KBT_ONNX_DLL}")
+      set(k4abt_FOUND TRUE)
+      set(k4abt_VERSION "1.0.1")
+      list(APPEND K4A_LIBS k4abt::k4abt)
+      target_compile_definitions(${PROJECT_NAME}_node PUBLIC K4A_BODY_TRACKING)
+      target_compile_definitions(${PROJECT_NAME}_nodelet PUBLIC K4A_BODY_TRACKING)
+
+      set(KBT_DEPENDENCIES "Microsoft.Azure.Kinect.BodyTracking.Dependencies.0.9.1")
+      set(KBTD_URL "https://www.nuget.org/api/v2/package/Microsoft.Azure.Kinect.BodyTracking.Dependencies/0.9.1")
+      set(KBTD_SHA512 "5df5ceb2f7905a3e208a085a29ef02feb1820ffe819563af77c272ad7e068cf3a158c0ce610e421829b5f7ebbb628c45f56617344d6d1ef0a31d719253cf881f")
+      file(DOWNLOAD
+      ${KBTD_URL}
+      ${CMAKE_CURRENT_BINARY_DIR}/kbtd.nuget
+      EXPECTED_HASH SHA512=${KBTD_SHA512}
+      SHOW_PROGRESS
+      )
+
+      file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${KBT_DEPENDENCIES}")
+        execute_process(COMMAND tar xvzf "${CMAKE_CURRENT_BINARY_DIR}/kbtd.nuget" 
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${KBT_DEPENDENCIES}"
+      )
+
+      file(GLOB KBTD_DLLS
+        "${CMAKE_CURRENT_BINARY_DIR}/${KBT_DEPENDENCIES}/lib/native/amd64/release/*.dll"
+      )
+
+      file(COPY ${KBTD_DLLS} DESTINATION ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION})
+      file(COPY ${KBTD_DLLS} DESTINATION ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION})
 
       set(CUDNN_DEPENDENCIES "Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN.0.9.1")
       set(CUDNN_URL "https://www.nuget.org/api/v2/package/Microsoft.Azure.Kinect.BodyTracking.Dependencies.cuDNN/0.9.1")
@@ -154,6 +203,7 @@ if(MSVC)
       file(COPY ${CUDNN_DLLS} DESTINATION ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_BIN_DESTINATION})
       file(COPY ${CUDNN_DLLS} DESTINATION ${CATKIN_DEVEL_PREFIX}/${CATKIN_PACKAGE_LIB_DESTINATION})
 
+
   else()
     message(FATAL_ERROR "Body Tracking SDK needs a NVIDIA GEFORCE GTX 1070 or better")
   endif()
@@ -162,7 +212,6 @@ endif()
 # This reads the K4A_LIBS and K4A_INSTALL_REQUIRED variables and decides how to install
 # the various shared objects / DLLs
 include(Installk4a)
-
 ##################################
 ###### END AZURE KINECT SDK ######
 ##################################

@@ -895,8 +895,7 @@ void K4AROSDevice::imageCallback(const sensor_msgs::ImageConstPtr& image_msg, co
                                ros::Time(0));
     }
     catch (tf2::TransformException &ex) {
-      ROS_WARN("%s",ex.what());
-      ros::Duration(1.0).sleep();
+      ROS_WARN("Unable to look up the transform between the frames, %s",ex.what());
       return;
     }
 

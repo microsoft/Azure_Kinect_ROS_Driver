@@ -59,7 +59,7 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
 
         set(_dnn_model_path "${_sdk_dir}/${RELATIVE_WIN_DNN_MODEL_PATH}")
         if(NOT EXISTS "${_dnn_model_path}")
-            quiet_message(WARNING "Rejecting SDK located at ${_sdk_dir}: Could not find dnn_model.onnx at ${_dnn_model_path}")
+            quiet_message(WARNING "Rejecting SDK located at ${_sdk_dir}: Could not find dnn_model_2_0.onnx at ${_dnn_model_path}")
             return()
         endif()
 
