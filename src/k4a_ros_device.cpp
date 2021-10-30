@@ -41,6 +41,7 @@ K4AROSDevice::K4AROSDevice()
 // clang-format off
 #if defined(K4A_BODY_TRACKING)
     k4abt_tracker_(nullptr),
+    k4abt_tracker_queue_size_(0),
 #endif
     // clang-format on
     last_capture_time_usec_(0),
@@ -298,6 +299,14 @@ K4AROSDevice::~K4AROSDevice()
   // Start tearing down the publisher threads
   running_ = false;
 
+#if defined(K4A_BODY_TRACKING)
+  // Join the publisher thread
+  RCLCPP_INFO(this->get_logger(),"Joining body publisher thread");
+  body_publisher_thread_.join();
+  RCLCPP_INFO(this->get_logger(),"Body publisher thread joined");
+#endif
+
+  // Join the publisher thread
   RCLCPP_INFO(this->get_logger(),"Joining camera publisher thread");
   frame_publisher_thread_.join();
   RCLCPP_INFO(this->get_logger(),"Camera publisher thread joined");
@@ -373,6 +382,9 @@ k4a_result_t K4AROSDevice::startCameras()
 
   // Start the thread that will poll the cameras and publish frames
   frame_publisher_thread_ = thread(&K4AROSDevice::framePublisherThread, this);
+#if defined(K4A_BODY_TRACKING)
+  body_publisher_thread_ = thread(&K4AROSDevice::bodyPublisherThread, this);
+#endif
 
   return K4A_RESULT_SUCCEEDED;
 }
@@ -581,7 +593,6 @@ k4a_result_t K4AROSDevice::getRgbPointCloudInDepthFrame(const k4a::capture& capt
 
   point_cloud->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
   point_cloud->header.stamp = timestampToROS(k4a_depth_frame.get_device_timestamp());
-  printTimestampDebugMessage("RGB point cloud", point_cloud->header.stamp);
 
   return fillColorPointCloud(calibration_data_.point_cloud_image_, calibration_data_.transformed_rgb_image_,
                              point_cloud);
@@ -614,7 +625,6 @@ k4a_result_t K4AROSDevice::getRgbPointCloudInRgbFrame(const k4a::capture& captur
 
   point_cloud->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
   point_cloud->header.stamp = timestampToROS(k4a_depth_frame.get_device_timestamp());
-  printTimestampDebugMessage("RGB point cloud", point_cloud->header.stamp);
 
   return fillColorPointCloud(calibration_data_.point_cloud_image_, k4a_bgra_frame, point_cloud);
 }
@@ -631,7 +641,6 @@ k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture& capture, std::share
 
   point_cloud->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
   point_cloud->header.stamp = timestampToROS(k4a_depth_frame.get_device_timestamp());
-  printTimestampDebugMessage("Point cloud", point_cloud->header.stamp);
 
   // Tranform depth image to point cloud
   calibration_data_.k4a_transformation_.depth_image_to_point_cloud(k4a_depth_frame, K4A_CALIBRATION_TYPE_DEPTH,
@@ -743,7 +752,6 @@ k4a_result_t K4AROSDevice::getImuFrame(const k4a_imu_sample_t& sample, std::shar
 {
   imu_msg->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.imu_frame_;
   imu_msg->header.stamp = timestampToROS(sample.acc_timestamp_usec);
-  printTimestampDebugMessage("IMU", imu_msg->header.stamp);
 
   // The correct convention in ROS is to publish the raw sensor data, in the
   // sensor coordinate frame. Do that here.
@@ -958,7 +966,6 @@ void K4AROSDevice::framePublisherThread()
         else if (result == K4A_RESULT_SUCCEEDED)
         {
           capture_time = timestampToROS(capture.get_ir_image().get_device_timestamp());
-          printTimestampDebugMessage("IR image", capture_time);
 
           // Re-sychronize the timestamps with the capture timestamp
           ir_raw_camera_info.header.stamp = capture_time;
@@ -991,7 +998,6 @@ void K4AROSDevice::framePublisherThread()
           else if (result == K4A_RESULT_SUCCEEDED)
           {
             capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
-            printTimestampDebugMessage("Depth image", capture_time);
 
             // Re-sychronize the timestamps with the capture timestamp
             depth_raw_camera_info.header.stamp = capture_time;
@@ -1024,7 +1030,6 @@ void K4AROSDevice::framePublisherThread()
           else if (result == K4A_RESULT_SUCCEEDED)
           {
             capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
-            printTimestampDebugMessage("Depth image", capture_time);
 
             depth_rect_frame->header.stamp = capture_time;
             depth_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
@@ -1038,11 +1043,9 @@ void K4AROSDevice::framePublisherThread()
 
 #if defined(K4A_BODY_TRACKING)
         // Publish body markers when body tracking is enabled and a depth image is available
-        if (params_.body_tracking_enabled &&
+        if (params_.body_tracking_enabled && k4abt_tracker_queue_size_ < 3 &&
             (this->count_subscribers("body_tracking_data") > 0 || this->count_subscribers("body_index_map/image_raw") > 0))
         {
-          capture_time = timestampToROS(capture.get_depth_image().get_device_timestamp());
-
           if (!k4abt_tracker_.enqueue_capture(capture))
           {
             RCLCPP_ERROR(this->get_logger(),"Error! Add capture to tracker process queue failed!");
@@ -1051,56 +1054,7 @@ void K4AROSDevice::framePublisherThread()
           }
           else
           {
-            k4abt::frame body_frame = k4abt_tracker_.pop_result();
-            if (body_frame == nullptr)
-            {
-              RCLCPP_ERROR_STREAM(this->get_logger(),"Pop body frame result failed!");
-              rclcpp::shutdown();
-              return;
-            }
-            else
-            {
-              if (this->count_subscribers("body_tracking_data") > 0)
-              {
-                // Joint marker array
-                MarkerArray::SharedPtr markerArrayPtr(new MarkerArray);
-                auto num_bodies = body_frame.get_num_bodies();
-                for (size_t i = 0; i < num_bodies; ++i)
-                {
-                  k4abt_body_t body = body_frame.get_body(i);
-                  for (int j = 0; j < (int) K4ABT_JOINT_COUNT; ++j)
-                  {
-                    Marker::SharedPtr markerPtr(new Marker);
-                    getBodyMarker(body, markerPtr, j, capture_time);
-                    markerArrayPtr->markers.push_back(*markerPtr);
-                  }
-                }
-                body_marker_publisher_->publish(*markerArrayPtr);
-              }
-
-              if (this->count_subscribers("body_index_map/image_raw") > 0)
-              {
-                // Body index map
-                Image::SharedPtr body_index_map_frame(new Image);
-                result = getBodyIndexMap(body_frame, body_index_map_frame);
-
-                if (result != K4A_RESULT_SUCCEEDED)
-                {
-                  RCLCPP_ERROR_STREAM(this->get_logger(),"Failed to get body index map");
-                  rclcpp::shutdown();
-                  return;
-                }
-                else if (result == K4A_RESULT_SUCCEEDED)
-                {
-                  // Re-sychronize the timestamps with the capture timestamp
-                  body_index_map_frame->header.stamp = capture_time;
-                  body_index_map_frame->header.frame_id =
-                      calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
-
-                  body_index_map_publisher_.publish(body_index_map_frame);
-                }
-              }
-            }
+            ++k4abt_tracker_queue_size_;
           }
         }
 #endif
@@ -1126,7 +1080,6 @@ void K4AROSDevice::framePublisherThread()
           }
 
           capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
-          printTimestampDebugMessage("Color image", capture_time);
 
           rgb_jpeg_frame->header.stamp = capture_time;
           rgb_jpeg_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
@@ -1152,7 +1105,6 @@ void K4AROSDevice::framePublisherThread()
           }
 
           capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
-          printTimestampDebugMessage("Color image", capture_time);
 
           rgb_raw_frame->header.stamp = capture_time;
           rgb_raw_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.rgb_camera_frame_;
@@ -1181,7 +1133,6 @@ void K4AROSDevice::framePublisherThread()
           }
 
           capture_time = timestampToROS(capture.get_color_image().get_device_timestamp());
-          printTimestampDebugMessage("Color image", capture_time);
 
           rgb_rect_frame->header.stamp = capture_time;
           rgb_rect_frame->header.frame_id = calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
@@ -1240,6 +1191,76 @@ void K4AROSDevice::framePublisherThread()
     loop_rate.sleep();
   }
 }
+
+#if defined(K4A_BODY_TRACKING)
+void K4AROSDevice::bodyPublisherThread()
+{
+  while (running_ && rclcpp::ok())
+  {
+    if (k4abt_tracker_queue_size_ > 0)
+    {
+      k4abt::frame body_frame = k4abt_tracker_.pop_result();
+      --k4abt_tracker_queue_size_;
+
+      if (body_frame == nullptr)
+      {
+        RCLCPP_ERROR_STREAM(this->get_logger(),"Pop body frame result failed!");
+        rclcpp::shutdown();
+        return;
+      }
+      else
+      {
+        auto capture_time = timestampToROS(body_frame.get_device_timestamp());
+        
+        if (this->count_subscribers("body_tracking_data") > 0)
+        {
+          // Joint marker array
+          MarkerArray::SharedPtr markerArrayPtr(new MarkerArray);
+          auto num_bodies = body_frame.get_num_bodies();
+          for (size_t i = 0; i < num_bodies; ++i)
+          {
+            k4abt_body_t body = body_frame.get_body(i);
+            for (int j = 0; j < (int) K4ABT_JOINT_COUNT; ++j)
+            {
+              Marker::SharedPtr markerPtr(new Marker);
+              getBodyMarker(body, markerPtr, j, capture_time);
+              markerArrayPtr->markers.push_back(*markerPtr);
+            }
+          }
+          body_marker_publisher_->publish(*markerArrayPtr);
+        }
+
+        if (this->count_subscribers("body_index_map/image_raw") > 0)
+        {
+          // Body index map
+          Image::SharedPtr body_index_map_frame(new Image);
+          auto result = getBodyIndexMap(body_frame, body_index_map_frame);
+
+          if (result != K4A_RESULT_SUCCEEDED)
+          {
+            RCLCPP_ERROR_STREAM(this->get_logger(),"Failed to get body index map");
+            rclcpp::shutdown();
+            return;
+          }
+          else if (result == K4A_RESULT_SUCCEEDED)
+          {
+            // Re-sychronize the timestamps with the capture timestamp
+            body_index_map_frame->header.stamp = capture_time;
+            body_index_map_frame->header.frame_id =
+                calibration_data_.tf_prefix_ + calibration_data_.depth_camera_frame_;
+
+            body_index_map_publisher_.publish(body_index_map_frame);
+          }
+        }
+      }
+    }
+    else
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds{ 20 });
+    }
+  }
+}
+#endif
 
 k4a_imu_sample_t K4AROSDevice::computeMeanIMUSample(const std::vector<k4a_imu_sample_t>& samples)
 {
@@ -1464,35 +1485,4 @@ void K4AROSDevice::updateTimestampOffset(const std::chrono::microseconds& k4a_de
                                  std::chrono::nanoseconds(static_cast<int64_t>(
                                      std::floor(alpha * (device_to_realtime - device_to_realtime_offset_).count())));
   }
-}
-
-void K4AROSDevice::printTimestampDebugMessage(const std::string& name, const rclcpp::Time& timestamp)
-{
-  rclcpp::Duration lag = this->get_clock()->now() - timestamp;
-  static std::map<const std::string, std::vector<rclcpp::Duration>> map_min_max;
-  auto it = map_min_max.find(name);
-  if (it == map_min_max.end())
-  {
-    vector<rclcpp::Duration> v(2, lag);
-    map_min_max[name] = v;
-    it = map_min_max.find(name);
-  }
-  else
-  {
-    auto& min_lag = it->second[0];
-    auto& max_lag = it->second[1];
-    if (lag < min_lag)
-    {
-      min_lag = lag;
-    }
-    if (lag > max_lag)
-    {
-      max_lag = lag;
-    }
-  }
-
-  RCLCPP_DEBUG_STREAM(this->get_logger(), name << " timestamp lags rclcpp::Clock::now() by\n"
-                        << std::setw(23) << lag.seconds() * 1000.0 << " ms. "
-                        << "The lag ranges from " << it->second[0].seconds() * 1000.0 << "ms"
-                        << " to " << it->second[1].seconds() * 1000.0 << "ms.");
 }
