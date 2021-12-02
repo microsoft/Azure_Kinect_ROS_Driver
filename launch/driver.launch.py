@@ -7,7 +7,7 @@ from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription, conditions
 from launch.actions import (DeclareLaunchArgument, GroupAction)
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, Command
 
 import launch.actions
 import launch_ros.actions
