@@ -74,6 +74,7 @@ void K4ACalibrationTransformData::initialize(const K4AROSDeviceParams& params)
   // We publish all TFs all the time, even if the respective sensor data
   // output is off. This allows us to just use the SDK calibrations, and one
   // cosmetic TF output between the depth and the base.
+  RCLCPP_INFO(this->get_logger(),"PUBLISHING");
   publishDepthToBaseTf();
   publishImuToDepthTf();
   publishRgbToDepthTf();
@@ -224,6 +225,7 @@ void K4ACalibrationTransformData::publishDepthToBaseTf()
   static_transform.transform.rotation.y = depth_rotation.y();
   static_transform.transform.rotation.z = depth_rotation.z();
   static_transform.transform.rotation.w = depth_rotation.w();
+  RCLCPP_INFO(this->get_logger(),"Sending transform");
 
   static_broadcaster_->sendTransform(static_transform);
 }
