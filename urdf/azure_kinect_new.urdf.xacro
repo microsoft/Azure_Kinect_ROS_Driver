@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<!-- 
+ Copyright (c) Microsoft Corporation. All rights reserved.
+ Licensed under the MIT License.
+ -->
+
+<robot name="azure_kinect" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="azure_kinect" params="prefix:='' parent:='' *origin">
+
+    <xacro:if value="${parent != ''}">
+      <joint name="${prefix}azure_in_joint" type="fixed">
+        <xacro:insert_block name="origin"/>
+        <parent link="${parent}"/>
+        <child link="${prefix}azure_base"/>
+      </joint>
+    </xacro:if>
+
+    <link name="${prefix}azure_base">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://azure_kinect_ros_driver/meshes/visual.dae"/>
+        </geometry>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://azure_kinect_ros_driver/meshes/collision.dae"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <link name="${prefix}azure_rgb" />
+    <link name="${prefix}azure_depth" />
+    <link name="${prefix}azure_gyro" />
+
+    <joint name="${prefix}azure_base_to_rgb" type="fixed">
+      <parent link="${prefix}azure_base" />
+      <child link="${prefix}azure_rgb" />
+      <origin xyz="0.0618 -0.032 0.0065" rpy="-${pi/2} 0 -${pi/2}" />
+    </joint>
+
+    <joint name="${prefix}azure_base_to_depth" type="fixed">
+      <parent link="${prefix}azure_base" />
+      <child link="${prefix}azure_depth" />
+      <origin xyz="0.0618 -0.0005 0.0065" rpy="-${pi/2} 0 -${pi/2}" />
+    </joint>
+
+    <joint name="${prefix}azure_base_to_gyro" type="fixed">
+      <parent link="${prefix}azure_base" />
+      <child link="${prefix}azure_gyro" />
+      <origin xyz="0.0618 -0.0005 0.0065" rpy="0 ${pi} 0" />
+    </joint>
+  </xacro:macro>
+</robot>
