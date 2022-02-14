@@ -3,13 +3,13 @@
 
   <arg name="camera" default="k4a" />
 
-  <!-- publish Azure Kinect coordiante frames -->
-  <arg name="tf_prefix"         default="" />                       <!-- Prefix added to tf frame IDs. It typically contains a trailing '_' unless empty. -->
-  <arg name="overwrite_robot_description" default="true" />         <!-- Flag to publish a standalone azure_description instead of the default robot_descrition parameter-->
+  <!-- publish Azure Kinect coordinate frames -->
+  <arg name="tf_prefix"                   default="" />               <!-- Prefix added to tf frame IDs. It typically contains a trailing '_' unless empty. -->
+  <arg name="overwrite_robot_description" default="true" />           <!-- Flag to publish a standalone azure_description instead of the default robot_description parameter-->
 
   <group if="$(arg overwrite_robot_description)">
     <param name="robot_description"
-      command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf.xacro tf_prefix:=$(arg tf_prefix)" />
+      command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect_standalone.urdf.xacro tf_prefix:=$(arg tf_prefix)" />
     <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
   </group>
