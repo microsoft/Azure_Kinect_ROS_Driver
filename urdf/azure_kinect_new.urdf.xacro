@@ -5,7 +5,7 @@
  -->
 
 <robot name="azure_kinect" xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <xacro:macro name="azure_kinect" params="prefix:='' parent:='' *origin">
+  <xacro:macro name="azure_kinect" params="prefix:='' parent:='' gazebo:=false *origin">
 
     <xacro:if value="${parent != ''}">
       <joint name="${prefix}azure_in_joint" type="fixed">
@@ -51,5 +51,67 @@
       <child link="${prefix}azure_gyro" />
       <origin xyz="0.0618 -0.0005 0.0065" rpy="0 ${pi} 0" />
     </joint>
+
+    <xacro:if value="${gazebo}">
+      <!-- Create a dummy frame for Gazebo, as the depth image is wrongly flipped and rotated
+           (see #243 https://github.com/ros-simulation/gazebo_ros_pkgs/issues/243) -->
+      <link name="${prefix}azure_gazebo_depth" />
+
+      <joint name="${prefix}azure_depth_to_gazebo_depth" type="fixed">
+        <parent link="${prefix}azure_depth" />
+        <child link="${prefix}azure_gazebo_depth"/>
+        <origin xyz="0 0 0" rpy="0 ${-pi/2} ${pi/2}"/>
+      </joint>
+
+      <gazebo reference="${prefix}azure_gazebo_depth">
+        <sensor name="${prefix}azure_gazebo_sensor" type="depth">
+          <update_rate>20</update_rate>
+          <camera>
+            <!--
+              NFOV: 1.309 rad (75 deg)
+              WFOV: 2.0944 rad (120 deg)
+            -->
+            <horizontal_fov>2.0944</horizontal_fov>
+            <image>
+              <!--
+                NFOV unbinned:         640x576
+                NFOV 2x2 binned (SW):  320x288
+                WFOV 2x2 binned:       512x512
+                WFOV unbinned:         1024x1024
+              -->
+              <width>512</width>
+              <height>512</height>
+              <format>R8G8B8</format>
+            </image>
+            <clip>
+              <!--
+                NFOV unbinned:         0.5 - 3.86 m
+                NFOV 2x2 binned (SW):  0.5 - 5.46 m
+                WFOV 2x2 binned:       0.25 - 2.88 m
+                WFOV unbinned:         0.25 - 2.21 m
+              -->
+              <near>0.25</near>
+              <far>2.88</far>
+            </clip>
+          </camera>
+          <plugin filename="libgazebo_ros_openni_kinect.so" name="${prefix}azure_camera_controller">
+            <alwaysOn>true</alwaysOn>
+            <updateRate>30</updateRate>
+            <imageTopicName>rgb/image_raw</imageTopicName>
+            <cameraInfoTopicName>rgb/camera_info</cameraInfoTopicName>
+            <depthImageTopicName>depth/image_raw</depthImageTopicName>
+            <depthImageCameraInfoTopicName>depth/camera_info</depthImageCameraInfoTopicName>
+            <pointCloudTopicName>depth/points</pointCloudTopicName>
+            <frameName>${prefix}azure_depth</frameName>
+            <distortion_k1>0.0</distortion_k1>
+            <distortion_k2>0.0</distortion_k2>
+            <distortion_k3>0.0</distortion_k3>
+            <distortion_t1>0.0</distortion_t1>
+            <distortion_t2>0.0</distortion_t2>
+          </plugin>
+        </sensor>
+      </gazebo>
+    </xacro:if>
+
   </xacro:macro>
 </robot>
