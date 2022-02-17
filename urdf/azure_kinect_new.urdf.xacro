@@ -58,14 +58,22 @@
       <link name="${prefix}azure_gazebo_depth" />
 
       <joint name="${prefix}azure_depth_to_gazebo_depth" type="fixed">
-        <parent link="${prefix}azure_depth" />
+        <parent link="${prefix}azure_base" />
         <child link="${prefix}azure_gazebo_depth"/>
-        <origin xyz="0 0 0" rpy="0 ${-pi/2} ${pi/2}"/>
+        <origin xyz="0.0618 -0.0005 0.0065" rpy="0 0 0"/>
       </joint>
 
       <gazebo reference="${prefix}azure_gazebo_depth">
         <sensor name="${prefix}azure_gazebo_sensor" type="depth">
-          <update_rate>20</update_rate>
+          <!--
+            NFOV unbinned:        0, 5, 15, 30 FPS
+            NFOV 2x2 binned (SW): 0, 5, 15, 30 FPS
+            WFOV 2x2 binned:      0, 5, 15, 30 FPS
+            WFOV unbinned:        0, 5, 15 FPS
+
+            Note: Frame rate also needs to be changed in gazebo plugin setting (line 107)
+          -->
+          <update_rate>15</update_rate>
           <camera>
             <!--
               NFOV: 1.309 rad (75 deg)
@@ -96,7 +104,7 @@
           </camera>
           <plugin filename="libgazebo_ros_openni_kinect.so" name="${prefix}azure_camera_controller">
             <alwaysOn>true</alwaysOn>
-            <updateRate>30</updateRate>
+            <updateRate>15</updateRate>
             <imageTopicName>rgb/image_raw</imageTopicName>
             <cameraInfoTopicName>rgb/camera_info</cameraInfoTopicName>
             <depthImageTopicName>depth/image_raw</depthImageTopicName>
