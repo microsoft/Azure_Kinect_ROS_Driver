@@ -666,8 +666,6 @@ k4a_result_t K4AROSDevice::getPointCloud(const k4a::capture& capture, sensor_msg
 k4a_result_t K4AROSDevice::fillColorPointCloud(const k4a::image& pointcloud_image, const k4a::image& color_image,
                                                sensor_msgs::PointCloud2Ptr& point_cloud)
 {
-  point_cloud->height = pointcloud_image.get_height_pixels();
-  point_cloud->width = pointcloud_image.get_width_pixels();
   point_cloud->is_dense = false;
   point_cloud->is_bigendian = false;
 
@@ -691,6 +689,11 @@ k4a_result_t K4AROSDevice::fillColorPointCloud(const k4a::image& pointcloud_imag
   sensor_msgs::PointCloud2Iterator<uint8_t> iter_b(*point_cloud, "b");
 
   pcd_modifier.resize(point_count);
+
+  // Restore actual dimensions as pcd_modifier.resize(n) sets the cloud size to n x 1
+  point_cloud->height = pointcloud_image.get_height_pixels();
+  point_cloud->width = pointcloud_image.get_width_pixels();
+  point_cloud->row_step = pointcloud_image.get_width_pixels() * point_cloud->point_step;
 
   const int16_t* point_cloud_buffer = reinterpret_cast<const int16_t*>(pointcloud_image.get_buffer());
   const uint8_t* color_buffer = color_image.get_buffer();
@@ -724,8 +727,6 @@ k4a_result_t K4AROSDevice::fillColorPointCloud(const k4a::image& pointcloud_imag
 
 k4a_result_t K4AROSDevice::fillPointCloud(const k4a::image& pointcloud_image, sensor_msgs::PointCloud2Ptr& point_cloud)
 {
-  point_cloud->height = pointcloud_image.get_height_pixels();
-  point_cloud->width = pointcloud_image.get_width_pixels();
   point_cloud->is_dense = false;
   point_cloud->is_bigendian = false;
 
@@ -739,6 +740,11 @@ k4a_result_t K4AROSDevice::fillPointCloud(const k4a::image& pointcloud_image, se
   sensor_msgs::PointCloud2Iterator<float> iter_z(*point_cloud, "z");
 
   pcd_modifier.resize(point_count);
+
+  // Set actual dimensions as pcd_modifier.resize(n) sets the cloud size to n x 1
+  point_cloud->height = pointcloud_image.get_height_pixels();
+  point_cloud->width = pointcloud_image.get_width_pixels();
+  point_cloud->row_step = pointcloud_image.get_width_pixels() * point_cloud->point_step;
 
   const int16_t* point_cloud_buffer = reinterpret_cast<const int16_t*>(pointcloud_image.get_buffer());
 
