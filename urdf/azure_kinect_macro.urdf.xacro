@@ -30,9 +30,16 @@
       </collision>
     </link>
 
+    <link name="${prefix}camera_base" /> <!-- for compatability with old model -->
     <link name="${prefix}azure_rgb" />
     <link name="${prefix}azure_depth" />
     <link name="${prefix}azure_gyro" />
+
+    <joint name="${prefix}azure_base_to_camera_base" type="fixed">
+      <parent link="${prefix}azure_base" />
+      <child link="${prefix}camera_base" />
+      <origin xyz="0.062 0.0 0.0065" rpy="0 0 0" />
+    </joint>
 
     <joint name="${prefix}azure_base_to_rgb" type="fixed">
       <parent link="${prefix}azure_base" />
@@ -43,7 +50,7 @@
     <joint name="${prefix}azure_base_to_depth" type="fixed">
       <parent link="${prefix}azure_base" />
       <child link="${prefix}azure_depth" />
-      <origin xyz="0.0618 -0.0005 0.0065" rpy="-${pi/2} 0 -${pi/2}" />
+      <origin xyz="0.0618 -0.0005 0.0065" rpy="-${96/180*pi} 0 -${pi/2}" />
     </joint>
 
     <joint name="${prefix}azure_base_to_gyro" type="fixed">
