@@ -64,10 +64,10 @@
            (see #243 https://github.com/ros-simulation/gazebo_ros_pkgs/issues/243) -->
       <link name="${prefix}azure_gazebo_depth" />
 
-      <joint name="${prefix}azure_depth_to_gazebo_depth" type="fixed">
+      <joint name="${prefix}azure_base_to_gazebo_depth" type="fixed">
         <parent link="${prefix}azure_base" />
         <child link="${prefix}azure_gazebo_depth"/>
-        <origin xyz="0.0618 -0.0005 0.0065" rpy="0 0 0"/>
+        <origin xyz="0.0618 -0.0005 0.0065" rpy="0 ${6/180*pi} 0"/>
       </joint>
 
       <gazebo reference="${prefix}azure_gazebo_depth">
