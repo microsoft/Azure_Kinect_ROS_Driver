@@ -17,7 +17,7 @@ Follow the [installation instructions](https://github.com/microsoft/Azure-Kinect
 
 The Azure Kinect ROS Driver includes CMake files which will try to locate the Azure Kinect Sensor SDK. Installing the SDK in a non-default location will result in compile failures when CMake is unable to locate the SDK.
 
-The Azure Kinect ROS Driver requires version of v1.1.0 of the Azure Kinect Sensor SDK to compile.
+The Azure Kinect ROS Driver requires version of v1.3.0 of the Azure Kinect Sensor SDK to compile.
 
 #### Alternate SDK Installation
 

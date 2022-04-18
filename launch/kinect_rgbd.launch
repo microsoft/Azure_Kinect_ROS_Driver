@@ -1,0 +1,130 @@
+<?xml version="1.0" ?>
+<launch>
+
+  <arg name="camera" default="k4a" />
+
+  <!-- publish Azure Kinect coordiante frames -->
+  <arg name="tf_prefix"         default="" />                       <!-- Prefix added to tf frame IDs. It typically contains a trailing '_' unless empty. -->
+  <arg name="overwrite_robot_description" default="true" />         <!-- Flag to publish a standalone azure_description instead of the default robot_descrition parameter-->
+
+  <group if="$(arg overwrite_robot_description)">
+    <param name="robot_description"
+      command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf.xacro tf_prefix:=$(arg tf_prefix)" />
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+  </group>
+
+  <group unless="$(arg overwrite_robot_description)">
+    <param name="azure_description"
+      command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect.urdf.xacro tf_prefix:=$(arg tf_prefix)" />
+    <node name="joint_state_publisher_azure" pkg="joint_state_publisher" type="joint_state_publisher">
+      <remap from="robot_description" to="azure_description" />
+    </node>
+    <node name="robot_state_publisher_azure" pkg="robot_state_publisher" type="robot_state_publisher">
+      <remap from="robot_description" to="azure_description" />
+    </node>
+  </group>
+
+  <arg name="depth_registration" default="true"
+       doc="Hardware depth registration" />
+
+  <arg name="num_worker_threads" default="4"
+       doc="Worker threads for the nodelet manager" />
+
+
+  <!-- Driver settings -->
+  <!-- Note: Point cloud processing in the driver will use the factory calibration and is therefore disabled.
+             The colour and depth images are processed via 'rgbd_launch' and point clouds are generated via
+             'image_proc' using the manual camera calibration. -->
+  <arg name="depth_enabled"               default="true" />           <!-- Enable or disable the depth camera -->
+  <arg name="depth_mode"                  default="NFOV_UNBINNED" />  <!-- Set the depth camera mode, which affects FOV, depth range, and camera resolution. See Azure Kinect documentation for full details. Valid options: NFOV_UNBINNED, NFOV_2X2BINNED, WFOV_UNBINNED, WFOV_2X2BINNED, and PASSIVE_IR -->
+  <arg name="depth_unit"                  default="16UC1" />          <!-- Depth distance units. Options are: "32FC1" (32 bit float metre) or "16UC1" (16 bit integer millimetre) -->
+  <arg name="color_enabled"               default="true" />           <!-- Enable or disable the color camera -->
+  <arg name="color_format"                default="bgra" />           <!-- The format of RGB camera. Valid options: bgra, jpeg -->
+  <arg name="color_resolution"            default="1536P" />          <!-- Resolution at which to run the color camera. Valid options: 720P, 1080P, 1440P, 1536P, 2160P, 3072P -->
+  <arg name="fps"                         default="5" />              <!-- FPS to run both cameras at. Valid options are 5, 15, and 30 -->
+  <arg name="point_cloud"                 default="false" />          <!-- Generate a point cloud from depth data. Requires depth_enabled -->
+  <arg name="rgb_point_cloud"             default="false" />          <!-- Colorize the point cloud using the RBG camera. Requires color_enabled and depth_enabled -->
+  <arg name="point_cloud_in_depth_frame"  default="false" />          <!-- Whether the RGB pointcloud is rendered in the depth frame (true) or RGB frame (false). Will either match the resolution of the depth camera (true) or the RGB camera (false). -->
+  <arg name="required"                    default="false" />          <!-- Argument which specified if the entire launch file should terminate if the node dies -->
+  <arg name="sensor_sn"                   default="" />               <!-- Sensor serial number. If none provided, the first sensor will be selected -->
+  <arg name="recording_file"              default="" />               <!-- Absolute path to a mkv recording file which will be used with the playback api instead of opening a device -->
+  <arg name="recording_loop_enabled"      default="false" />          <!-- If set to true the recording file will rewind the beginning once end of file is reached -->
+  <arg name="calibration_url"             default="" />               <!-- Load intrinsic calibration from specific URL (default: "file://$HOME/.ros/camera_info/"") -->
+  <arg name="rescale_ir_to_mono8"         default="true" />           <!-- Whether to rescale the IR image to an 8-bit monochrome image for visualization and further processing. A scaling factor (ir_mono8_scaling_factor) is applied. -->
+  <arg name="ir_mono8_scaling_factor"     default="1.0" />            <!-- Scaling factor to apply when converting IR to mono8 (see rescale_ir_to_mono8). If using illumination, use the value 0.5-1. If using passive IR, use 10. -->
+  <arg name="imu_rate_target"             default="0"/>               <!-- Desired output rate of IMU messages. Set to 0 (default) for full rate (1.6 kHz). -->
+  <arg name="wired_sync_mode"             default="0"/>               <!-- Wired sync mode. 0: OFF, 1: MASTER, 2: SUBORDINATE. -->
+  <arg name="subordinate_delay_off_master_usec" default="0"/>         <!-- Delay subordinate camera off master camera by specified amount in usec. -->
+
+  <!-- Processing Modules -->
+  <arg name="rgb_processing"                  default="true"  />
+  <arg name="debayer_processing"              default="false" />
+  <arg name="ir_processing"                   default="true" />
+  <arg name="depth_processing"                default="true" />
+  <arg name="depth_registered_processing"     default="true" />
+  <arg name="disparity_processing"            default="false" />
+  <arg name="disparity_registered_processing" default="false" />
+  <arg name="hw_registered_processing"        default="true" if="$(arg depth_registration)" />
+  <arg name="sw_registered_processing"        default="false" if="$(arg depth_registration)" />
+  <arg name="hw_registered_processing"        default="false" unless="$(arg depth_registration)" />
+  <arg name="sw_registered_processing"        default="true" unless="$(arg depth_registration)" />
+
+  <group>
+
+    <!-- Start nodelet manager -->
+    <arg name="manager" value="$(arg camera)_nodelet_manager" />
+    <include file="$(find rgbd_launch)/launch/includes/manager.launch.xml">
+      <arg name="name" value="$(arg manager)" />
+      <arg name="num_worker_threads"  value="$(arg num_worker_threads)" />
+    </include>
+
+    <!-- Start the K4A sensor driver -->
+    <node pkg="nodelet" type="nodelet" name="k4a_ros_bridge"
+          args="load Azure_Kinect_ROS_Driver/K4AROSBridgeNodelet $(arg manager) --no-bond"
+          respawn="true">
+      <param name="depth_enabled"                 value="$(arg depth_enabled)" />
+      <param name="depth_mode"                    value="$(arg depth_mode)" />
+      <param name="depth_unit"                    value="$(arg depth_unit)" />
+      <param name="color_enabled"                 value="$(arg color_enabled)" />
+      <param name="color_format"                  value="$(arg color_format)" />
+      <param name="color_resolution"              value="$(arg color_resolution)" />
+      <param name="fps"                           value="$(arg fps)" />
+      <param name="point_cloud"                   value="$(arg point_cloud)" />
+      <param name="rgb_point_cloud"               value="$(arg rgb_point_cloud)" />
+      <param name="point_cloud_in_depth_frame"    value="$(arg point_cloud_in_depth_frame)" />
+      <param name="sensor_sn"                     value="$(arg sensor_sn)" />
+      <param name="tf_prefix"                     value="$(arg tf_prefix)" />
+      <param name="recording_file"                value="$(arg recording_file)" />
+      <param name="recording_loop_enabled"        value="$(arg recording_loop_enabled)" />
+      <param name="calibration_url"               value="$(arg calibration_url)" />
+      <param name="rescale_ir_to_mono8"           value="$(arg rescale_ir_to_mono8)" />
+      <param name="ir_mono8_scaling_factor"       value="$(arg ir_mono8_scaling_factor)" />
+      <param name="imu_rate_target"               value="$(arg imu_rate_target)"/>
+      <param name="wired_sync_mode"               value="$(arg wired_sync_mode)"/>
+      <param name="subordinate_delay_off_master_usec" value="$(arg subordinate_delay_off_master_usec)"/>
+    </node>
+
+    <!-- Load standard constellation of processing nodelets -->
+    <include file="$(find rgbd_launch)/launch/includes/processing.launch.xml">
+      <arg name="manager"                         value="$(arg manager)" />
+
+      <!-- camera names "rgb", "depth" and "ir" are hard-coded in the driver -->
+      <arg name="rgb"                             value="rgb" />
+      <arg name="ir"                              value="ir" />
+      <arg name="depth"                           value="depth" />
+      <arg name="depth_registered"                value="depth_to_rgb" />
+
+      <arg name="rgb_processing"                  value="$(arg rgb_processing)" />
+      <arg name="debayer_processing"              value="$(arg debayer_processing)" />
+      <arg name="ir_processing"                   value="$(arg ir_processing)" />
+      <arg name="depth_processing"                value="$(arg depth_processing)" />
+      <arg name="depth_registered_processing"     value="$(arg depth_registered_processing)" />
+      <arg name="disparity_processing"            value="$(arg disparity_processing)" />
+      <arg name="disparity_registered_processing" value="$(arg disparity_registered_processing)" />
+      <arg name="hw_registered_processing"        value="$(arg hw_registered_processing)" />
+      <arg name="sw_registered_processing"        value="$(arg sw_registered_processing)" />
+    </include>
+
+  </group>
+</launch>

@@ -23,6 +23,7 @@
 #include <sensor_msgs/Temperature.h>
 #include <k4a/k4a.hpp>
 #include <k4arecord/playback.hpp>
+#include <camera_info_manager/camera_info_manager.h>
 
 #if defined(K4A_BODY_TRACKING)
 #include <visualization_msgs/MarkerArray.h>
@@ -53,11 +54,6 @@ class K4AROSDevice
 
   void stopCameras();
   void stopImu();
-
-  // Get camera calibration information for the depth camera
-  void getDepthCameraInfo(sensor_msgs::CameraInfo& camera_info);
-
-  void getRgbCameraInfo(sensor_msgs::CameraInfo& camera_info);
 
   k4a_result_t getDepthFrame(const k4a::capture& capture, sensor_msgs::ImagePtr& depth_frame, bool rectified);
 
@@ -95,6 +91,9 @@ k4a_result_t getBodyMarker(const k4abt_body_t& body, visualization_msgs::MarkerP
                                    sensor_msgs::PointCloud2Ptr& point_cloud);
 
   void framePublisherThread();
+#if defined(K4A_BODY_TRACKING)
+  void bodyPublisherThread();
+#endif
   void imuPublisherThread();
 
   // Gets a timestap from one of the captures images
@@ -121,6 +120,8 @@ k4a_result_t getBodyMarker(const k4abt_body_t& body, visualization_msgs::MarkerP
   // ROS Node variables
   ros::NodeHandle node_;
   ros::NodeHandle private_node_;
+  ros::NodeHandle node_rgb_;
+  ros::NodeHandle node_ir_;
 
   image_transport::ImageTransport image_transport_;
 
@@ -144,6 +145,8 @@ k4a_result_t getBodyMarker(const k4abt_body_t& body, visualization_msgs::MarkerP
 
   ros::Publisher pointcloud_publisher_;
 
+  std::shared_ptr<camera_info_manager::CameraInfoManager> ci_mngr_rgb_, ci_mngr_ir_;
+
 #if defined(K4A_BODY_TRACKING)
   ros::Publisher body_marker_publisher_;
   tf2_ros::TransformBroadcaster br;
@@ -159,6 +162,8 @@ k4a_result_t getBodyMarker(const k4abt_body_t& body, visualization_msgs::MarkerP
   // Parameters
   K4AROSDeviceParams params_;
 
+  std::string serial_number_;
+
   // K4A device
   k4a::device k4a_device_;
   K4ACalibrationTransformData calibration_data_;
@@ -172,6 +177,9 @@ k4a_result_t getBodyMarker(const k4abt_body_t& body, visualization_msgs::MarkerP
   k4abt::tracker k4abt_tracker_;
   std::vector<std::string> joint_names_{"Pelvis", "Spine_Naval", "Spine_Chest", "Neck", "Clavicle_left", "Shoulder_left", "Elbow_left", "Wrist_left", "Hand_left", "Handtip_left", "thumb_left", "Clavicle_right", "Shoulder_right", "Elbow_right", "Wrist_right", "Hand_right", "Handtip_right", "Thumb_right", "Hip_left", "Knee_left", "Ankle_left", "Foot_left", "Hip_right", "Knee_right", "Ankle_right", "Foot_right", "Head", "Nose", "Eye_Left", "Ear_Left", "Eye_Right", "Ear_Right"};
   size_t num_bodies;
+
+  std::atomic_int16_t k4abt_tracker_queue_size_;
+  std::thread body_publisher_thread_;
 #endif
 
   std::chrono::nanoseconds device_to_realtime_offset_{0};

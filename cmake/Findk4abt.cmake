@@ -65,7 +65,7 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
 
         set(_onnx_runtime_bin_path "${_sdk_dir}/${RELATIVE_WIN_ONNX_RUNTIME_DLL_PATH}")
         if(NOT EXISTS "${_onnx_runtime_bin_path}")
-            quiet_message(WARNING "Rejecting SDK located at ${_sdk_dir}: Could not find k4a.dll at ${_onnx_runtime_bin_path}")
+            quiet_message(WARNING "Rejecting SDK located at ${_sdk_dir}: Could not find onnxruntime.dll at ${_onnx_runtime_bin_path}")
             return()
         endif()
 
