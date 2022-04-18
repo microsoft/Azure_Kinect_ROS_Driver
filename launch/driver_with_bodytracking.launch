@@ -1,0 +1,10 @@
+<!--
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+-->
+
+<launch>
+    <include file="$(find azure_kinect_ros_driver)/launch/driver.launch">
+        <arg name="body_tracking_enabled" value="true" />
+    </include>
+</launch>
