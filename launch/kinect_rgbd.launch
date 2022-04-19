@@ -114,6 +114,7 @@
       <arg name="ir"                              value="ir" />
       <arg name="depth"                           value="depth" />
       <arg name="depth_registered"                value="depth_to_rgb" />
+      <arg name="depth_registered_filtered"       value="depth_to_rgb" />
 
       <arg name="rgb_processing"                  value="$(arg rgb_processing)" />
       <arg name="debayer_processing"              value="$(arg debayer_processing)" />
