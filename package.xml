@@ -28,7 +28,6 @@
   <depend>nodelet</depend>
   <depend>xacro</depend>
   <depend>cv_bridge</depend>
-  <depend>K4A</depend>
   <depend>libopencv-dev</depend>
 
   <exec_depend>rgbd_launch</exec_depend>
