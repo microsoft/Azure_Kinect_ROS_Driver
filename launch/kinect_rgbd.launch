@@ -5,11 +5,12 @@
 
   <!-- publish Azure Kinect coordinate frames -->
   <arg name="tf_prefix"                   default="" />               <!-- Prefix added to tf frame IDs. It typically contains a trailing '_' unless empty. -->
+  <arg name="publish_calibrated_poses"    default="true" />           <!-- Flag to publish the relative poses between IMU, RGB and depth camera from factory calibration parameters during runtime. -->
   <arg name="overwrite_robot_description" default="true" />           <!-- Flag to publish a standalone azure_description instead of the default robot_description parameter-->
 
   <group if="$(arg overwrite_robot_description)">
     <param name="robot_description"
-      command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect_standalone.urdf.xacro tf_prefix:=$(arg tf_prefix)" />
+      command="xacro $(find azure_kinect_ros_driver)/urdf/azure_kinect_standalone.urdf.xacro tf_prefix:=$(arg tf_prefix) publish_calibrated_poses:=$(arg publish_calibrated_poses)" />
     <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
   </group>
@@ -95,6 +96,7 @@
       <param name="point_cloud_in_depth_frame"    value="$(arg point_cloud_in_depth_frame)" />
       <param name="sensor_sn"                     value="$(arg sensor_sn)" />
       <param name="tf_prefix"                     value="$(arg tf_prefix)" />
+      <param name="publish_calibrated_poses"      value="$(arg publish_calibrated_poses)" />
       <param name="recording_file"                value="$(arg recording_file)" />
       <param name="recording_loop_enabled"        value="$(arg recording_loop_enabled)" />
       <param name="calibration_url"               value="$(arg calibration_url)" />
