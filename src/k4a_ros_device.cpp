@@ -77,10 +77,6 @@ K4AROSDevice::K4AROSDevice()
   this->declare_parameter("imu_rate_target", rclcpp::ParameterValue(0));
   this->declare_parameter("wired_sync_mode", rclcpp::ParameterValue(0));
   this->declare_parameter("subordinate_delay_off_master_usec", rclcpp::ParameterValue(0));
-  // this->declare_parameter({depth_raw_topic + compressed_format});
-  // this->declare_parameter({depth_raw_topic + compressed_png_level});
-  // this->declare_parameter({depth_rect_topic + compressed_format});
-  // this->declare_parameter({depth_rect_topic + compressed_png_level});
 
   // Collect ROS parameters from the param server or from the command line
 #define LIST_ENTRY(param_variable, param_help_string, param_type, param_default_val) \
