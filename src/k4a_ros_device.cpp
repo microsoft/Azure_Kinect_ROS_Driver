@@ -193,7 +193,7 @@ K4AROSDevice::K4AROSDevice()
       {
         device = k4a::device::open(i);
       }
-      catch (exception)
+      catch (exception const&)
       {
         RCLCPP_ERROR_STREAM(this->get_logger(),"Failed to open K4A device at index " << i);
         continue;
@@ -862,7 +862,6 @@ void K4AROSDevice::framePublisherThread()
 {
   rclcpp::Rate loop_rate(params_.fps);
 
-  k4a_wait_result_t wait_result;
   k4a_result_t result;
 
   CameraInfo rgb_raw_camera_info;
