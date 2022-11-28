@@ -165,7 +165,7 @@ class K4AROSDevice : public rclcpp::Node
   volatile bool running_;
 
   // Last capture timestamp for synchronizing playback capture and imu thread
-  std::atomic_int64_t last_capture_time_usec_;
+  std::atomic_uint64_t last_capture_time_usec_;
 
   // Last imu timestamp for synchronizing playback capture and imu thread
   std::atomic_uint64_t last_imu_time_usec_;

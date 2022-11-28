@@ -91,7 +91,6 @@ Licensed under the MIT License.
       <param name="fps"               value="5" />
       <param name="point_cloud"       value="true" />
       <param name="rgb_point_cloud"   value="true" />
-      <param name="required"          value="true" />
     </node>
 
   </group>
