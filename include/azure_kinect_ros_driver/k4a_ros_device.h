@@ -37,7 +37,7 @@
 class K4AROSDevice : public rclcpp::Node
 {
  public:
-  K4AROSDevice();
+  explicit K4AROSDevice(const rclcpp::NodeOptions & options);
 
   ~K4AROSDevice();
 
@@ -54,10 +54,10 @@ class K4AROSDevice : public rclcpp::Node
 
   k4a_result_t getDepthFrame(const k4a::capture& capture, std::shared_ptr<sensor_msgs::msg::Image>& depth_frame, bool rectified);
 
-  k4a_result_t getPointCloud(const k4a::capture& capture, std::shared_ptr<sensor_msgs::msg::PointCloud2>& point_cloud);
+  k4a_result_t getPointCloud(const k4a::capture& capture, sensor_msgs::msg::PointCloud2::UniquePtr& point_cloud);
 
-  k4a_result_t getRgbPointCloudInRgbFrame(const k4a::capture& capture, std::shared_ptr<sensor_msgs::msg::PointCloud2>& point_cloud);
-  k4a_result_t getRgbPointCloudInDepthFrame(const k4a::capture& capture, std::shared_ptr<sensor_msgs::msg::PointCloud2>& point_cloud);
+  k4a_result_t getRgbPointCloudInRgbFrame(const k4a::capture& capture, sensor_msgs::msg::PointCloud2::UniquePtr& point_cloud);
+  k4a_result_t getRgbPointCloudInDepthFrame(const k4a::capture& capture, sensor_msgs::msg::PointCloud2::UniquePtr& point_cloud);
 
   k4a_result_t getImuFrame(const k4a_imu_sample_t& capture, std::shared_ptr<sensor_msgs::msg::Imu>& imu_frame);
 
@@ -81,9 +81,9 @@ class K4AROSDevice : public rclcpp::Node
   k4a_result_t renderDepthToROS(std::shared_ptr<sensor_msgs::msg::Image>& depth_image, k4a::image& k4a_depth_frame);
   k4a_result_t renderIrToROS(std::shared_ptr<sensor_msgs::msg::Image>& ir_image, k4a::image& k4a_ir_frame);
 
-  k4a_result_t fillPointCloud(const k4a::image& pointcloud_image, std::shared_ptr<sensor_msgs::msg::PointCloud2>& point_cloud);
+  k4a_result_t fillPointCloud(const k4a::image& pointcloud_image, sensor_msgs::msg::PointCloud2::UniquePtr& point_cloud);
   k4a_result_t fillColorPointCloud(const k4a::image& pointcloud_image, const k4a::image& color_image,
-                                   std::shared_ptr<sensor_msgs::msg::PointCloud2>& point_cloud);
+                                   sensor_msgs::msg::PointCloud2::UniquePtr& point_cloud);
 
   void framePublisherThread();
 #if defined(K4A_BODY_TRACKING)
