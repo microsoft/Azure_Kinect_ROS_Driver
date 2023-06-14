@@ -39,10 +39,17 @@ find_package(angles REQUIRED)
 ###########
 
 
-add_library(${PROJECT_NAME}_node SHARED 
+## Declare a C++ executable
+add_executable(${PROJECT_NAME}_node
+  src/k4a_ros_bridge_node.cpp
   src/k4a_ros_device.cpp
   src/k4a_ros_device_params.cpp
-  src/k4a_calibration_transform_data.cpp)
+  src/k4a_calibration_transform_data.cpp
+  )
+
+add_library(${PROJECT_NAME}_library SHARED 
+  src/k4a_ros_device.cpp
+  )
 
 ament_target_dependencies(${PROJECT_NAME}_node rclcpp 
   std_msgs 
@@ -54,7 +61,21 @@ ament_target_dependencies(${PROJECT_NAME}_node rclcpp
   tf2_geometry_msgs
   rclcpp_components
   cv_bridge
-  angles)
+  angles
+  )
+
+ament_target_dependencies(${PROJECT_NAME}_library
+  std_msgs 
+  sensor_msgs
+  visualization_msgs
+  image_transport
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  rclcpp_components
+  cv_bridge
+  angles
+)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -104,7 +125,7 @@ target_link_libraries(${PROJECT_NAME}_node
   ${K4A_LIBS}
 )
 
-rclcpp_components_register_nodes(${PROJECT_NAME}_node "K4AROSDevice")
+rclcpp_components_register_nodes(${PROJECT_NAME}_library "K4AROSDevice")
 
 #############
 ## Install ##
@@ -115,9 +136,11 @@ rclcpp_components_register_nodes(${PROJECT_NAME}_node "K4AROSDevice")
 
 ## Mark executables and/or libraries for installation
 install(TARGETS ${PROJECT_NAME}_node
+  ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+  DESTINATION lib/${PROJECT_NAME}
 )
-ament_export_libraries(${library_name}) 
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 install(
