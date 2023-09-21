@@ -28,6 +28,13 @@
 #if defined(K4A_BODY_TRACKING)
 #include <visualization_msgs/MarkerArray.h>
 #include <k4abt.hpp>
+#include <tf2_ros/transform_broadcaster.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/Pose.h>
+#include <opencv2/opencv.hpp>
+#include <image_geometry/pinhole_camera_model.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #endif
 
 // Project headers
@@ -63,13 +70,15 @@ class K4AROSDevice
   k4a_result_t getIrFrame(const k4a::capture& capture, sensor_msgs::ImagePtr& ir_image);
 
 #if defined(K4A_BODY_TRACKING)
-  k4a_result_t getBodyMarker(const k4abt_body_t& body, visualization_msgs::MarkerPtr marker_msg, int jointType,
+k4a_result_t getBodyMarker(const k4abt_body_t& body, visualization_msgs::MarkerPtr marker_msg, geometry_msgs::TransformStamped& transform_msg, int bodyNum, int jointType,
                              ros::Time capture_time);
 
   k4a_result_t getBodyIndexMap(const k4abt::frame& body_frame, sensor_msgs::ImagePtr body_index_map_image);
 
   k4a_result_t renderBodyIndexMapToROS(sensor_msgs::ImagePtr body_index_map_image, k4a::image& k4a_body_index_map,
                                        const k4abt::frame& body_frame);
+
+  void imageCallback(const sensor_msgs::ImageConstPtr& image_msg, const sensor_msgs::CameraInfoConstPtr& info_msg);
 #endif
 
  private:
@@ -140,8 +149,14 @@ class K4AROSDevice
 
 #if defined(K4A_BODY_TRACKING)
   ros::Publisher body_marker_publisher_;
+  tf2_ros::TransformBroadcaster br;
 
   image_transport::Publisher body_index_map_publisher_;
+  image_transport::Publisher image_tf_publisher_;
+  image_transport::CameraSubscriber image_subscriber_;
+  image_geometry::PinholeCameraModel cam_model_;
+  tf2_ros::Buffer tfBuffer;
+  tf2_ros::TransformListener* tfListener;
 #endif
 
   // Parameters
@@ -162,6 +177,9 @@ class K4AROSDevice
   k4abt::tracker k4abt_tracker_;
   std::atomic_int16_t k4abt_tracker_queue_size_;
   std::thread body_publisher_thread_;
+  
+  std::vector<std::string> joint_names_{"Pelvis", "Spine_Naval", "Spine_Chest", "Neck", "Clavicle_left", "Shoulder_left", "Elbow_left", "Wrist_left", "Hand_left", "Handtip_left", "thumb_left", "Clavicle_right", "Shoulder_right", "Elbow_right", "Wrist_right", "Hand_right", "Handtip_right", "Thumb_right", "Hip_left", "Knee_left", "Ankle_left", "Foot_left", "Hip_right", "Knee_right", "Ankle_right", "Foot_right", "Head", "Nose", "Eye_Left", "Ear_Left", "Eye_Right", "Ear_Right"};
+  size_t num_bodies;
 #endif
 
   std::chrono::nanoseconds device_to_realtime_offset_{0};
