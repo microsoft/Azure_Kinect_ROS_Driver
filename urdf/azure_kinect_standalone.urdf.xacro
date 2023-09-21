@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!--
+ Copyright (c) Microsoft Corporation. All rights reserved.
+ Licensed under the MIT License.
+
+ Standalone robot-description of a Microsoft Azure Kinect camera on the included stand.
+ -->
+
+<robot name="azure_kinect" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:arg name="tf_prefix" default=""/>
+  <xacro:arg name="publish_calibrated_poses" default="true"/>
+
+  <link name="$(arg tf_prefix)azure_stand">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://azure_kinect_ros_driver/meshes/stand_visual.dae"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://azure_kinect_ros_driver/meshes/stand_collision.dae"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <xacro:include filename="$(find azure_kinect_ros_driver)/urdf/azure_kinect_macro.urdf.xacro" />
+
+  <xacro:azure_kinect prefix="$(arg tf_prefix)" parent="$(arg tf_prefix)azure_stand" gazebo="false" publish_calibrated_poses="$(arg publish_calibrated_poses)">
+    <origin xyz="0 0 0.0235" rpy="0 -0.06 0" />
+  </xacro:azure_kinect>
+</robot>
