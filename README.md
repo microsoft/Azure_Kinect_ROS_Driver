@@ -1,4 +1,6 @@
 # Azure Kinect ROS Driver
+> NOTE: The [Azure Kinect DK](https://techcommunity.microsoft.com/t5/mixed-reality-blog/microsoft-s-azure-kinect-developer-kit-technology-transfers-to/ba-p/3899122)
+has been retired and no longer available. The Azure Kinect DK SDK and ROS Node are no longer maintained.
 
 This project is a node which publishes sensor data from the [Azure Kinect Developer Kit](https://azure.microsoft.com/en-us/services/kinect-dk/) to the [Robot Operating System (ROS)](http://www.ros.org/). Developers working with ROS can use this node to connect an Azure Kinect Developer Kit to an existing ROS installation.
 
