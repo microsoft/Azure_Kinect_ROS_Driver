@@ -137,6 +137,53 @@ def generate_launch_description():
         'subordinate_delay_off_master_usec',
         default_value="0",
         description="Delay subordinate camera off master camera by specified amount in usec."),
+    DeclareLaunchArgument(
+        'exposure_auto',
+        default_value="true",
+        description="Set exposure to automatic (true) or manual (false)."),
+    DeclareLaunchArgument(
+        'exposure_time',
+        default_value="16670",
+        description="Exposure time is measured in microseconds"),
+    DeclareLaunchArgument(
+        'whitebalance_auto',
+        default_value="true",
+        description="Set whitebalance to automatic (true) or manual (false)."),
+    DeclareLaunchArgument(
+        'whitebalance_val',
+        default_value="4500",
+        description="Whitebalance value unit in degrees Kelvin." \
+                    "The setting must be set to a value evenly divisible by 10 degrees, " \
+                    "between 2500 and 12500 "),
+    DeclareLaunchArgument(
+        'brightness',
+        default_value="127",
+        description="Brightness value, the valid range is 0 to 255"),
+    DeclareLaunchArgument(
+        'contrast',
+        default_value="5",
+        description="Contrast value, the valid range is 0 to 10"),
+    DeclareLaunchArgument(
+        'saturation',
+        default_value="32",
+        description="Saturation value, the valid range is 0 to 63"),
+    DeclareLaunchArgument(
+        'sharpness',
+        default_value="2",
+        description="Sharpness value, the valid range is 0 to 4"),
+    DeclareLaunchArgument(
+            'gain',
+            default_value="128",
+            description="Gain value, the valid range is 0 to 255"),
+    DeclareLaunchArgument(
+        'powerline_frequency',
+        default_value="1",
+        description="Value of 1 sets the powerline compensation to 50 Hz. "
+                    "Value of 2 sets the powerline compensation to 60 Hz."),
+    DeclareLaunchArgument(
+        'backlight_compensation',
+        default_value="false",
+        description="Backlight compensation enable"),
     launch_ros.actions.Node(
         package='azure_kinect_ros_driver',
         executable='node',
@@ -161,7 +208,19 @@ def generate_launch_description():
             {'ir_mono8_scaling_factor': launch.substitutions.LaunchConfiguration('ir_mono8_scaling_factor')},
             {'imu_rate_target': launch.substitutions.LaunchConfiguration('imu_rate_target')},
             {'wired_sync_mode': launch.substitutions.LaunchConfiguration('wired_sync_mode')},
-            {'subordinate_delay_off_master_usec': launch.substitutions.LaunchConfiguration('subordinate_delay_off_master_usec')}]),
+            {'subordinate_delay_off_master_usec': launch.substitutions.LaunchConfiguration('subordinate_delay_off_master_usec')},
+            {'exposure_auto': launch.substitutions.LaunchConfiguration('exposure_auto')},
+            {'exposure_time': launch.substitutions.LaunchConfiguration('exposure_time')},
+            {'whitebalance_auto': launch.substitutions.LaunchConfiguration('whitebalance_auto')},
+            {'whitebalance_val': launch.substitutions.LaunchConfiguration('whitebalance_val')},
+            {'brightness': launch.substitutions.LaunchConfiguration('brightness')},
+            {'contrast': launch.substitutions.LaunchConfiguration('contrast')},
+            {'saturation': launch.substitutions.LaunchConfiguration('saturation')},
+            {'sharpness': launch.substitutions.LaunchConfiguration('sharpness')},
+            {'gain': launch.substitutions.LaunchConfiguration('gain')},
+            {'powerline_frequency': launch.substitutions.LaunchConfiguration('powerline_frequency')},
+            {'backlight_compensation': launch.substitutions.LaunchConfiguration('backlight_compensation')}
+        ]),
     # If flag overwrite_robot_description is set:
     launch_ros.actions.Node(
         package='robot_state_publisher',

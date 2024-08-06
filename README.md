@@ -4,7 +4,25 @@ This project is a node which publishes sensor data from the [Azure Kinect Develo
 
 This repository uses the [Azure Kinect Sensor SDK](https://github.com/microsoft/Azure-Kinect-Sensor-SDK) to communicate with the Azure Kinect DK. It supports both Linux and Windows installations of ROS.
 
-[![Build Status](https://dev.azure.com/ms/Azure_Kinect_ROS_Driver/_apis/build/status/microsoft.Azure_Kinect_ROS_Driver?branchName=melodic)](https://dev.azure.com/ms/Azure_Kinect_ROS_Driver/_build/latest?definitionId=166&branchName=melodic)
+## Dependencies
+```
+cd --
+sudo apt install libsoundio2
+wget https://github.com/asukiaaa/Azure-Kinect-Sensor-SDK/releases/download/2923-08-26-ubuntu-22-04/libk4a1.4_1.4.1_amd64.deb
+sudo dpkg -i libk4a1.4_1.4.1_amd64.deb
+rm libk4a1.4_1.4.1_amd64.deb
+sudo ldconfig
+
+pip3 install xacro
+sudo apt install ros-humble-joint-state-publisher
+```
+
+# INSTALL AZURE KINECT ROS DRIVER
+
+cd ~/otto_ws/src
+pip3 install xacro
+sudo apt install ros-humble-joint-state-publisher
+
 
 ## Features
 

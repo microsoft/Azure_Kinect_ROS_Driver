@@ -84,6 +84,24 @@ K4AROSDevice::K4AROSDevice()
   ROS_PARAM_LIST
 #undef LIST_ENTRY
 
+  this->declare_parameter("exposure_auto", rclcpp::ParameterValue(true));
+  this->declare_parameter("exposure_time", rclcpp::ParameterValue(0));
+  this->declare_parameter("whitebalance_auto", rclcpp::ParameterValue(true));
+  this->declare_parameter("whitebalance_val", rclcpp::ParameterValue(4500));
+  this->declare_parameter("brightness", rclcpp::ParameterValue(128));
+  this->declare_parameter("contrast", rclcpp::ParameterValue(5));
+  this->declare_parameter("saturation", rclcpp::ParameterValue(32));
+  this->declare_parameter("sharpness", rclcpp::ParameterValue(2));
+  this->declare_parameter("gain", rclcpp::ParameterValue(128));
+  this->declare_parameter("powerline_frequency", rclcpp::ParameterValue(1));
+  this->declare_parameter("backlight_compensation", rclcpp::ParameterValue(false));
+
+#define LIST_ENTRY(param_variable, param_help_string, param_type, param_default_val) \
+  this->get_parameter_or(#param_variable, color_params_.param_variable, param_default_val);
+  ROS_PARAM_LIST_COLOR
+#undef LIST_ENTRY
+
+
   if (params_.recording_file != "")
   {
     RCLCPP_INFO(this->get_logger(),"Node is started in playback mode");
@@ -354,6 +372,8 @@ k4a_result_t K4AROSDevice::startCameras()
 
   if (k4a_device_)
   {
+    RCLCPP_INFO_STREAM(this->get_logger(),"Setting color control");
+    color_params_.SetColorConfig(k4a_device_);
     RCLCPP_INFO_STREAM(this->get_logger(),"STARTING CAMERAS");
     k4a_device_.start_cameras(&k4a_configuration);
   }

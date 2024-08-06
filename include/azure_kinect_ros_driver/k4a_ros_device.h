@@ -33,6 +33,7 @@
 //
 #include "azure_kinect_ros_driver/k4a_calibration_transform_data.h"
 #include "azure_kinect_ros_driver/k4a_ros_device_params.h"
+#include "azure_kinect_ros_driver/k4a_ros_color_params.h"
 
 class K4AROSDevice : public rclcpp::Node
 {
@@ -143,6 +144,7 @@ class K4AROSDevice : public rclcpp::Node
 
   // Parameters
   K4AROSDeviceParams params_;
+  K4AROSColorParams color_params_;
 
   // K4A device
   k4a::device k4a_device_;
