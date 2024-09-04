@@ -1,0 +1,203 @@
+<?xml version="1.0"?>
+<!-- 
+ Copyright (c) Microsoft Corporation. All rights reserved.
+ Licensed under the MIT License.
+
+ This file provides a macro to spawn a description of the Microsoft Azure Kinect camera within a larger robot URDF.
+ You can include it in your own description as follows:
+
+    <xacro:include filename="$(find azure_kinect_ros_driver)/urdf/azure_kinect_macro.urdf.xacro" />
+    <xacro:azure_kinect prefix="" parent="" gazebo="false">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+    </xacro:azure_kinect>
+
+  Parameters:
+    prefix    Adds a prefix to all link and joint names. Use this if you plan to add multiple sensor to your model
+    parent    Name of the parent TF frame to which the Azure model will be attached
+    gazebo    Set to 'true' to load the Gazebo plugin settings for simulating a virtual sensor
+    origin    Transformation from parent to sensor base (block parameter)
+ -->
+
+<robot name="azure_kinect" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="azure_kinect" params="prefix:='' parent:='' publish_calibrated_poses=true gazebo:=false *origin">
+
+    <xacro:if value="${parent != ''}">
+      <joint name="${prefix}azure_in_joint" type="fixed">
+        <xacro:insert_block name="origin"/>
+        <parent link="${parent}"/>
+        <child link="${prefix}azure_base"/>
+      </joint>
+    </xacro:if>
+
+    <link name="${prefix}azure_base">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://azure_kinect_ros_driver/meshes/azure_visual.dae"/>
+        </geometry>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://azure_kinect_ros_driver/meshes/azure_collision.dae"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <link name="${prefix}azure_camera_base" /> <!-- for compatability with calibration parameters -->
+
+    <joint name="${prefix}azure_base_to_camera_base" type="fixed">
+      <parent link="${prefix}azure_base" />
+      <child link="${prefix}azure_camera_base" />
+      <origin xyz="0.062 0.0 0.0065" rpy="0 0 0" />
+    </joint>
+
+    <xacro:if value="${not publish_calibrated_poses or gazebo}">
+      <link name="${prefix}azure_rgb" />
+      <link name="${prefix}azure_depth" />
+      <link name="${prefix}azure_imu" />
+
+      <joint name="${prefix}azure_base_to_rgb" type="fixed">
+        <parent link="${prefix}azure_base" />
+        <child link="${prefix}azure_rgb" />
+        <origin xyz="0.0618 -0.032 0.0065" rpy="-${pi/2} 0 -${pi/2}" />
+      </joint>
+
+      <joint name="${prefix}azure_base_to_depth" type="fixed">
+        <parent link="${prefix}azure_base" />
+        <child link="${prefix}azure_depth" />
+        <origin xyz="0.0618 -0.0005 0.0065" rpy="-${96/180*pi} 0 -${pi/2}" />
+      </joint>
+
+      <joint name="${prefix}azure_base_to_imu" type="fixed">
+        <parent link="${prefix}azure_base" />
+        <child link="${prefix}azure_imu" />
+        <origin xyz="0.0618 -0.0005 0.0065" rpy="0 ${pi} 0" />
+      </joint>
+    </xacro:if>
+
+    <link name="${prefix}azure_microphone_0" />
+    <link name="${prefix}azure_microphone_1" />
+    <link name="${prefix}azure_microphone_2" />
+    <link name="${prefix}azure_microphone_3" />
+    <link name="${prefix}azure_microphone_4" />
+    <link name="${prefix}azure_microphone_5" />
+    <link name="${prefix}azure_microphone_6" />
+
+    <joint name="${prefix}azure_base_to_microphone_0" type="fixed">
+      <parent link="${prefix}azure_base" />
+      <child link="${prefix}azure_microphone_0" />
+      <origin xyz="-0.018625 0 0.024632" rpy="0 0 0" />
+    </joint>
+
+    <joint name="${prefix}azure_base_to_microphone_1" type="fixed">
+      <parent link="${prefix}azure_base" />
+      <child link="${prefix}azure_microphone_1" />
+      <origin xyz="0.021376 0 0.024632" rpy="0 0 0" />
+    </joint>
+
+    <joint name="${prefix}azure_base_to_microphone_2" type="fixed">
+      <parent link="${prefix}azure_base" />
+      <child link="${prefix}azure_microphone_2" />
+      <origin xyz="0.001375 -0.034634 0.024632" rpy="0 0 0" />
+    </joint>
+
+    <joint name="${prefix}azure_base_to_microphone_3" type="fixed">
+      <parent link="${prefix}azure_base" />
+      <child link="${prefix}azure_microphone_3" />
+      <origin xyz="-0.038624 -0.034634 0.024632" rpy="0 0 0" />
+    </joint>
+
+    <joint name="${prefix}azure_base_to_microphone_4" type="fixed">
+      <parent link="${prefix}azure_base" />
+      <child link="${prefix}azure_microphone_4" />
+      <origin xyz="-0.058624 0 0.024632" rpy="0 0 0" />
+    </joint>
+
+    <joint name="${prefix}azure_base_to_microphone_5" type="fixed">
+      <parent link="${prefix}azure_base" />
+      <child link="${prefix}azure_microphone_5" />
+      <origin xyz="-0.038624 0.034634 0.024632" rpy="0 0 0" />
+    </joint>
+
+    <joint name="${prefix}azure_base_to_microphone_6" type="fixed">
+      <parent link="${prefix}azure_base" />
+      <child link="${prefix}azure_microphone_6" />
+      <origin xyz="0.001375 0.034634 0.024632" rpy="0 0 0" />
+    </joint>
+
+    <xacro:if value="${gazebo}">
+      <!-- Create a dummy frame for Gazebo, as the depth image is wrongly flipped and rotated
+           (see #243 https://github.com/ros-simulation/gazebo_ros_pkgs/issues/243) -->
+      <link name="${prefix}azure_gazebo_depth" />
+
+      <joint name="${prefix}azure_base_to_gazebo_depth" type="fixed">
+        <parent link="${prefix}azure_base" />
+        <child link="${prefix}azure_gazebo_depth"/>
+        <origin xyz="0.0618 -0.0005 0.0065" rpy="0 ${6/180*pi} 0"/>
+      </joint>
+
+      <gazebo reference="${prefix}azure_gazebo_depth">
+        <sensor name="${prefix}azure_gazebo_sensor" type="depth">
+          <!--
+            NFOV unbinned:        0, 5, 15, 30 FPS
+            NFOV 2x2 binned (SW): 0, 5, 15, 30 FPS
+            WFOV 2x2 binned:      0, 5, 15, 30 FPS
+            WFOV unbinned:        0, 5, 15 FPS
+
+            Note: Frame rate also needs to be changed in gazebo plugin settings (line 183)
+          -->
+          <update_rate>5</update_rate>
+          <camera>
+            <!--
+              NFOV: 1.309 rad (75 deg)
+              WFOV: 2.0944 rad (120 deg)
+            -->
+            <horizontal_fov>2.0944</horizontal_fov>
+            <image>
+              <!--
+                NFOV unbinned:         640x576
+                NFOV 2x2 binned (SW):  320x288
+                WFOV 2x2 binned:       512x512
+                WFOV unbinned:         1024x1024
+              -->
+              <width>512</width>
+              <height>512</height>
+              <format>R8G8B8</format>
+            </image>
+            <clip>
+              <!--
+                NFOV unbinned:         0.5 - 3.86 m
+                NFOV 2x2 binned (SW):  0.5 - 5.46 m
+                WFOV 2x2 binned:       0.25 - 2.88 m
+                WFOV unbinned:         0.25 - 2.21 m
+
+                Note: Range also needs to be changed in gazebo plugin settings (lines 184 and 185)
+              -->
+              <near>0.25</near>
+              <far>2.88</far>
+            </clip>
+          </camera>
+          <plugin filename="libgazebo_ros_openni_kinect.so" name="${prefix}azure_camera_controller">
+            <alwaysOn>true</alwaysOn>
+            <updateRate>5</updateRate> <!-- Frame rate -->
+            <pointCloudCutoff>0.25</pointCloudCutoff> <!-- Near clip distance -->
+            <pointcloudcutoffmax>2.88</pointcloudcutoffmax> <!-- Far clip distance -->
+            <imageTopicName>rgb/image_raw</imageTopicName>
+            <cameraInfoTopicName>rgb/camera_info</cameraInfoTopicName>
+            <depthImageTopicName>depth/image_raw</depthImageTopicName>
+            <depthImageCameraInfoTopicName>depth/camera_info</depthImageCameraInfoTopicName>
+            <pointCloudTopicName>points2</pointCloudTopicName>
+            <frameName>${prefix}azure_depth</frameName>
+            <distortion_k1>0.0</distortion_k1>
+            <distortion_k2>0.0</distortion_k2>
+            <distortion_k3>0.0</distortion_k3>
+            <distortion_t1>0.0</distortion_t1>
+            <distortion_t2>0.0</distortion_t2>
+          </plugin>
+        </sensor>
+      </gazebo>
+    </xacro:if>
+
+  </xacro:macro>
+</robot>

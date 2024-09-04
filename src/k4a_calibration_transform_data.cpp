@@ -67,13 +67,15 @@ void K4ACalibrationTransformData::initialize(const K4AROSDeviceParams params)
                                                   getColorWidth() * (int) sizeof(DepthPixel));
   }
 
-  // Publish various transforms needed by ROS.
-  // We publish all TFs all the time, even if the respective sensor data
-  // output is off. This allows us to just use the SDK calibrations, and one
-  // cosmetic TF output between the depth and the base.
-  publishDepthToBaseTf();
-  publishImuToDepthTf();
-  publishRgbToDepthTf();
+  if (params.publish_calibrated_poses) {
+    // Publish various transforms needed by ROS.
+    // We publish all TFs all the time, even if the respective sensor data
+    // output is off. This allows us to just use the SDK calibrations, and one
+    // cosmetic TF output between the depth and the base.
+    publishDepthToBaseTf();
+    publishImuToDepthTf();
+    publishRgbToDepthTf();
+  }
 }
 
 int K4ACalibrationTransformData::getDepthWidth() { return k4a_calibration_.depth_camera_calibration.resolution_width; }
